@@ -18,6 +18,9 @@ if %errorlevel% neq 0 (
 echo Installation de PyInstaller...
 python -m pip install pyinstaller
 
+REM S'assurer que le dossier data existe (même vide)
+if not exist "data" mkdir "data"
+
 echo.
 echo ================================================
 echo CRÉATION DE L'EXÉCUTABLE
@@ -64,4 +67,5 @@ echo 1. Tester l'exe: dist\UPAWallpaperManager.exe
 echo 2. Distribuer ce fichier
 echo.
 pause
+
 
