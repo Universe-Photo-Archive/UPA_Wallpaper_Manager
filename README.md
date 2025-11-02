@@ -9,6 +9,9 @@ Wallpaper manager dedicated to photos of our universe (galaxies, planets, etc.)
 <img src="https://img.shields.io/github/v/release/Universe-Photo-Archive/UPA_Wallpaper_Manager?label=Latest%20Release&color=success" alt="Latest Release" />
 <img src="https://img.shields.io/github/downloads/Universe-Photo-Archive/UPA_Wallpaper_Manager/total?color=informational" alt="Downloads" />
 
+> [!WARNING]  
+> This program was developed entirely with Claude Sonnet AI. The code and its optimization are therefore most likely crap and can undoubtedly be improved. But it works!
+
 # ✨ Features
 
 🌠 Automatic download of wallpapers from the Universe Photo Archive website (currently ~180 wallpapers, updated frequently)
