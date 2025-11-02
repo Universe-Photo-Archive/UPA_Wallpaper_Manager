@@ -47,7 +47,11 @@ Wallpaper manager dedicated to photos of our universe (galaxies, planets, etc.)
     🚀 Auto‑launch at startup:
         Open the app Settings → enable “Launch at Windows startup”
 
-    ⚠️ Note: Lock screen control requires Windows Pro or Enterprise editions.
+> [!WARNING]  
+> The lock screen and automatic startup at logon features require administrator rights.
+
+> [!CAUTION]
+> Lock screen control requires Windows Pro or Enterprise editions.
 
 🖼️ Screenshot
 
