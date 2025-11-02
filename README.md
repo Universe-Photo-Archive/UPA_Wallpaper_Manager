@@ -28,7 +28,7 @@ Wallpaper manager dedicated to photos of our universe (galaxies, planets, etc.)
  
 🌓 Dark or Light theme
 
-🌍🌐 Multilingual support (French and English)
+🌍 Multilingual support (French and English)
 
 # ⚙️ Installation
 
