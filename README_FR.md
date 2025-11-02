@@ -9,6 +9,9 @@ Gestionnaire de fonds d'écran dédié aux photos de notre univers (galaxies, pl
 <img src="https://img.shields.io/github/v/release/Universe-Photo-Archive/UPA_Wallpaper_Manager?label=Latest%20Release&color=success" alt="Latest Release" />
 <img src="https://img.shields.io/github/downloads/Universe-Photo-Archive/UPA_Wallpaper_Manager/total?color=informational" alt="Downloads" />
 
+> [!WARNING]  
+> Ce programme a été entièrement développé avec l'IA Claude Sonnet. Le code et son optimisation sont donc très probablement merdique et peuvent sans aucun doute être amélioré. Mais il est fonctionnel !
+
 # ✨ Fonctionnalités
 
 🌠 Téléchargement automatique de fonds d'écran depuis le site Web [Universe Photo Archive](https://universe-photo-archive.eu/) (actuellement environ 180 fonds d'écran, mis à jour fréquemment)
