@@ -1,0 +1,78 @@
+{
+  "language_code": "en",
+  "language_name": "English",
+  "translations": {
+    "app.title": "UPA Wallpaper Manager",
+    "app.version": "Version 1.0.0",
+    
+    "main.screen_config": "Screen Configuration",
+    "main.rotation_delay": "Slideshow delay:",
+    "main.lockscreen": "Apply to lockscreen too",
+    "main.lockscreen_tooltip": "This option will only work if the following two conditions are met:\n\n• The application is run as administrator.\n• A Pro version of Windows is installed.\n\nThe wallpaper from screen 1 is used for the lockscreen. The slideshow feature does not affect the lockscreen, but you will get a new image each time you lock your Windows session.",
+    "main.apply_now": "Apply now",
+    "main.pause": "Pause",
+    "main.resume": "Resume",
+    "main.settings": "Settings",
+    
+    "status.initializing": "Initializing...",
+    "status.loading": "Loading...",
+    "status.connected": "Connected",
+    "status.offline": "Offline",
+    "status.themes": "themes",
+    "status.cache": "Cache:",
+    "status.downloading": "Downloading images...",
+    "status.no_images": "No images found",
+    "status.paused": "Paused",
+    "status.new_delay": "New delay configured - Click 'Apply now'",
+    "status.lockscreen_enabled": "Lockscreen enabled",
+    "status.lockscreen_disabled": "Lockscreen disabled - control returned to Windows",
+    "status.lockscreen_admin": "Restart as admin to fully disable lockscreen",
+    
+    "time.seconds": "seconds",
+    "time.minutes": "minutes",
+    "time.hours": "hours",
+    
+    "screen.name": "Screen",
+    "screen.primary": "Primary",
+    "screen.rotation_enabled": "Slideshow enabled",
+    "screen.theme": "Theme:",
+    "screen.all_themes": "All themes",
+    "screen.resolution": "Resolution:",
+    "screen.current_wallpaper": "Current wallpaper:",
+    
+    "settings.title": "Settings",
+    "settings.cancel": "Cancel",
+    "settings.apply": "Apply",
+    
+    "settings.general": "General",
+    "settings.cache": "Cache",
+    "settings.advanced": "Advanced",
+    
+    "settings.launch_startup": "Launch at Windows startup",
+    "settings.ui_theme": "Interface theme:",
+    "settings.language": "Language:",
+    "settings.random_mode": "Random mode for slideshow",
+    
+    "settings.theme_dark": "Dark",
+    "settings.theme_light": "Light",
+    "settings.theme_system": "System",
+    
+    "settings.cache_max_size": "Maximum cache size (MB):",
+    "settings.cache_current": "Current cache size:",
+    "settings.cache_calculating": "Calculating cache size...",
+    "settings.clear_cache": "Clear cache",
+    "settings.reload_themes": "Reload themes",
+    "settings.cache_cleared": "Cache cleared successfully!",
+    "settings.themes_reloaded": "Themes reloaded!",
+    "settings.clear_cache_confirm": "Are you sure you want to clear the cache?\\nType YES to confirm:",
+    "settings.clear_cache_title": "Confirmation",
+    
+    "settings.rate_limit": "Delay between requests (seconds):",
+    "settings.timeout": "Network timeout (seconds):",
+    "settings.debug_mode": "Debug mode (detailed logs)",
+    
+    "error.general": "Error:",
+    "error.cache": "Error:"
+  }
+}
+

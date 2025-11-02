@@ -1,0 +1,78 @@
+{
+  "language_code": "fr",
+  "language_name": "Français",
+  "translations": {
+    "app.title": "UPA Wallpaper Manager",
+    "app.version": "Version 1.0.0",
+    
+    "main.screen_config": "Configuration des écrans",
+    "main.rotation_delay": "Délai du diaporama:",
+    "main.lockscreen": "Appliquer aussi à l'écran de verrouillage",
+    "main.lockscreen_tooltip": "Cette option fonctionnera uniquement si les deux conditions suivantes sont remplies :\n\n• L'application est exécutée en tant qu'administrateur.\n• Une version Pro de Windows est installée.\n\nLe fond d'écran de l'écran 1 est utilisé pour l'écran de verrouillage. La fonction de diaporama n'affecte pas l'écran de verrouillage, mais vous aurez une nouvelle image à chaque fois que vous verrouillerez votre session Windows.",
+    "main.apply_now": "Appliquer maintenant",
+    "main.pause": "Pause",
+    "main.resume": "Reprendre",
+    "main.settings": "Paramètres",
+    
+    "status.initializing": "Initialisation...",
+    "status.loading": "Chargement...",
+    "status.connected": "Connecté",
+    "status.offline": "Hors ligne",
+    "status.themes": "thèmes",
+    "status.cache": "Cache:",
+    "status.downloading": "Téléchargement des images...",
+    "status.no_images": "Aucune image trouvée",
+    "status.paused": "En pause",
+    "status.new_delay": "Nouveau délai configuré - Cliquez 'Appliquer maintenant'",
+    "status.lockscreen_enabled": "Lockscreen activé",
+    "status.lockscreen_disabled": "Lockscreen désactivé - contrôle rendu à Windows",
+    "status.lockscreen_admin": "Relancer en admin pour désactiver complètement le lockscreen",
+    
+    "time.seconds": "secondes",
+    "time.minutes": "minutes",
+    "time.hours": "heures",
+    
+    "screen.name": "Écran",
+    "screen.primary": "Principal",
+    "screen.rotation_enabled": "Diaporama activé",
+    "screen.theme": "Thème:",
+    "screen.all_themes": "Tous les thèmes",
+    "screen.resolution": "Résolution:",
+    "screen.current_wallpaper": "Fond d'écran actuel:",
+    
+    "settings.title": "Paramètres",
+    "settings.cancel": "Annuler",
+    "settings.apply": "Appliquer",
+    
+    "settings.general": "Général",
+    "settings.cache": "Cache",
+    "settings.advanced": "Avancé",
+    
+    "settings.launch_startup": "Lancer au démarrage de Windows",
+    "settings.ui_theme": "Thème de l'interface:",
+    "settings.language": "Langue:",
+    "settings.random_mode": "Mode aléatoire pour le diaporama",
+    
+    "settings.theme_dark": "Sombre",
+    "settings.theme_light": "Clair",
+    "settings.theme_system": "Système",
+    
+    "settings.cache_max_size": "Taille maximale du cache (MB):",
+    "settings.cache_current": "Taille actuelle du cache:",
+    "settings.cache_calculating": "Calcul de la taille du cache...",
+    "settings.clear_cache": "Vider le cache",
+    "settings.reload_themes": "Recharger les thèmes",
+    "settings.cache_cleared": "Cache vidé avec succès!",
+    "settings.themes_reloaded": "Thèmes rechargés!",
+    "settings.clear_cache_confirm": "Êtes-vous sûr de vouloir vider le cache ?\\nTapez OUI pour confirmer:",
+    "settings.clear_cache_title": "Confirmation",
+    
+    "settings.rate_limit": "Délai entre requêtes (secondes):",
+    "settings.timeout": "Timeout réseau (secondes):",
+    "settings.debug_mode": "Mode debug (logs détaillés)",
+    
+    "error.general": "Erreur:",
+    "error.cache": "Erreur:"
+  }
+}
+
