@@ -47,8 +47,12 @@ Gestionnaire de fonds d'écran dédié aux photos de notre univers (galaxies, pl
     🚀 Lancement automatique au démarrage :
         Ouvrez l'application Paramètres → activez « Lancer au démarrage de Windows ».
 
-    ⚠️ Remarque : le contrôle de l'écran de verrouillage nécessite les éditions Windows Pro ou Enterprise.
+> [!WARNING]  
+> Les fonctionnalités d'écran de verrouillage et de démarrage automatique à la connexion nécessitent des droits d'administrateur.
 
+> [!CAUTION]
+> Le contrôle de l'écran de verrouillage nécessite les éditions Windows Pro ou Enterprise.
+> 
 🖼️ Screenshot
 
 <img src="https://universe-photo-archive.eu/images/github/UPA_Wallpaper_Manager/UPA_Wallpaper_Manager--Screenshot_1.jpg" alt="UPA Wallpaper Manager – Screenshot" />
