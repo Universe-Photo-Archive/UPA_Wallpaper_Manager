@@ -28,7 +28,7 @@ Gestionnaire de fonds d'écran dédié aux photos de notre univers (galaxies, pl
 
 🌓 Thème sombre ou clair
 
-🌍🌐 Prise en charge multilingue (français et anglais)
+🌍 Prise en charge multilingue (français et anglais)
 
 # ⚙️ Installation
 
