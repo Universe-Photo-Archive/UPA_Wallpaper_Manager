@@ -1,5 +1,7 @@
 # 🌌 UPA Wallpaper Manager
 
+[Français](README_FR.md) | English
+
 Wallpaper manager dedicated to photos of our universe (galaxies, planets, etc.)
 
 <img src="https://img.shields.io/badge/Windows-10%20%26%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10/11" />
