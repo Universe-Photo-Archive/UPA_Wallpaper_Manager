@@ -14,26 +14,29 @@ logger = get_logger()
 class RotationScheduler:
     """Planificateur de rotation des fonds d'écran."""
     
-    def __init__(self, delay_seconds: int = 900):
+    def __init__(self, delay_seconds: int = 900, smart_cache_manager=None):
         """
         Initialise le planificateur.
         
         Args:
             delay_seconds: Délai entre chaque rotation en secondes
+            smart_cache_manager: Gestionnaire de cache intelligent pour le téléchargement à la demande
         """
         self.delay_seconds = delay_seconds
         self.is_running = False
         self.is_paused = False
         self.thread: Optional[threading.Thread] = None
         self.playlists: Dict[int, List[str]] = {}  # {screen_id: [image_paths]}
+        self.theme_configs: Dict[int, Dict] = {}  # {screen_id: {theme, images_metadata}}
         self.current_indices: Dict[int, int] = {}  # {screen_id: current_index}
         self.random_mode = True
         self.callback: Optional[Callable] = None
+        self.smart_cache = smart_cache_manager
         self._stop_event = threading.Event()
     
     def set_playlist(self, screen_id: int, image_paths: List[str]) -> None:
         """
-        Définit la playlist pour un écran.
+        Définit la playlist pour un écran (méthode legacy pour compatibilité).
         
         Args:
             screen_id: ID de l'écran
@@ -41,11 +44,22 @@ class RotationScheduler:
         """
         self.playlists[screen_id] = image_paths.copy()
         self.current_indices[screen_id] = 0
+    
+    def set_theme_config(self, screen_id: int, theme_name: str, images_metadata: List[Dict]) -> None:
+        """
+        Définit la configuration du thème pour un écran (avec téléchargement progressif).
         
-        if self.random_mode and image_paths:
-            random.shuffle(self.playlists[screen_id])
-        
-        logger.debug(f"Playlist définie pour l'écran {screen_id}: {len(image_paths)} images")
+        Args:
+            screen_id: ID de l'écran
+            theme_name: Nom du thème
+            images_metadata: Liste des métadonnées d'images (avec 'url', 'filename', etc.)
+        """
+        self.theme_configs[screen_id] = {
+            'theme': theme_name,
+            'images': images_metadata.copy()
+        }
+        self.current_indices[screen_id] = 0
+        logger.info(f"Configuration du thème '{theme_name}' pour écran {screen_id}: {len(images_metadata)} images disponibles")
     
     def set_random_mode(self, enabled: bool) -> None:
         """
@@ -194,34 +208,142 @@ class RotationScheduler:
             logger.warning("Aucun callback défini pour la rotation")
             return
         
-        if not self.playlists:
-            logger.warning("Aucune playlist définie pour la rotation")
+        if not self.playlists and not self.theme_configs:
+            logger.warning("Aucune configuration définie pour la rotation")
             return
         
-        logger.debug(f"Rotation en cours pour {len(self.playlists)} écran(s)")
+        # Combiner les deux systèmes
+        screens_to_rotate = set(list(self.playlists.keys()) + list(self.theme_configs.keys()))
         
-        for screen_id in self.playlists:
+        logger.debug(f"Rotation en cours pour {len(screens_to_rotate)} écran(s)")
+        
+        for screen_id in screens_to_rotate:
             try:
-                playlist = self.playlists.get(screen_id, [])
-                logger.debug(f"Écran {screen_id}: playlist de {len(playlist)} images")
+                next_image_path = None
                 
-                next_image = self.get_next_image(screen_id)
+                # Essayer d'abord le nouveau système avec téléchargement progressif
+                if screen_id in self.theme_configs and self.smart_cache:
+                    next_image_path = self._get_next_image_with_download(screen_id)
                 
-                if next_image:
+                # Fallback sur l'ancien système si le nouveau échoue ou n'est pas configuré
+                if not next_image_path and screen_id in self.playlists:
+                    next_image_path = self.get_next_image(screen_id)
+                
+                if next_image_path:
                     # Vérifier que le fichier existe
-                    if Path(next_image).exists():
-                        logger.debug(f"Application image écran {screen_id}: {Path(next_image).name}")
-                        self.callback(screen_id, next_image)
+                    if Path(next_image_path).exists():
+                        logger.debug(f"Application image écran {screen_id}: {Path(next_image_path).name}")
+                        self.callback(screen_id, next_image_path)
+                        
+                        # Marquer l'image comme affichée dans le cache intelligent
+                        if self.smart_cache and screen_id in self.theme_configs:
+                            theme_name = self.theme_configs[screen_id]['theme']
+                            self.smart_cache.mark_as_displayed(theme_name, next_image_path)
+                            logger.debug(f"Image marquée comme affichée: {Path(next_image_path).name}")
                     else:
-                        logger.warning(f"Image introuvable: {next_image}")
-                        # Retirer de la playlist
-                        if next_image in self.playlists[screen_id]:
-                            self.playlists[screen_id].remove(next_image)
+                        logger.warning(f"Image introuvable: {next_image_path}")
                 else:
                     logger.warning(f"Aucune image disponible pour l'écran {screen_id}")
                 
             except Exception as e:
                 logger.error(f"Erreur lors de la rotation pour l'écran {screen_id}: {e}", exc_info=True)
+    
+    def _get_next_image_with_download(self, screen_id: int) -> Optional[str]:
+        """
+        Récupère la prochaine image avec téléchargement automatique si nécessaire.
+        
+        Args:
+            screen_id: ID de l'écran
+            
+        Returns:
+            Chemin local de l'image, ou None si échec
+        """
+        if screen_id not in self.theme_configs:
+            return None
+        
+        theme_config = self.theme_configs[screen_id]
+        theme_name = theme_config['theme']
+        images_metadata = theme_config['images']
+        
+        if not images_metadata:
+            logger.warning(f"Aucune image disponible pour le thème '{theme_name}'")
+            return None
+        
+        # Filtrer les images déjà affichées pour ce cycle
+        undisplayed_images = []
+        for img in images_metadata:
+            filename = img.get('filename', '')
+            if filename and self.smart_cache:
+                # Vérifier si l'image a déjà été affichée
+                is_displayed = self.smart_cache.is_image_displayed(theme_name, filename)
+                if not is_displayed:
+                    undisplayed_images.append(img)
+            else:
+                undisplayed_images.append(img)
+        
+        logger.debug(f"Images non affichées pour '{theme_name}': {len(undisplayed_images)}/{len(images_metadata)}")
+        
+        # Si toutes les images ont été affichées, réinitialiser le cycle
+        if not undisplayed_images:
+            logger.info(f"🔄 Cycle terminé pour '{theme_name}' ! Réinitialisation...")
+            if self.smart_cache:
+                self.smart_cache.reset_cycle(theme_name)
+            # Toutes les images sont maintenant disponibles à nouveau
+            undisplayed_images = images_metadata.copy()
+            logger.info(f"Nouveau cycle commencé, {len(undisplayed_images)} images disponibles")
+        
+        # Sélectionner l'image suivante parmi les images non affichées
+        if self.random_mode:
+            # Mode aléatoire
+            image_metadata = random.choice(undisplayed_images)
+        else:
+            # Mode séquentiel
+            current_index = self.current_indices.get(screen_id, 0)
+            image_metadata = undisplayed_images[current_index % len(undisplayed_images)]
+            self.current_indices[screen_id] = (current_index + 1) % len(undisplayed_images)
+        
+        filename = image_metadata.get('filename', '')
+        url = image_metadata.get('url', '')
+        
+        if not filename or not url:
+            logger.error(f"Métadonnées invalides pour l'image: {image_metadata}")
+            return None
+        
+        logger.debug(f"Image sélectionnée pour écran {screen_id}: {filename}")
+        
+        # Vérifier si l'image est déjà téléchargée localement
+        if self.smart_cache:
+            local_path = self.smart_cache.get_image_local_path(theme_name, filename)
+            
+            if local_path and Path(local_path).exists():
+                logger.debug(f"Image déjà en cache: {filename}")
+                # Ne pas marquer ici, ce sera fait après l'application du fond d'écran
+                return local_path
+            
+            # Image pas encore téléchargée, télécharger maintenant
+            logger.info(f"📥 Téléchargement de l'image {filename} pour le thème '{theme_name}'...")
+            
+            try:
+                downloaded_path = self.smart_cache.download_single_image(
+                    theme_name=theme_name,
+                    image_url=url,
+                    filename=filename
+                )
+                
+                if downloaded_path and Path(downloaded_path).exists():
+                    logger.info(f"✓ Image téléchargée avec succès: {filename}")
+                    # Ne pas marquer ici, ce sera fait après l'application du fond d'écran
+                    return downloaded_path
+                else:
+                    logger.error(f"Échec du téléchargement de {filename}")
+                    return None
+                    
+            except Exception as e:
+                logger.error(f"Erreur lors du téléchargement de {filename}: {e}", exc_info=True)
+                return None
+        else:
+            logger.error("SmartCacheManager non disponible pour le téléchargement")
+            return None
     
     def get_playlist_info(self, screen_id: int) -> Dict:
         """
