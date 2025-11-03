@@ -1,6 +1,7 @@
 """Gestionnaire de cache intelligent pour les images."""
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -193,6 +194,28 @@ class SmartCacheManager:
         
         self._save_index()
     
+    def is_image_displayed(self, theme_name: str, filename: str) -> bool:
+        """
+        Vérifie si une image a déjà été affichée dans ce cycle.
+        
+        Args:
+            theme_name: Nom du thème
+            filename: Nom du fichier
+            
+        Returns:
+            True si déjà affichée, False sinon
+        """
+        if theme_name not in self.index['themes']:
+            return False
+        
+        theme_data = self.index['themes'][theme_name]
+        
+        for img in theme_data['images']:
+            if img['filename'] == filename:
+                return img.get('displayed', False)
+        
+        return False
+    
     def mark_as_displayed(self, theme_name: str, image_path: str) -> None:
         """
         Marque une image comme affichée.
@@ -365,4 +388,82 @@ class SmartCacheManager:
             "remaining": sum(1 for img in images if not img['displayed']),
             "cycle": theme_data.get('current_cycle', 0)
         }
+    
+    def get_image_local_path(self, theme_name: str, filename: str) -> Optional[str]:
+        """
+        Récupère le chemin local d'une image si elle est déjà téléchargée.
+        
+        Args:
+            theme_name: Nom du thème
+            filename: Nom du fichier
+            
+        Returns:
+            Chemin local de l'image ou None si pas téléchargée
+        """
+        if theme_name not in self.index['themes']:
+            return None
+        
+        theme_data = self.index['themes'][theme_name]
+        
+        # Chercher l'image par filename
+        for img in theme_data['images']:
+            if img['filename'] == filename:
+                if img['downloaded'] and img['local_path']:
+                    return img['local_path']
+                # Image pas encore téléchargée, construire le chemin où elle serait
+                theme_dir = self.cache_dir / theme_name
+                return str(theme_dir / filename)
+        
+        # Image pas dans l'index, construire le chemin par défaut
+        theme_dir = self.cache_dir / theme_name
+        return str(theme_dir / filename)
+    
+    def download_single_image(self, theme_name: str, image_url: str, filename: str) -> Optional[str]:
+        """
+        Télécharge une seule image depuis le serveur.
+        
+        Args:
+            theme_name: Nom du thème
+            image_url: URL de l'image
+            filename: Nom du fichier
+            
+        Returns:
+            Chemin local de l'image téléchargée, ou None si échec
+        """
+        from ..scraper.image_downloader import ImageDownloader
+        
+        try:
+            # Créer le dossier du thème s'il n'existe pas
+            theme_dir = self.cache_dir / theme_name
+            theme_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Télécharger l'image avec ImageDownloader
+            downloader = ImageDownloader()
+            
+            logger.debug(f"Téléchargement de {filename} depuis {image_url}")
+            downloaded_path = downloader.download_image(
+                url=image_url,
+                theme_name=theme_name,
+                filename=filename
+            )
+            
+            # Vérifier que le téléchargement a réussi
+            if downloaded_path and Path(downloaded_path).exists():
+                try:
+                    file_size_mb = Path(downloaded_path).stat().st_size / 1024 / 1024
+                    logger.info(f"✓ Image téléchargée: {filename} ({file_size_mb:.2f} MB)")
+                    
+                    # Marquer comme téléchargée dans l'index
+                    self.mark_as_downloaded(theme_name, image_url, downloaded_path)
+                    return downloaded_path
+                except Exception as e:
+                    logger.error(f"Erreur lors de la vérification du fichier {filename}: {e}")
+                    return None
+            else:
+                logger.error(f"Échec du téléchargement de {filename}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du téléchargement de {filename}: {e}", exc_info=True)
+            return None
 
