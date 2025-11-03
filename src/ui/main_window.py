@@ -71,7 +71,6 @@ class MainWindow(ctk.CTk):
         self.screen_detector = ScreenDetector()
         self.wallpaper_manager = WallpaperManager()
         self.lockscreen_manager = LockscreenManager()
-        self.rotation_scheduler = RotationScheduler()
         self.scraper = UniverseScraper(
             rate_limit_seconds=self.config_manager.get('network.rate_limit_seconds', 1),
             timeout_seconds=self.config_manager.get('network.timeout_seconds', 10)
@@ -82,6 +81,8 @@ class MainWindow(ctk.CTk):
             max_cached_images=25,
             prefetch_count=10
         )
+        # Initialiser le rotation_scheduler APRÈS smart_cache pour lui passer en paramètre
+        self.rotation_scheduler = RotationScheduler(smart_cache_manager=self.smart_cache)
         
         # Nettoyer le cache au démarrage si nécessaire
         logger.info("Vérification du cache au démarrage...")
@@ -599,13 +600,20 @@ class MainWindow(ctk.CTk):
         """
         images = []
         
-        if theme == "all":
+        if theme == "all" or theme == "Tous les thèmes":
             # Toutes les images de tous les thèmes
             for theme_name, theme_imgs in self.theme_images.items():
                 images.extend(self._get_image_paths(theme_name, theme_imgs))
+                
         elif theme in self.theme_images:
             # Images d'un thème spécifique
             images = self._get_image_paths(theme, self.theme_images[theme])
+            
+            # Configurer aussi le nouveau système pour le téléchargement progressif
+            if theme in self.theme_images:
+                images_metadata = self.theme_images[theme]
+                if images_metadata:
+                    self.rotation_scheduler.set_theme_config(screen_id, theme, images_metadata)
         
         if images:
             self.rotation_scheduler.set_playlist(screen_id, images)
@@ -640,8 +648,9 @@ class MainWindow(ctk.CTk):
         if theme_name in self.theme_urls:
             self.smart_cache.update_theme_images(theme_name, self.theme_urls[theme_name], images)
         
-        # Récupérer les images déjà en cache (seulement celles non affichées pour éviter les doublons)
-        cached_paths = self.smart_cache.get_cached_images(theme_name, only_undisplayed=True)
+        # Récupérer toutes les images déjà en cache
+        cached_paths = self.smart_cache.get_cached_images(theme_name, only_undisplayed=False)
+        logger.debug(f"Images en cache pour '{theme_name}': {len(cached_paths)}")
         
         # Télécharger seulement si on a moins de 5 images pour ce thème
         if len(cached_paths) < 5 and self.is_online:
@@ -652,7 +661,7 @@ class MainWindow(ctk.CTk):
                 # Télécharger seulement 5 images à la fois
                 logger.info(f"Téléchargement de 5 images max pour '{theme_name}'...")
                 self._download_next_batch(theme_name, count=5)
-                cached_paths = self.smart_cache.get_cached_images(theme_name, only_undisplayed=True)
+                cached_paths = self.smart_cache.get_cached_images(theme_name, only_undisplayed=False)
         
         stats = self.smart_cache.get_stats(theme_name)
         logger.info(f"Stats '{theme_name}': {stats['downloaded']}/{stats['total']} téléchargées, "
