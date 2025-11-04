@@ -18,7 +18,7 @@ logger = get_logger()
 
 # Version actuelle de l'application
 # ⚠️ IMPORTANT : Modifier ce numéro à chaque nouvelle version !
-CURRENT_VERSION = "1.1.0"
+CURRENT_VERSION = "1.2.0"
 
 # URL de la dernière release GitHub
 GITHUB_RELEASES_URL = "https://api.github.com/repos/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases/latest"
@@ -148,7 +148,7 @@ class UpdateManager:
         self.config_manager.set('update.skip_check', skip)
         logger.info(f"Vérification automatique des mises à jour: {'désactivée' if skip else 'activée'}")
     
-    def download_and_install_update(self, download_url: str, on_progress=None) -> bool:
+    def download_and_install_update(self, download_url: str, on_progress=None, on_complete=None) -> bool:
         """
         Télécharge et installe la mise à jour.
         
@@ -192,7 +192,7 @@ class UpdateManager:
                 return False
             
             # Créer un script batch pour remplacer l'exe
-            self._create_update_script(new_exe_path)
+            self._create_update_script(new_exe_path, on_complete)
             
             return True
             
@@ -200,12 +200,13 @@ class UpdateManager:
             logger.error(f"Erreur lors du téléchargement de la mise à jour: {e}", exc_info=True)
             return False
     
-    def _create_update_script(self, new_exe_path: Path) -> None:
+    def _create_update_script(self, new_exe_path: Path, on_complete=None) -> None:
         """
-        Crée un script batch qui remplace l'exe actuel et redémarre l'application.
+        Crée un script batch qui remplace l'exe actuel et ferme l'application.
         
         Args:
             new_exe_path: Chemin du nouvel exe téléchargé
+            on_complete: Callback à appeler pour fermer l'application
         """
         try:
             # Chemin de l'exe actuel
@@ -218,38 +219,52 @@ class UpdateManager:
             # Chemin du répertoire de l'application
             app_dir = current_exe.parent
             
-            # Créer le script batch
+            # Créer le script batch simplifié
             script_content = f"""@echo off
 REM Script de mise à jour automatique
 echo ================================================
-echo Mise à jour de UPA Wallpaper Manager
+echo Mise a jour de UPA Wallpaper Manager
 echo ================================================
 echo.
 
-REM Attendre que l'application se ferme
-timeout /t 2 /nobreak >nul
+REM Attendre que l'application se ferme completement
+echo Fermeture de l'application...
+timeout /t 3 /nobreak >nul
 
 REM Sauvegarder l'ancien exe
 echo Sauvegarde de l'ancienne version...
-move /y "{current_exe}" "{current_exe}.old" >nul 2>&1
+if exist "{current_exe}" (
+    move /y "{current_exe}" "{current_exe}.old" >nul 2>&1
+)
 
 REM Copier le nouvel exe
 echo Installation de la nouvelle version...
 move /y "{new_exe_path}" "{current_exe}"
 
-REM Supprimer les dossiers langs et data (seront recréés)
-echo Nettoyage des anciens fichiers...
-if exist "{app_dir}\\langs" rmdir /s /q "{app_dir}\\langs"
-if exist "{app_dir}\\data" rmdir /s /q "{app_dir}\\data"
+if exist "{current_exe}" (
+    echo.
+    echo ================================================
+    echo Mise a jour terminee avec succes !
+    echo ================================================
+    echo.
+    echo Vous pouvez maintenant relancer l'application.
+    echo.
+    
+    REM Supprimer l'ancien exe
+    timeout /t 2 /nobreak >nul
+    if exist "{current_exe}.old" del "{current_exe}.old" >nul 2>&1
+    
+    REM Pause pour laisser l'utilisateur lire le message
+    timeout /t 5 /nobreak >nul
+) else (
+    echo.
+    echo ERREUR: La mise a jour a echoue
+    echo.
+    pause
+)
 
-REM Redémarrer l'application
-echo Redémarrage de l'application...
-start "" "{current_exe}"
-
-REM Supprimer l'ancien exe et ce script
-timeout /t 2 /nobreak >nul
-del "{current_exe}.old" >nul 2>&1
-del "%~f0"
+REM Supprimer ce script
+del "%~f0" >nul 2>&1
 """
             
             # Sauvegarder le script
@@ -259,7 +274,7 @@ del "%~f0"
             
             logger.info(f"Script de mise à jour créé: {script_path}")
             
-            # Lancer le script et quitter l'application
+            # Lancer le script
             logger.info("Lancement du script de mise à jour...")
             subprocess.Popen(
                 str(script_path),
@@ -267,9 +282,14 @@ del "%~f0"
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
             
-            # Quitter l'application pour permettre la mise à jour
+            # Attendre un peu puis fermer l'application via le callback
             logger.info("Fermeture de l'application pour mise à jour...")
-            sys.exit(0)
+            import time
+            time.sleep(1)
+            
+            # Appeler le callback pour fermer l'application depuis le thread principal
+            if on_complete:
+                on_complete()
             
         except Exception as e:
             logger.error(f"Erreur lors de la création du script de mise à jour: {e}", exc_info=True)

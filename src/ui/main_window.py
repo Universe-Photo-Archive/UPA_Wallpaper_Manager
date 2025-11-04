@@ -1209,17 +1209,22 @@ class MainWindow(ctk.CTk):
                     """Callback de progression."""
                     self.after(0, lambda: progress_dialog.update_progress(downloaded, total))
                 
+                def on_complete():
+                    """Callback pour fermer l'application."""
+                    self.after(0, self._quit_application)
+                
                 # Télécharger et installer
                 progress_dialog.set_status(self.translation_manager.get('update.downloading'))
                 success = self.update_manager.download_and_install_update(
                     download_url,
-                    on_progress=on_progress
+                    on_progress=on_progress,
+                    on_complete=on_complete
                 )
                 
                 if success:
-                    # Mise à jour réussie, le script de mise à jour va redémarrer l'app
+                    # Mise à jour réussie, le script de mise à jour va installer la nouvelle version
                     self.after(0, lambda: progress_dialog.set_status(self.translation_manager.get('update.success')))
-                    # L'application va se fermer automatiquement
+                    # L'application va se fermer automatiquement (sans redémarrage)
                 else:
                     self.after(0, lambda: progress_dialog.destroy())
                     self.after(0, lambda: self._show_error_dialog(

@@ -23,12 +23,12 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'Universe Photo Archive'),
         StringStruct('FileDescription', 'UPA Wallpaper Manager'),
-        StringStruct('FileVersion', '1.1.0.0'),
+        StringStruct('FileVersion', '1.2.0.0'),
         StringStruct('InternalName', 'UPAWallpaperManager'),
         StringStruct('LegalCopyright', '© 2025 Universe Photo Archive. Tous droits réservés.'),
         StringStruct('OriginalFilename', 'UPAWallpaperManager.exe'),
         StringStruct('ProductName', 'UPA Wallpaper Manager'),
-        StringStruct('ProductVersion', '1.1.0.0')])
+        StringStruct('ProductVersion', '1.2.0.0')])
       ]), 
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]

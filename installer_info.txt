@@ -1,0 +1,46 @@
+================================================
+  UPA WALLPAPER MANAGER - Installation
+================================================
+
+Bienvenue dans l'installation de UPA Wallpaper Manager !
+
+Ce gestionnaire de fonds d'écran vous permet de profiter automatiquement 
+des plus belles images de notre univers (galaxies, planètes, nébuleuses, etc.)
+directement sur votre bureau Windows.
+
+✨ FONCTIONNALITÉS :
+
+  • Téléchargement automatique de fonds d'écran depuis Universe Photo Archive
+  • Gestion multi-écrans
+  • Système de diaporama configurable
+  • Fonds d'écran différents sur chaque écran
+  • Sélection de thèmes par écran (Terre, Lune, Mars, Galaxies, etc.)
+  • Rotation intelligente sans doublon
+  • Gestion de l'écran de verrouillage (Windows Pro/Enterprise)
+  • Interface sombre ou claire
+  • Support multilingue (Français/Anglais)
+
+⚠️ IMPORTANT :
+
+  • Pour la gestion de l'écran de verrouillage et le démarrage automatique,
+    l'application nécessite des droits administrateur.
+    
+  • Le contrôle de l'écran de verrouillage nécessite Windows Pro ou Enterprise.
+
+📁 L'application créera automatiquement les dossiers suivants :
+  • data : fonds d'écran, configuration, logs
+  • langs : fichiers de langue
+
+🚀 Après l'installation :
+  1. Lancez l'application
+  2. Ouvrez les paramètres
+  3. Configurez vos préférences
+  4. Activez "Lancer au démarrage de Windows" si souhaité
+
+Cliquez sur "Suivant" pour continuer l'installation.
+
+================================================
+Universe Photo Archive © 2025
+https://universe-photo-archive.eu/
+================================================
+

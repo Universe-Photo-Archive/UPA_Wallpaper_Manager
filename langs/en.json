@@ -3,7 +3,7 @@
   "language_name": "English",
   "translations": {
     "app.title": "UPA Wallpaper Manager",
-    "app.version": "Version 1.1.0",
+    "app.version": "Version 1.2.0",
     
     "main.screen_config": "Screen Configuration",
     "main.rotation_delay": "Slideshow delay:",
@@ -83,7 +83,7 @@
     "update.checking": "Checking for updates...",
     "update.downloading": "Downloading update...",
     "update.installing": "Installing...",
-    "update.success": "Update downloaded! The application will restart.",
+    "update.success": "Update downloaded! The application will close to install the new version.",
     "update.no_update": "No update available",
     "update.up_to_date": "Your application is up to date (version {version})",
     "update.error": "Error checking for updates",
