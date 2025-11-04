@@ -3,7 +3,7 @@
   "language_name": "Français",
   "translations": {
     "app.title": "UPA Wallpaper Manager",
-    "app.version": "Version 1.0.0",
+    "app.version": "Version 1.1.0",
     
     "main.screen_config": "Configuration des écrans",
     "main.rotation_delay": "Délai du diaporama:",
@@ -72,7 +72,22 @@
     "settings.debug_mode": "Mode debug (logs détaillés)",
     
     "error.general": "Erreur:",
-    "error.cache": "Erreur:"
+    "error.cache": "Erreur:",
+    
+    "update.title": "Mise à jour disponible",
+    "update.message": "Une nouvelle version ({version}) est disponible.\n\nVersion actuelle : {current}\nNouvelle version : {latest}\n\nVoulez-vous télécharger et installer la mise à jour maintenant ?",
+    "update.update_now": "Mettre à jour",
+    "update.later": "La prochaine fois",
+    "update.skip": "Ne plus me demander",
+    "update.button": "Vérifier les mises à jour",
+    "update.checking": "Vérification des mises à jour...",
+    "update.downloading": "Téléchargement de la mise à jour...",
+    "update.installing": "Installation en cours...",
+    "update.success": "Mise à jour téléchargée ! L'application va redémarrer.",
+    "update.no_update": "Aucune mise à jour disponible",
+    "update.up_to_date": "Votre application est à jour (version {version})",
+    "update.error": "Erreur lors de la vérification des mises à jour",
+    "update.download_error": "Erreur lors du téléchargement de la mise à jour"
   }
 }
 

@@ -18,6 +18,7 @@ from ..utils.config_manager import ConfigManager
 from ..utils.translation_manager import TranslationManager
 from ..utils.smart_cache_manager import SmartCacheManager
 from ..utils.system_tray import SystemTrayManager
+from ..utils.update_manager import UpdateManager
 from ..utils.logger import get_logger
 from .screen_config import ScreenConfigWidget
 from .settings_dialog import SettingsDialog
@@ -83,6 +84,8 @@ class MainWindow(ctk.CTk):
         )
         # Initialiser le rotation_scheduler APRÈS smart_cache pour lui passer en paramètre
         self.rotation_scheduler = RotationScheduler(smart_cache_manager=self.smart_cache)
+        # Gestionnaire de mises à jour
+        self.update_manager = UpdateManager(self.config_manager)
         
         # Nettoyer le cache au démarrage si nécessaire
         logger.info("Vérification du cache au démarrage...")
@@ -123,6 +126,10 @@ class MainWindow(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
         
         logger.info("Fenêtre principale initialisée")
+        
+        # Vérifier les mises à jour au démarrage (après un court délai)
+        if not start_minimized:
+            self.after(2000, self._check_for_updates_on_startup)
         
         # Si démarrage réduit demandé, cacher la fenêtre immédiatement
         if start_minimized:
@@ -1140,6 +1147,136 @@ class MainWindow(ctk.CTk):
             "UPA Wallpaper Manager",
             "L'application a été réduite dans la zone de notifications.\nCliquez sur l'icône pour la réafficher."
         )
+    
+    def _check_for_updates_on_startup(self) -> None:
+        """Vérifie les mises à jour au démarrage de l'application."""
+        # Vérifier si l'utilisateur n'a pas désactivé la vérification
+        if not self.update_manager.should_check_update():
+            logger.debug("Vérification des mises à jour désactivée par l'utilisateur")
+            return
+        
+        def check_updates_thread():
+            """Thread pour vérifier les mises à jour sans bloquer l'interface."""
+            try:
+                update_available, latest_version, download_url = self.update_manager.check_for_updates()
+                
+                if update_available and latest_version and download_url:
+                    # Afficher la boîte de dialogue dans le thread principal
+                    self.after(0, lambda: self._show_update_dialog(latest_version, download_url))
+                    
+            except Exception as e:
+                logger.error(f"Erreur lors de la vérification des mises à jour: {e}", exc_info=True)
+        
+        # Lancer la vérification dans un thread
+        import threading
+        threading.Thread(target=check_updates_thread, daemon=True).start()
+    
+    def _show_update_dialog(self, latest_version: str, download_url: str) -> None:
+        """
+        Affiche la boîte de dialogue de mise à jour.
+        
+        Args:
+            latest_version: Dernière version disponible
+            download_url: URL de téléchargement
+        """
+        from .update_dialog import UpdateDialog
+        
+        dialog = UpdateDialog(
+            self,
+            self.translation_manager,
+            self.update_manager.get_current_version(),
+            latest_version,
+            on_update=lambda: self._perform_update(download_url),
+            on_skip=lambda: self.update_manager.set_skip_update_check(True)
+        )
+    
+    def _perform_update(self, download_url: str) -> None:
+        """
+        Effectue la mise à jour de l'application.
+        
+        Args:
+            download_url: URL de téléchargement de la nouvelle version
+        """
+        from .update_dialog import UpdateProgressDialog
+        
+        # Afficher la boîte de dialogue de progression
+        progress_dialog = UpdateProgressDialog(self, self.translation_manager)
+        
+        def download_thread():
+            """Thread pour télécharger la mise à jour."""
+            try:
+                def on_progress(downloaded, total):
+                    """Callback de progression."""
+                    self.after(0, lambda: progress_dialog.update_progress(downloaded, total))
+                
+                # Télécharger et installer
+                progress_dialog.set_status(self.translation_manager.get('update.downloading'))
+                success = self.update_manager.download_and_install_update(
+                    download_url,
+                    on_progress=on_progress
+                )
+                
+                if success:
+                    # Mise à jour réussie, le script de mise à jour va redémarrer l'app
+                    self.after(0, lambda: progress_dialog.set_status(self.translation_manager.get('update.success')))
+                    # L'application va se fermer automatiquement
+                else:
+                    self.after(0, lambda: progress_dialog.destroy())
+                    self.after(0, lambda: self._show_error_dialog(
+                        self.translation_manager.get('update.title'),
+                        self.translation_manager.get('update.download_error')
+                    ))
+                    
+            except Exception as e:
+                logger.error(f"Erreur lors du téléchargement de la mise à jour: {e}", exc_info=True)
+                self.after(0, lambda: progress_dialog.destroy())
+                self.after(0, lambda: self._show_error_dialog(
+                    self.translation_manager.get('update.title'),
+                    str(e)
+                ))
+        
+        import threading
+        threading.Thread(target=download_thread, daemon=True).start()
+    
+    def check_for_updates_manual(self) -> None:
+        """Vérifie manuellement les mises à jour (bouton dans les paramètres)."""
+        self.status_label.configure(text=self.translation_manager.get('update.checking'))
+        
+        def check_thread():
+            """Thread pour vérifier."""
+            try:
+                update_available, latest_version, download_url = self.update_manager.check_for_updates()
+                
+                if update_available and latest_version and download_url:
+                    self.after(0, lambda: self._show_update_dialog(latest_version, download_url))
+                else:
+                    message = self.translation_manager.get('update.up_to_date').format(
+                        version=self.update_manager.get_current_version()
+                    )
+                    self.after(0, lambda: self._show_info_dialog(
+                        self.translation_manager.get('update.title'),
+                        message
+                    ))
+                    
+            except Exception as e:
+                logger.error(f"Erreur: {e}", exc_info=True)
+                self.after(0, lambda: self._show_error_dialog(
+                    self.translation_manager.get('update.title'),
+                    self.translation_manager.get('update.error')
+                ))
+        
+        import threading
+        threading.Thread(target=check_thread, daemon=True).start()
+    
+    def _show_info_dialog(self, title: str, message: str) -> None:
+        """Affiche une boîte de dialogue d'information."""
+        from tkinter import messagebox
+        messagebox.showinfo(title, message, parent=self)
+    
+    def _show_error_dialog(self, title: str, message: str) -> None:
+        """Affiche une boîte de dialogue d'erreur."""
+        from tkinter import messagebox
+        messagebox.showerror(title, message, parent=self)
     
     def _minimize_to_tray_on_startup(self) -> None:
         """Cache la fenêtre au démarrage (sans notification)."""

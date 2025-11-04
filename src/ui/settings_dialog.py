@@ -37,7 +37,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.startup_manager = StartupManager()
         
         self.title(translation_manager.get('settings.title'))
-        self.geometry("600x550")
+        self.geometry("600x650")
         
         # Rendre la fenêtre modale
         self.transient(parent)
@@ -184,6 +184,23 @@ class SettingsDialog(ctk.CTkToplevel):
             text=self.translation_manager.get('settings.random_mode')
         )
         self.random_switch.pack(padx=20, pady=20, anchor="w")
+        
+        # Frame pour les mises à jour
+        update_frame = ctk.CTkFrame(self.tab_general)
+        update_frame.pack(fill="x", padx=20, pady=20)
+        
+        ctk.CTkLabel(
+            update_frame,
+            text="Mises à jour",
+            font=("", 13, "bold")
+        ).pack(padx=10, pady=5, anchor="w")
+        
+        ctk.CTkButton(
+            update_frame,
+            text=self.translation_manager.get('update.button'),
+            command=self._check_for_updates,
+            width=200
+        ).pack(padx=10, pady=10, anchor="w")
     
     def _setup_cache_tab(self) -> None:
         """Configure l'onglet Cache."""
@@ -469,5 +486,13 @@ class SettingsDialog(ctk.CTkToplevel):
         """
         from tkinter import messagebox
         messagebox.showwarning(title, message, parent=self)
+    
+    def _check_for_updates(self) -> None:
+        """Vérifie les mises à jour (bouton dans les paramètres)."""
+        # Déléguer à la fenêtre principale
+        if hasattr(self.master, 'check_for_updates_manual'):
+            self.master.check_for_updates_manual()
+        else:
+            logger.warning("Impossible de vérifier les mises à jour depuis ce dialogue")
 
 

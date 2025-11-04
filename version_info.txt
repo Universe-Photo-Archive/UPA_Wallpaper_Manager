@@ -1,0 +1,36 @@
+# UTF-8
+#
+# Fichier de version pour PyInstaller
+# ⚠️ IMPORTANT : Modifier les numéros de version à chaque release !
+#
+# Version actuelle : 1.0.1
+
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 1, 0, 0),
+    prodvers=(1, 1, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+    ),
+  kids=[
+    StringFileInfo(
+      [
+      StringTable(
+        '040904B0',
+        [StringStruct('CompanyName', 'Universe Photo Archive'),
+        StringStruct('FileDescription', 'UPA Wallpaper Manager'),
+        StringStruct('FileVersion', '1.1.0.0'),
+        StringStruct('InternalName', 'UPAWallpaperManager'),
+        StringStruct('LegalCopyright', '© 2025 Universe Photo Archive. Tous droits réservés.'),
+        StringStruct('OriginalFilename', 'UPAWallpaperManager.exe'),
+        StringStruct('ProductName', 'UPA Wallpaper Manager'),
+        StringStruct('ProductVersion', '1.1.0.0')])
+      ]), 
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+

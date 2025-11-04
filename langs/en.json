@@ -3,7 +3,7 @@
   "language_name": "English",
   "translations": {
     "app.title": "UPA Wallpaper Manager",
-    "app.version": "Version 1.0.0",
+    "app.version": "Version 1.1.0",
     
     "main.screen_config": "Screen Configuration",
     "main.rotation_delay": "Slideshow delay:",
@@ -72,7 +72,22 @@
     "settings.debug_mode": "Debug mode (detailed logs)",
     
     "error.general": "Error:",
-    "error.cache": "Error:"
+    "error.cache": "Error:",
+    
+    "update.title": "Update Available",
+    "update.message": "A new version ({version}) is available.\n\nCurrent version: {current}\nNew version: {latest}\n\nDo you want to download and install the update now?",
+    "update.update_now": "Update Now",
+    "update.later": "Later",
+    "update.skip": "Don't ask again",
+    "update.button": "Check for Updates",
+    "update.checking": "Checking for updates...",
+    "update.downloading": "Downloading update...",
+    "update.installing": "Installing...",
+    "update.success": "Update downloaded! The application will restart.",
+    "update.no_update": "No update available",
+    "update.up_to_date": "Your application is up to date (version {version})",
+    "update.error": "Error checking for updates",
+    "update.download_error": "Error downloading update"
   }
 }
 

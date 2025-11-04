@@ -29,6 +29,8 @@ class RotationScheduler:
         self.playlists: Dict[int, List[str]] = {}  # {screen_id: [image_paths]}
         self.theme_configs: Dict[int, Dict] = {}  # {screen_id: {theme, images_metadata}}
         self.current_indices: Dict[int, int] = {}  # {screen_id: current_index}
+        self.current_wallpapers: Dict[int, str] = {}  # {screen_id: current_filename}
+        self.current_themes: Dict[int, str] = {}  # {screen_id: current_theme_name}
         self.random_mode = True
         self.callback: Optional[Callable] = None
         self.smart_cache = smart_cache_manager
@@ -95,9 +97,30 @@ class RotationScheduler:
         """
         self.callback = callback
     
+    def _extract_theme_from_path(self, image_path: str) -> str:
+        """
+        Extrait le nom du thème depuis le chemin de l'image.
+        
+        Args:
+            image_path: Chemin de l'image (ex: data/wallpapers/Earth/image.jpg)
+            
+        Returns:
+            Nom du thème ou "Unknown"
+        """
+        try:
+            path_parts = Path(image_path).parts
+            # Chercher "wallpapers" dans le chemin
+            if "wallpapers" in path_parts:
+                wallpapers_index = path_parts.index("wallpapers")
+                if wallpapers_index + 1 < len(path_parts):
+                    return path_parts[wallpapers_index + 1]
+            return "Unknown"
+        except Exception:
+            return "Unknown"
+    
     def get_next_image(self, screen_id: int) -> Optional[str]:
         """
-        Récupère la prochaine image pour un écran.
+        Récupère la prochaine image pour un écran (évite les doublons entre écrans).
         
         Args:
             screen_id: ID de l'écran
@@ -117,6 +140,47 @@ class RotationScheduler:
             if self.random_mode:
                 random.shuffle(playlist)
         
+        # Récupérer les images et thèmes actuellement affichés sur les autres écrans
+        currently_displayed_filenames = set()
+        currently_displayed_themes = set()
+        for other_screen_id, current_filename in self.current_wallpapers.items():
+            if other_screen_id != screen_id:
+                currently_displayed_filenames.add(current_filename)
+        
+        for other_screen_id, current_theme in self.current_themes.items():
+            if other_screen_id != screen_id:
+                currently_displayed_themes.add(current_theme)
+        
+        if currently_displayed_themes:
+            logger.info(f"📋 Thèmes actuellement affichés sur d'autres écrans: {currently_displayed_themes}")
+        
+        # Essayer de trouver une image différente de celles affichées sur d'autres écrans
+        # ET d'un thème différent (pour le mode "Tous les thèmes")
+        max_attempts = len(playlist)
+        for attempt in range(max_attempts):
+            image_path = playlist[current_index]
+            filename = Path(image_path).name
+            theme_name = self._extract_theme_from_path(image_path)
+            
+            # Vérifier que l'image n'est pas affichée sur un autre écran
+            if filename in currently_displayed_filenames:
+                current_index = (current_index + 1) % len(playlist)
+                logger.debug(f"Image {filename} déjà sur un autre écran, essai suivante")
+                continue
+            
+            # Vérifier que le thème n'est pas affiché sur un autre écran (pour "Tous les thèmes")
+            if theme_name in currently_displayed_themes:
+                current_index = (current_index + 1) % len(playlist)
+                logger.info(f"⚠️ Thème '{theme_name}' déjà affiché sur un autre écran, recherche d'un autre thème...")
+                continue
+            
+            # Image et thème OK, on peut l'utiliser
+            self.current_indices[screen_id] = current_index + 1
+            logger.info(f"✓ Thème '{theme_name}' sélectionné pour écran {screen_id} (différent des autres écrans)")
+            return image_path
+        
+        # Si aucune image ne satisfait les critères, prendre n'importe laquelle
+        logger.warning(f"⚠️ Impossible de trouver une image sans doublon de thème, autorisation d'un doublon temporaire")
         image_path = playlist[current_index]
         self.current_indices[screen_id] = current_index + 1
         
@@ -232,14 +296,21 @@ class RotationScheduler:
                 if next_image_path:
                     # Vérifier que le fichier existe
                     if Path(next_image_path).exists():
-                        logger.debug(f"Application image écran {screen_id}: {Path(next_image_path).name}")
+                        filename = Path(next_image_path).name
+                        theme_from_path = self._extract_theme_from_path(next_image_path)
+                        
+                        logger.debug(f"Application image écran {screen_id}: {filename} (thème: {theme_from_path})")
                         self.callback(screen_id, next_image_path)
+                        
+                        # Enregistrer l'image et le thème actuellement affichés sur cet écran
+                        self.current_wallpapers[screen_id] = filename
+                        self.current_themes[screen_id] = theme_from_path
                         
                         # Marquer l'image comme affichée dans le cache intelligent
                         if self.smart_cache and screen_id in self.theme_configs:
                             theme_name = self.theme_configs[screen_id]['theme']
                             self.smart_cache.mark_as_displayed(theme_name, next_image_path)
-                            logger.debug(f"Image marquée comme affichée: {Path(next_image_path).name}")
+                            logger.debug(f"Image marquée comme affichée: {filename}")
                     else:
                         logger.warning(f"Image introuvable: {next_image_path}")
                 else:
@@ -269,12 +340,35 @@ class RotationScheduler:
             logger.warning(f"Aucune image disponible pour le thème '{theme_name}'")
             return None
         
-        # Filtrer les images déjà affichées pour ce cycle
+        # Récupérer les images et thèmes actuellement affichés sur les autres écrans
+        currently_displayed_on_other_screens = set()
+        currently_displayed_themes_on_other_screens = set()
+        
+        for other_screen_id, current_filename in self.current_wallpapers.items():
+            if other_screen_id != screen_id:  # Exclure l'écran actuel
+                currently_displayed_on_other_screens.add(current_filename)
+        
+        for other_screen_id, current_theme in self.current_themes.items():
+            if other_screen_id != screen_id:
+                currently_displayed_themes_on_other_screens.add(current_theme)
+        
+        logger.debug(f"Images actuellement affichées sur d'autres écrans: {currently_displayed_on_other_screens}")
+        logger.debug(f"Thèmes actuellement affichés sur d'autres écrans: {currently_displayed_themes_on_other_screens}")
+        
+        # Filtrer les images déjà affichées pour ce cycle ET celles affichées sur d'autres écrans
         undisplayed_images = []
         for img in images_metadata:
             filename = img.get('filename', '')
-            if filename and self.smart_cache:
-                # Vérifier si l'image a déjà été affichée
+            if not filename:
+                continue
+            
+            # Vérifier si l'image est affichée sur un autre écran
+            if filename in currently_displayed_on_other_screens:
+                logger.debug(f"Image {filename} déjà affichée sur un autre écran, ignorée")
+                continue
+            
+            # Vérifier si l'image a déjà été affichée dans ce cycle
+            if self.smart_cache:
                 is_displayed = self.smart_cache.is_image_displayed(theme_name, filename)
                 if not is_displayed:
                     undisplayed_images.append(img)
@@ -283,14 +377,33 @@ class RotationScheduler:
         
         logger.debug(f"Images non affichées pour '{theme_name}': {len(undisplayed_images)}/{len(images_metadata)}")
         
-        # Si toutes les images ont été affichées, réinitialiser le cycle
+        # Si toutes les images non affichées sont sur d'autres écrans, autoriser les doublons
         if not undisplayed_images:
-            logger.info(f"🔄 Cycle terminé pour '{theme_name}' ! Réinitialisation...")
-            if self.smart_cache:
-                self.smart_cache.reset_cycle(theme_name)
-            # Toutes les images sont maintenant disponibles à nouveau
-            undisplayed_images = images_metadata.copy()
-            logger.info(f"Nouveau cycle commencé, {len(undisplayed_images)} images disponibles")
+            # Vérifier si c'est parce que le cycle est terminé ou juste des doublons
+            total_undisplayed = sum(1 for img in images_metadata 
+                                   if not self.smart_cache.is_image_displayed(theme_name, img.get('filename', ''))
+                                   if self.smart_cache)
+            
+            if total_undisplayed == 0:
+                # Cycle vraiment terminé
+                logger.info(f"🔄 Cycle terminé pour '{theme_name}' ! Réinitialisation...")
+                if self.smart_cache:
+                    self.smart_cache.reset_cycle(theme_name)
+                # Toutes les images sont maintenant disponibles à nouveau
+                undisplayed_images = [img for img in images_metadata 
+                                     if img.get('filename') not in currently_displayed_on_other_screens]
+                logger.info(f"Nouveau cycle commencé, {len(undisplayed_images)} images disponibles")
+            else:
+                # Des images sont dispo mais affichées sur d'autres écrans
+                # Dans ce cas, on autorise un doublon temporaire
+                logger.warning(f"Toutes les images non affichées sont sur d'autres écrans, sélection parmi toutes")
+                undisplayed_images = [img for img in images_metadata 
+                                     if not self.smart_cache.is_image_displayed(theme_name, img.get('filename', ''))
+                                     if self.smart_cache]
+                
+                # Si vraiment aucune image dispo, autoriser n'importe quelle image
+                if not undisplayed_images:
+                    undisplayed_images = images_metadata.copy()
         
         # Sélectionner l'image suivante parmi les images non affichées
         if self.random_mode:
