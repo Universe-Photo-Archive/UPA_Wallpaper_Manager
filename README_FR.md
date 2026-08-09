@@ -1,61 +1,55 @@
-# 🌌 UPA Wallpaper Manager
+# UPA Wallpaper Manager
 
-Français | [English](README.md)
+Gestionnaire de fonds d'écran multi-écrans propulsé par [Universe Photo Archive](https://universe-photo-archive.eu) — galaxies, planètes, astronautes et plus encore, en rotation sur votre bureau.
 
-Gestionnaire de fonds d'écran dédié aux photos de notre univers (galaxies, planètes, etc.)
+[English version](README.md)
 
-<img src="https://img.shields.io/badge/Windows-10%20%26%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10/11" />
-<img src="https://img.shields.io/badge/Made%20with-Python-3776AB?logo=python&logoColor=white" alt="Made with Python" />
-<img src="https://img.shields.io/github/v/release/Universe-Photo-Archive/UPA_Wallpaper_Manager?label=Latest%20Release&color=success" alt="Latest Release" />
-<img src="https://img.shields.io/github/downloads/Universe-Photo-Archive/UPA_Wallpaper_Manager/total?color=informational" alt="Downloads" />
+## Fonctionnalités
 
-> [!WARNING]  
-> Ce programme a été entièrement développé avec l'IA Claude Sonnet. Le code et son optimisation sont donc très probablement merdique et peuvent sans aucun doute être amélioré. Mais il est fonctionnel !
+- Multi-écrans : un thème et un délai de rotation différents par moniteur
+- Thèmes alimentés par la galerie Piwigo Universe Photo Archive (Fonds d'écran, Thomas Pesquet, Sophie Adenot, ...)
+- Ajoutez vos propres thèmes : n'importe quelle URL d'album Piwigo public, ou un dossier local
+- Cache intelligent : téléchargements à la demande, rotation en cycle complet (chaque image affichée une fois par cycle), nettoyage automatique
+- Fond d'écran de verrouillage Windows (nécessite les droits administrateur, Windows Pro/Entreprise/Éducation)
+- Zone de notification : réduire ou fermer la fenêtre envoie l'application à côté de l'horloge ; quitter via clic droit > Quitter
+- Lancement au démarrage de Windows (tâche planifiée élevée, sans invite UAC à l'ouverture de session)
+- Vérification automatique des mises à jour via les releases GitHub
+- Interface français / anglais, thèmes clair et sombre
 
-# ✨ Fonctionnalités
+## Téléchargement
 
-🌠 Téléchargement automatique de fonds d'écran depuis le site Web [Universe Photo Archive](https://universe-photo-archive.eu/) (actuellement environ 180 fonds d'écran, mis à jour fréquemment)
+Téléchargez le dernier installateur Windows depuis la [page Releases](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases) : `UPA_Wallpaper_Manager_Setup_<version>.exe`.
 
-🖥️🖥️ Gestion multi-écrans
+L'application requiert les droits administrateur (nécessaires pour le fond d'écran de verrouillage) : Windows affiche donc une invite UAC au lancement manuel. Au démarrage automatique de session, elle se lance élevée sans invite.
 
-🖼️ Système de diaporama avec délai configurable (peut être désactivé)
+## Compiler depuis les sources
 
-🧩 Fond d'écran différent sur chaque écran
+Application de bureau [Flutter](https://flutter.dev) (Windows pour l'instant ; Linux, macOS, Android et iOS prévus).
 
-🧭 Sélection du thème par écran : Terre, Lune, Mars, Soleil, Saturne, Jupiter, Galaxies et nébuleuses... ou tous les thèmes mélangés.
+```bash
+flutter pub get
+flutter run -d windows          # build de debug (depuis un terminal élevé)
+flutter build windows --release # build de release
+```
 
-🔁 Rotation intelligente via la base de données — pas de doublon jusqu'à la fin du cycle
+Pour construire l'installateur Windows (nécessite [Inno Setup 6](https://jrsoftware.org/isinfo.php)) :
 
-🔒 Gestion des images de l'écran de verrouillage
-— nécessite Windows Pro ou Enterprise
+```bash
+flutter build windows --release
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss
+```
 
-🌓 Thème sombre ou clair
+L'installateur est produit dans `installer/Output/`.
 
-🌍 Prise en charge multilingue (français et anglais)
+## Configuration des thèmes par défaut
 
-# ⚙️ Installation
+La liste des thèmes par défaut se trouve dans [`config/themes_default.json`](config/themes_default.json). L'application récupère ce fichier depuis GitHub à chaque démarrage : on peut donc ajouter ou modifier des thèmes sans publier de nouvelle version. Une copie est embarquée dans `assets/config/` comme secours hors-ligne.
 
-    ⬇️ Télécharger la dernière version :
-    https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases
+## Licence
 
-    📁 Placez le fichier UPAWallpaperManager.exe dans n'importe quel dossier.
-    Au premier lancement, le programme crée deux dossiers à côté de lui :
-        data — fonds d'écran, configuration, journaux
-        langs — fichiers de langue
+[GPL-3.0](LICENSE)
 
-    🔐 Exécuter en tant qu'administrateur (nécessaire pour le verrouillage de l'écran et le démarrage de Windows) :
-        Cliquez avec le bouton droit sur UPAWallpaperManager.exe → Propriétés → Compatibilité
-        → Cochez « Exécuter ce programme en tant qu'administrateur » → Appliquer → OK
+## Historique des versions
 
-    🚀 Lancement automatique au démarrage :
-        Ouvrez l'application Paramètres → activez « Lancer au démarrage de Windows ».
-
-> [!WARNING]  
-> Les fonctionnalités d'écran de verrouillage et de démarrage automatique à la connexion nécessitent des droits d'administrateur.
-
-> [!CAUTION]
-> Le contrôle de l'écran de verrouillage nécessite les éditions Windows Pro ou Enterprise.
-> 
-🖼️ Screenshot
-
-<img src="https://universe-photo-archive.eu/images/github/UPA_Wallpaper_Manager/UPA_Wallpaper_Manager--Screenshot_1.jpg" alt="UPA Wallpaper Manager – Screenshot" />
+- **2.x** — réécriture complète en Flutter (ce dépôt)
+- **1.x** — version Python d'origine

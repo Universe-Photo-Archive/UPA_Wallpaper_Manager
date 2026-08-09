@@ -1,61 +1,55 @@
-# 🌌 UPA Wallpaper Manager
+# UPA Wallpaper Manager
 
-[Français](README_FR.md) | English
+Multi-screen wallpaper manager powered by [Universe Photo Archive](https://universe-photo-archive.eu) — galaxies, planets, astronauts and more, rotating on your desktop.
 
-Wallpaper manager dedicated to photos of our universe (galaxies, planets, etc.)
+[Version française](README_FR.md)
 
-<img src="https://img.shields.io/badge/Windows-10%20%26%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10/11" />
-<img src="https://img.shields.io/badge/Made%20with-Python-3776AB?logo=python&logoColor=white" alt="Made with Python" />
-<img src="https://img.shields.io/github/v/release/Universe-Photo-Archive/UPA_Wallpaper_Manager?label=Latest%20Release&color=success" alt="Latest Release" />
-<img src="https://img.shields.io/github/downloads/Universe-Photo-Archive/UPA_Wallpaper_Manager/total?color=informational" alt="Downloads" />
+## Features
 
-> [!WARNING]  
-> This program was developed entirely with Claude Sonnet AI. The code and its optimization are therefore most likely crap and can undoubtedly be improved. But it works!
+- Multi-screen support: a different theme and rotation delay per monitor
+- Themes fed by the Universe Photo Archive Piwigo gallery (Wallpapers, Thomas Pesquet, Sophie Adenot, ...)
+- Add your own themes: any public Piwigo album URL, or a local folder
+- Smart cache: on-demand downloads, full-cycle rotation (every image shown once per cycle), automatic cleanup
+- Windows lock-screen wallpaper support (requires administrator, Windows Pro/Enterprise/Education)
+- System tray: the app minimizes/closes to the tray next to the clock; quit via right-click > Quit
+- Launch at Windows startup (elevated Scheduled Task, no UAC prompt at logon)
+- Automatic update check against GitHub releases
+- English / French UI, light & dark themes
 
-# ✨ Features
+## Download
 
-🌠 Automatic download of wallpapers from the Universe Photo Archive website (currently ~180 wallpapers, updated frequently)
+Grab the latest Windows installer from the [Releases page](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases): `UPA_Wallpaper_Manager_Setup_<version>.exe`.
 
-🖥️🖥️ Multi-screen management
+The app requires administrator privileges (needed for the lock-screen feature), so Windows shows a UAC prompt when you launch it manually. When started automatically at logon it runs elevated without any prompt.
 
-🖼️ Slideshow system with configurable delay (can be disabled)
+## Building from source
 
-🧩 Different wallpaper on each screen
+This is a [Flutter](https://flutter.dev) desktop application (currently Windows; Linux, macOS, Android and iOS planned).
 
-🧭 Theme selection per screen: Earth, Moon, Mars, Sun, Saturn, Jupiter, Galaxies & Nebulae,... or mixed
+```bash
+flutter pub get
+flutter run -d windows          # run a debug build (from an elevated terminal)
+flutter build windows --release # produce the release build
+```
 
-🔁 Smart rotation via database — no duplicate until the cycle is complete
+To build the Windows installer (requires [Inno Setup 6](https://jrsoftware.org/isinfo.php)):
 
-🔒 Lock screen image management
-   — requires Windows Pro or Enterprise
- 
-🌓 Dark or Light theme
+```bash
+flutter build windows --release
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss
+```
 
-🌍 Multilingual support (French and English)
+The installer is written to `installer/Output/`.
 
-# ⚙️ Installation
+## Default themes configuration
 
-    ⬇️ Download the latest release:
-    https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases
+The list of default themes lives in [`config/themes_default.json`](config/themes_default.json). The app fetches this file from GitHub at every start, so themes can be added or changed without shipping a new release. A copy is bundled in `assets/config/` as an offline fallback.
 
-    📁 Place the UPAWallpaperManager.exe file in any folder.
-    On first launch, the program creates two folders next to it:
-        data — wallpapers, configuration, logs
-        langs — language files
+## License
 
-    🔐 Run as administrator (needed for lock screen and Windows startup):
-        Right‑click UPAWallpaperManager.exe → Properties → Compatibility
-        → check “Run this program as an administrator” → Apply → OK
+[GPL-3.0](LICENSE)
 
-    🚀 Auto‑launch at startup:
-        Open the app Settings → enable “Launch at Windows startup”
+## Version history
 
-> [!WARNING]  
-> The lock screen and automatic startup at logon features require administrator rights.
-
-> [!CAUTION]
-> Lock screen control requires Windows Pro or Enterprise editions.
-
-🖼️ Screenshot
-
-<img src="https://universe-photo-archive.eu/images/github/UPA_Wallpaper_Manager/UPA_Wallpaper_Manager--Screenshot_2.jpg" alt="UPA Wallpaper Manager – Screenshot" />
+- **2.x** — complete rewrite in Flutter (this repository)
+- **1.x** — original Python version

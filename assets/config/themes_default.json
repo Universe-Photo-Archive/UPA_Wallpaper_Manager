@@ -1,0 +1,24 @@
+{
+  "version": 3,
+  "lastUpdated": "2026-08-09T00:00:00Z",
+  "githubUrl": "https://raw.githubusercontent.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/main/config/themes_default.json",
+  "piwigoSources": [
+    {
+      "baseUrl": "https://universe-photo-archive.eu/gallery/",
+      "rootCategoryId": 717,
+      "recursive": true
+    },
+    {
+      "baseUrl": "https://universe-photo-archive.eu/gallery/",
+      "rootCategoryId": 604,
+      "recursive": false,
+      "aggregateSubAlbums": true
+    },
+    {
+      "baseUrl": "https://universe-photo-archive.eu/gallery/",
+      "rootCategoryId": 1271,
+      "recursive": false,
+      "aggregateSubAlbums": true
+    }
+  ]
+}
