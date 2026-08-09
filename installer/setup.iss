@@ -58,7 +58,10 @@ Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+; runascurrentuser: postinstall entries are de-elevated by default, but the
+; app requires administrator (error 740 otherwise). The setup is already
+; elevated, so the app starts elevated without an extra UAC prompt.
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent runascurrentuser
 
 [UninstallRun]
 ; Stop the app and remove the autostart scheduled task the app may have created.
