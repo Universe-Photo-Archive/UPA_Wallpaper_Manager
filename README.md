@@ -4,6 +4,9 @@ Multi-screen wallpaper manager powered by [Universe Photo Archive](https://unive
 
 [Version française](README_FR.md)
 
+![UPA Wallpaper Manager - Capture 1](https://universe-photo-archive.eu/images/github/UPA_Wallpaper_Manager/upawallpaper1.jpg)
+![UPA Wallpaper Manager - Capture 2](https://universe-photo-archive.eu/images/github/UPA_Wallpaper_Manager/upawallpaper2.jpg)
+
 ## Features
 
 - Multi-screen support: a different theme and rotation delay per monitor
