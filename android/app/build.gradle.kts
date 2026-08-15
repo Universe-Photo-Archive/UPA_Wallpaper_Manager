@@ -41,7 +41,10 @@ android {
     }
 
     defaultConfig {
-        applicationId = "eu.universe_photo_archive.upa_wallpaper_manager"
+        // Identity of the app on the Play Store; must match the package name
+        // registered there. It intentionally differs from `namespace` above,
+        // which only resolves the Kotlin classes named in the manifest.
+        applicationId = "com.upa.wallpapermanager"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
