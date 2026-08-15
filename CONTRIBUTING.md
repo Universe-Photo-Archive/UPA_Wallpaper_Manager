@@ -75,6 +75,11 @@ keytool -genkey -v -keystore upload-keystore.jks ^
   -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 ```
 
+`keytool` ne demande qu'un seul mot de passe : depuis Java 9 le keystore est au
+format PKCS12, où la clé et le fichier partagent le même mot de passe. C'est
+donc celui-ci qu'il faut renseigner à la fois comme `storePassword` et comme
+`keyPassword`.
+
 Conservez le fichier `upload-keystore.jks` hors du dépôt (gestionnaire de mots
 de passe, disque chiffré, sauvegarde externe).
 
