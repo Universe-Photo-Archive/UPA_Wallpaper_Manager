@@ -27,7 +27,7 @@ The app requires administrator privileges (needed for the lock-screen feature), 
 
 ## Building from source
 
-This is a [Flutter](https://flutter.dev) desktop application (currently Windows; Linux, macOS, Android and iOS planned).
+This is a cross-platform [Flutter](https://flutter.dev) application: a single `lib/` codebase targets both Windows and Android (Linux, macOS and iOS planned). See [CONTRIBUTING.md](CONTRIBUTING.md) for the repository layout and CI builds.
 
 ```bash
 flutter pub get

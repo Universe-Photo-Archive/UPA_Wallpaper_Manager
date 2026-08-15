@@ -24,7 +24,7 @@ L'application requiert les droits administrateur (nécessaires pour le fond d'é
 
 ## Compiler depuis les sources
 
-Application de bureau [Flutter](https://flutter.dev) (Windows pour l'instant ; Linux, macOS, Android et iOS prévus).
+Application [Flutter](https://flutter.dev) multi-plateformes : un seul code dans `lib/` sert Windows et Android (Linux, macOS et iOS prévus). Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour l'organisation du dépôt et la compilation automatique.
 
 ```bash
 flutter pub get
