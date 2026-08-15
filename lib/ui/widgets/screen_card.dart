@@ -7,7 +7,7 @@ import '../../models/screen_info.dart';
 import '../../models/theme_category.dart';
 import '../../providers/app_providers.dart';
 
-class ScreenCard extends ConsumerWidget {
+class ScreenCard extends ConsumerStatefulWidget {
   final ScreenInfo screen;
   final List<ThemeCategory> themes;
   final ScreenConfig? screenConfig;
@@ -20,14 +20,50 @@ class ScreenCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ScreenCard> createState() => _ScreenCardState();
+}
+
+class _ScreenCardState extends ConsumerState<ScreenCard> {
+  late final TextEditingController _delayController;
+
+  @override
+  void initState() {
+    super.initState();
+    _delayController = TextEditingController(
+      text: (widget.screenConfig?.rotationDelay ?? 15).toString(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant ScreenCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.screenConfig?.rotationDelay ?? 15;
+    final prev = oldWidget.screenConfig?.rotationDelay ?? 15;
+    // Only rewrite the field when the stored value actually changed from
+    // outside (e.g. config reload). Never clobber the user's in-progress
+    // typing on wallpaper-preview rebuilds.
+    if (next != prev && _delayController.text != next.toString()) {
+      _delayController.text = next.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _delayController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final screen = widget.screen;
+    final themes = widget.themes;
+    final screenConfig = widget.screenConfig;
     final wallpapers = ref.watch(currentWallpapersProvider);
     final currentPath = wallpapers[screen.id];
 
     final selectedTheme = screenConfig?.themeName ?? 'all';
     final rotationEnabled = screenConfig?.rotationEnabled ?? true;
-    final delay = screenConfig?.rotationDelay ?? 15;
     final delayUnit = screenConfig?.rotationDelayUnit ?? 'minutes';
 
     final unitLabels = {
@@ -40,12 +76,40 @@ class ScreenCard extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: screen name + badges + rotation toggle
-            Row(
-              children: [
+        child: LayoutBuilder(builder: (context, constraints) {
+          // On phones (and narrow windows) the side-by-side desktop layout
+          // does not fit: stack the preview above the settings instead, and
+          // drop the multi-monitor chrome ("Screen 1", "Primary",
+          // resolution) that is meaningless on a single-screen device.
+          final narrow = constraints.maxWidth < 520;
+
+          Widget previewImage() => currentPath != null
+              ? Image.file(
+                  File(currentPath),
+                  fit: BoxFit.cover,
+                  // Keep showing the previous wallpaper while the new one
+                  // decodes, so rotations never flash a blank frame.
+                  gaplessPlayback: true,
+                  // Decode at preview size instead of full 4K+: much faster
+                  // and lighter on memory.
+                  cacheWidth: narrow ? 900 : 520,
+                  filterQuality: FilterQuality.medium,
+                  errorBuilder: (_, __, ___) => _Placeholder(),
+                )
+              : _Placeholder();
+
+          final preview = ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: narrow
+                ? AspectRatio(aspectRatio: 16 / 9, child: previewImage())
+                : SizedBox(width: 260, height: 146, child: previewImage()),
+          );
+
+          // Header: screen name + badges + rotation toggle (desktop), or
+          // just the rotation toggle (mobile).
+          final header = Row(
+            children: [
+              if (!narrow) ...[
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -95,66 +159,43 @@ class ScreenCard extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(width: 10),
-                Text(screen.resolution,
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.4))),
+                Flexible(
+                  child: Text(screen.resolution,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.4))),
+                ),
                 const Spacer(),
-                Text(l10n.screenRotationEnabled,
+              ],
+              Flexible(
+                child: Text(l10n.screenRotationEnabled,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         fontSize: 13,
                         color: Theme.of(context)
                             .colorScheme
                             .onSurface
                             .withValues(alpha: 0.6))),
-                const SizedBox(width: 6),
-                Switch(
-                  value: rotationEnabled,
-                  onChanged: (val) => _updateScreenConfig(
-                    ref, screen.id,
-                    rotationEnabled: val,
-                  ),
+              ),
+              if (narrow) const Spacer(),
+              const SizedBox(width: 6),
+              Switch(
+                value: rotationEnabled,
+                onChanged: (val) => _updateScreenConfig(
+                  ref, screen.id,
+                  rotationEnabled: val,
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            // Body: preview + config
-            Row(
+              ),
+            ],
+          );
+
+          final settings = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Preview
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: 260,
-                    height: 146,
-                    child: currentPath != null
-                        ? Image.file(
-                            File(currentPath),
-                            fit: BoxFit.cover,
-                            // Keep showing the previous wallpaper while the
-                            // new one decodes, so rotations never flash a
-                            // blank frame.
-                            gaplessPlayback: true,
-                            // Decode at preview size instead of full 4K+:
-                            // much faster and lighter on memory (520 px
-                            // covers the 260 px box on high-DPI screens).
-                            cacheWidth: 520,
-                            filterQuality: FilterQuality.medium,
-                            errorBuilder: (_, __, ___) => _Placeholder(),
-                          )
-                        : _Placeholder(),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                // Config
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
                       // Theme selector
                       Text(l10n.screenTheme,
                           style: TextStyle(
@@ -231,8 +272,7 @@ class ScreenCard extends ConsumerWidget {
                             width: 70,
                             height: 40,
                             child: TextField(
-                              controller: TextEditingController(
-                                  text: delay.toString()),
+                              controller: _delayController,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 14),
@@ -251,36 +291,56 @@ class ScreenCard extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          DropdownButton<String>(
-                            value: delayUnit,
-                            underline: const SizedBox(),
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface),
-                            items: unitLabels.entries
-                                .map((e) => DropdownMenuItem(
-                                      value: e.key,
-                                      child: Text(e.value),
-                                    ))
-                                .toList(),
-                            onChanged: (unit) {
-                              if (unit != null) {
-                                _updateScreenConfig(ref, screen.id,
-                                    rotationDelayUnit: unit);
-                              }
-                            },
+                          Flexible(
+                            child: DropdownButton<String>(
+                              value: delayUnit,
+                              isExpanded: true,
+                              underline: const SizedBox(),
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface),
+                              items: unitLabels.entries
+                                  .map((e) => DropdownMenuItem(
+                                        value: e.key,
+                                        child: Text(e.value,
+                                            overflow: TextOverflow.ellipsis),
+                                      ))
+                                  .toList(),
+                              onChanged: (unit) {
+                                if (unit != null) {
+                                  _updateScreenConfig(ref, screen.id,
+                                      rotationDelayUnit: unit);
+                                }
+                              },
+                            ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ],
-        ),
+              ]);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              header,
+              const SizedBox(height: 14),
+              if (narrow) ...[
+                preview,
+                const SizedBox(height: 14),
+                settings,
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    preview,
+                    const SizedBox(width: 20),
+                    Expanded(child: settings),
+                  ],
+                ),
+            ],
+          );
+        }),
       ),
     );
   }
@@ -297,16 +357,14 @@ class ScreenCard extends ConsumerWidget {
       final screens = List<ScreenConfig>.from(config.screens);
       final idx = screens.indexWhere((s) => s.screenId == screenId);
       if (idx >= 0) {
-        if (themeName != null) screens[idx].themeName = themeName;
-        if (rotationEnabled != null) {
-          screens[idx].rotationEnabled = rotationEnabled;
-        }
-        if (rotationDelay != null) {
-          screens[idx].rotationDelay = rotationDelay;
-        }
-        if (rotationDelayUnit != null) {
-          screens[idx].rotationDelayUnit = rotationDelayUnit;
-        }
+        // Replace (never mutate) the entry: the old instance stays part of
+        // the previous state so listeners can diff prev vs next reliably.
+        screens[idx] = screens[idx].copyWith(
+          themeName: themeName,
+          rotationEnabled: rotationEnabled,
+          rotationDelay: rotationDelay,
+          rotationDelayUnit: rotationDelayUnit,
+        );
       } else {
         screens.add(ScreenConfig(
           screenId: screenId,

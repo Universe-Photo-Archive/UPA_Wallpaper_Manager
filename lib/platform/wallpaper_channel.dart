@@ -79,4 +79,30 @@ class WallpaperChannel {
       ),
     ];
   }
+
+  /// Starts the Android foreground service that keeps the app process (and
+  /// therefore the rotation timers + downloads) alive in the background.
+  /// No-op on other platforms.
+  static Future<void> startBackgroundService() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('startBackgroundService');
+    } on PlatformException {
+      // Ignored: rotation still works while the app is in the foreground.
+    } on MissingPluginException {
+      // Old native build without the service — same graceful degradation.
+    }
+  }
+
+  /// Stops the Android foreground service (rotation paused or app quitting).
+  static Future<void> stopBackgroundService() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('stopBackgroundService');
+    } on PlatformException {
+      // Ignored.
+    } on MissingPluginException {
+      // Ignored.
+    }
+  }
 }

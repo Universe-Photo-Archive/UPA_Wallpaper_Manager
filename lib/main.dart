@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:logger/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'models/app_config.dart';
@@ -34,6 +35,12 @@ const String _kMinimizedFlag = '--minimized';
 late final ProviderSubscription<AppConfig> _configSubscription;
 
 final _autostart = AutostartService();
+
+/// True when the slideshow should actually be running: not paused and at
+/// least one screen with rotation enabled.
+bool _rotationWanted(AppConfig config) =>
+    !config.slideshowPaused &&
+    config.screens.any((s) => s.rotationEnabled);
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -135,6 +142,14 @@ void main(List<String> args) async {
     } catch (e) {
       _log.w('Failed to probe lockscreen support: $e');
     }
+  } else if (Platform.isAndroid) {
+    try {
+      // Supported since Android 7.0 (FLAG_LOCK) — no admin requirement.
+      lockscreenSupported = await LockscreenChannel.isSupported();
+      _log.i('Lockscreen support (Android): $lockscreenSupported');
+    } catch (e) {
+      _log.w('Failed to probe lockscreen support: $e');
+    }
   }
 
   final container = ProviderContainer(overrides: [
@@ -203,6 +218,7 @@ void main(List<String> args) async {
       _syncLaunchOnStartup(next.launchOnStartup);
     }
 
+    var delayOrEnabledChanged = false;
     for (final sc in next.screens) {
       final prevSc = prev?.screens
           .where((p) => p.screenId == sc.screenId)
@@ -221,11 +237,34 @@ void main(List<String> args) async {
             'Theme changed on screen ${sc.screenId}: ${prevSc.themeName} -> ${sc.themeName}');
         rotationService.rotateScreen(sc.screenId);
       }
+
+      if (prevSc != null &&
+          (prevSc.rotationDelaySeconds != sc.rotationDelaySeconds ||
+              prevSc.rotationEnabled != sc.rotationEnabled)) {
+        delayOrEnabledChanged = true;
+      }
     }
 
-    // Restart timers if delay or enabled changed
-    if (rotationService.isRunning && !rotationService.isPaused) {
+    // Restart timers only when delay / enabled actually changed — not on
+    // every unrelated config write (language, cache size, ...).
+    if (delayOrEnabledChanged &&
+        rotationService.isRunning &&
+        !rotationService.isPaused) {
       rotationService.restartTimers();
+    }
+
+    // Keep the Android foreground service in sync with the rotation state so
+    // the persistent notification only exists while something is rotating.
+    if (Platform.isAndroid) {
+      final wasActive = prev != null && _rotationWanted(prev);
+      final isActive = _rotationWanted(next);
+      if (prev == null || wasActive != isActive) {
+        if (isActive) {
+          WallpaperChannel.startBackgroundService();
+        } else {
+          WallpaperChannel.stopBackgroundService();
+        }
+      }
     }
   });
 
@@ -461,6 +500,24 @@ Future<void> _initializeApp(
 
     rotationService.start();
     container.read(rotationRunningProvider.notifier).state = true;
+
+    if (Platform.isAndroid) {
+      // Notification permission (Android 13+) is required for the foreground
+      // service notification; the battery-optimization exemption keeps the
+      // rotation timers running reliably in the background (Doze).
+      try {
+        await Permission.notification.request();
+        if (!await Permission.ignoreBatteryOptimizations.isGranted) {
+          await Permission.ignoreBatteryOptimizations.request();
+        }
+      } catch (e) {
+        _log.w('Android permission requests failed: $e');
+      }
+      if (_rotationWanted(finalConfig)) {
+        await WallpaperChannel.startBackgroundService();
+        _log.i('Android rotation foreground service started');
+      }
+    }
 
     // Force initial rotation
     _log.i('Performing initial rotation...');

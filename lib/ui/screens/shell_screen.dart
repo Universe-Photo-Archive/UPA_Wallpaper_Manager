@@ -74,9 +74,16 @@ class ShellScreen extends StatelessWidget {
       );
     }
 
-    // Mobile: bottom nav
+    // Mobile: bottom nav. SafeArea pushes every tab (home / gallery /
+    // settings) below the phone status bar (clock, battery, network).
     return Scaffold(
-      body: child,
+      body: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: child,
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) => _onTap(context, i),

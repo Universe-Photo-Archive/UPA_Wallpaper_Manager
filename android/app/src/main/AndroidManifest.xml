@@ -1,7 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Piwigo API + image downloads -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Set the device wallpaper -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER"/>
+    <!-- Foreground service keeping the rotation alive in background -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <!-- Read images from local folders added as themes -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+
+    <!-- MainApplication owns the cached FlutterEngine (see its Kotlin doc:
+         Android 12+ recreates activities on every wallpaper change). -->
     <application
-        android:label="upa_wallpaper_manager"
-        android:name="${applicationName}"
+        android:label="UPA Wallpaper Manager"
+        android:name=".MainApplication"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -25,6 +42,19 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- Keeps the Dart rotation timers alive when the app is backgrounded.
+             "specialUse" (API 34+) because no predefined type matches
+             "periodically change the wallpaper with user-chosen delays". -->
+        <service
+            android:name=".RotationForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Automatic wallpaper rotation with user-configured delays"/>
+        </service>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

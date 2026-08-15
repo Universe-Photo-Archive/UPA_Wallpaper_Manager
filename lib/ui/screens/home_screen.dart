@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
@@ -16,6 +17,9 @@ class HomeScreen extends ConsumerWidget {
     final config = ref.watch(configProvider);
     final isLoading = ref.watch(isLoadingProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Phones and narrow windows get a compact banner: smaller logo, no
+    // duplicate app icon, no "Wallpaper Manager" badge fighting for space.
+    final isCompact = MediaQuery.sizeOf(context).width < 640;
 
     return Scaffold(
       body: Column(
@@ -34,45 +38,56 @@ class HomeScreen extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Image.asset(
-                  isDark
-                      ? 'assets/images/logo_white.png'
-                      : 'assets/images/logo_black.png',
-                  height: 30,
-                  filterQuality: FilterQuality.high,
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
+                Flexible(
+                  child: Image.asset(
+                    isDark
+                        ? 'assets/images/logo_white.png'
+                        : 'assets/images/logo_black.png',
+                    height: isCompact ? 24 : 30,
+                    filterQuality: FilterQuality.high,
                   ),
-                  child: Text(
-                    'Wallpaper Manager',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
+                ),
+                if (!isCompact) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Wallpaper Manager',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
-                ),
+                ],
                 const Spacer(),
-                Image.asset(
-                  'assets/icons/app_icon.png',
-                  height: 28,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 16),
-                // Pause/Resume
-                _PauseResumeButton(),
-                const SizedBox(width: 8),
-                // Lockscreen
-                const _LockscreenToggle(),
+                if (!isCompact) ...[
+                  Image.asset(
+                    'assets/icons/app_icon.png',
+                    height: 28,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                // On mobile the per-screen rotation switch already starts and
+                // stops the slideshow, so a separate Pause button would be a
+                // duplicate. Desktop keeps it (multiple screens, tray menu).
+                if (!Platform.isAndroid) _PauseResumeButton(),
+                // The banner lockscreen toggle is Windows-specific; on
+                // Android the equivalent option lives in Settings.
+                if (Platform.isWindows) ...[
+                  const SizedBox(width: 8),
+                  const _LockscreenToggle(),
+                ],
               ],
             ),
           ),

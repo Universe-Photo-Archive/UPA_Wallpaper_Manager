@@ -146,6 +146,12 @@ abstract class AppLocalizations {
   /// **'Appliquer aussi à l\'écran de verrouillage'**
   String get lockscreen;
 
+  /// No description provided for @settingsLockscreenAndroidSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'À chaque rotation, la nouvelle photo est aussi appliquée à l\'écran de verrouillage du téléphone.'**
+  String get settingsLockscreenAndroidSubtitle;
+
   /// No description provided for @lockscreenTooltip.
   ///
   /// In fr, this message translates to:
@@ -674,6 +680,30 @@ abstract class AppLocalizations {
   /// **'Définir comme fond d\'écran'**
   String get gallerySetWallpaper;
 
+  /// No description provided for @gallerySetAs.
+  ///
+  /// In fr, this message translates to:
+  /// **'Définir comme :'**
+  String get gallerySetAs;
+
+  /// No description provided for @galleryTargetWallpaper.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fond d\'écran'**
+  String get galleryTargetWallpaper;
+
+  /// No description provided for @galleryTargetLockscreen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écran de verrouillage'**
+  String get galleryTargetLockscreen;
+
+  /// No description provided for @galleryLockscreenApplied.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écran de verrouillage mis à jour'**
+  String get galleryLockscreenApplied;
+
   /// No description provided for @gallerySetLockscreen.
   ///
   /// In fr, this message translates to:
@@ -835,6 +865,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Impossible d\'ajouter ce thème. Vérifiez l\'URL.'**
   String get manageThemesAddFailed;
+
+  /// No description provided for @manageThemesApiBlocked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette galerie bloque l\'accès à son API Piwigo : impossible d\'importer ses albums.'**
+  String get manageThemesApiBlocked;
 
   /// No description provided for @manageThemesInvalidUrl.
   ///

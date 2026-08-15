@@ -35,6 +35,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get lockscreen => 'Appliquer aussi à l\'écran de verrouillage';
 
   @override
+  String get settingsLockscreenAndroidSubtitle =>
+      'À chaque rotation, la nouvelle photo est aussi appliquée à l\'écran de verrouillage du téléphone.';
+
+  @override
   String get lockscreenTooltip =>
       'Cette option fonctionnera uniquement si les deux conditions suivantes sont remplies :\n\n• L\'application est exécutée en tant qu\'administrateur.\n• Une version Pro / Enterprise / Education de Windows est installée.\n\nLe fond d\'écran de l\'écran 1 est utilisé pour l\'écran de verrouillage.';
 
@@ -322,6 +326,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get gallerySetWallpaper => 'Définir comme fond d\'écran';
 
   @override
+  String get gallerySetAs => 'Définir comme :';
+
+  @override
+  String get galleryTargetWallpaper => 'Fond d\'écran';
+
+  @override
+  String get galleryTargetLockscreen => 'Écran de verrouillage';
+
+  @override
+  String get galleryLockscreenApplied => 'Écran de verrouillage mis à jour';
+
+  @override
   String get gallerySetLockscreen => 'Définir comme lockscreen';
 
   @override
@@ -408,6 +424,10 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get manageThemesAddFailed =>
       'Impossible d\'ajouter ce thème. Vérifiez l\'URL.';
+
+  @override
+  String get manageThemesApiBlocked =>
+      'Cette galerie bloque l\'accès à son API Piwigo : impossible d\'importer ses albums.';
 
   @override
   String get manageThemesInvalidUrl => 'URL Piwigo invalide';

@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/theme_category.dart';
 import '../../providers/app_providers.dart';
@@ -46,6 +50,8 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
         return local ? l10n.manageThemesInvalidFolder : l10n.manageThemesInvalidUrl;
       case 'alreadyExists':
         return l10n.manageThemesAlreadyExists;
+      case 'apiBlocked':
+        return l10n.manageThemesApiBlocked;
       case 'addFailed':
       default:
         return local ? l10n.manageThemesNoImagesInFolder : l10n.manageThemesAddFailed;
@@ -141,6 +147,14 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
 
   Future<void> _onPickLocalFolder() async {
     final l10n = AppLocalizations.of(context)!;
+
+    if (Platform.isAndroid) {
+      try {
+        await Permission.photos.request();
+        await Permission.storage.request();
+      } catch (_) {}
+    }
+
     String? folderPath;
     try {
       folderPath = await FilePicker.platform.getDirectoryPath(
@@ -148,6 +162,24 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
       );
     } catch (_) {
       folderPath = null;
+    }
+
+    // On Android, SAF folder paths are often unreadable by Dart's
+    // Directory.list. Fall back to picking individual images and copying
+    // them into the app's private storage so rotation can use them.
+    if (Platform.isAndroid && (folderPath == null || folderPath.isEmpty)) {
+      folderPath = await _importPickedImages();
+    } else if (Platform.isAndroid && folderPath != null) {
+      final dir = Directory(folderPath);
+      var readable = false;
+      try {
+        readable = dir.existsSync() && dir.listSync().isNotEmpty;
+      } catch (_) {
+        readable = false;
+      }
+      if (!readable) {
+        folderPath = await _importPickedImages();
+      }
     }
 
     if (folderPath == null || !mounted) return;
@@ -158,7 +190,7 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
     });
 
     final manager = ref.read(themesManagerProvider);
-    final errorKey = await manager.addLocalThemeFromFolder(folderPath);
+    var errorKey = await manager.addLocalThemeFromFolder(folderPath);
 
     if (!mounted) return;
 
@@ -166,6 +198,18 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
       _validating = false;
       _errorKey = errorKey;
     });
+
+    if (errorKey == 'addFailed' && Platform.isAndroid) {
+      final imported = await _importPickedImages();
+      if (imported != null && mounted) {
+        errorKey = await manager.addLocalThemeFromFolder(imported);
+        if (mounted) {
+          setState(() => _errorKey = errorKey);
+        }
+      }
+    }
+
+    if (!mounted) return;
 
     if (errorKey == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -180,6 +224,37 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
         ),
       );
     }
+  }
+
+  /// Lets the user pick image files and copies them into a private folder
+  /// the app can always read (works around Android SAF folder paths).
+  Future<String?> _importPickedImages() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: true,
+      withData: false,
+    );
+    if (result == null || result.files.isEmpty) return null;
+
+    final support = await getApplicationSupportDirectory();
+    final dest = Directory(p.join(
+      support.path,
+      'local_themes',
+      'import_${DateTime.now().millisecondsSinceEpoch}',
+    ));
+    await dest.create(recursive: true);
+
+    var copied = 0;
+    for (final file in result.files) {
+      final srcPath = file.path;
+      if (srcPath == null || srcPath.isEmpty) continue;
+      try {
+        await File(srcPath).copy(p.join(dest.path, file.name));
+        copied += 1;
+      } catch (_) {}
+    }
+    if (copied == 0) return null;
+    return dest.path;
   }
 
   Future<void> _onValidateUrl() async {
@@ -406,8 +481,11 @@ class _EnterUrlView extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               if (validating) ...[
                 const SizedBox(
@@ -415,9 +493,7 @@ class _EnterUrlView extends StatelessWidget {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                const SizedBox(width: 12),
                 Text(l10n.manageThemesValidating),
-                const SizedBox(width: 12),
               ],
               FilledButton.icon(
                 onPressed: validating ? null : () => onSubmit(),

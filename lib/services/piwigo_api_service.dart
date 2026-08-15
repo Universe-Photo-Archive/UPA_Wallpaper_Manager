@@ -30,8 +30,13 @@ class PiwigoApiService {
       responseType: ResponseType.plain,
       followRedirects: true,
       headers: {
-        'User-Agent': 'UPA-Wallpaper-Manager/2.0',
-        'Accept': 'application/json',
+        // Some third-party Piwigo hosts (university / institutional
+        // galleries) reject unknown user-agents with HTTP 403. A regular
+        // browser UA lets the public API through.
+        'User-Agent':
+            'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+        'Accept': 'application/json,text/plain,*/*',
       },
     ));
   }
@@ -64,6 +69,29 @@ class PiwigoApiService {
       return response.statusCode == 200;
     } catch (e) {
       _log.w('Connection test failed for $baseUrl: $e');
+      return false;
+    }
+  }
+
+  /// True when the gallery host answers but refuses the Piwigo web-service
+  /// (HTTP 401/403). Typical of institutional sites that hide `ws.php`.
+  Future<bool> isApiBlocked(String baseUrl) async {
+    try {
+      final response = await _dio.get(
+        _wsUrl(baseUrl),
+        queryParameters: {
+          'format': 'json',
+          'method': 'pwg.getVersion',
+        },
+        options: Options(
+          validateStatus: (code) => code != null && code < 500,
+        ),
+      );
+      return response.statusCode == 401 || response.statusCode == 403;
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      return code == 401 || code == 403;
+    } catch (_) {
       return false;
     }
   }

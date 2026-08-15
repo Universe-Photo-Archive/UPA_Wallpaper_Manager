@@ -35,6 +35,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lockscreen => 'Also apply to lock screen';
 
   @override
+  String get settingsLockscreenAndroidSubtitle =>
+      'Each rotation also applies the new photo to the phone\'s lock screen.';
+
+  @override
   String get lockscreenTooltip =>
       'This option will only work if both of the following conditions are met:\n\n• The application is run as administrator.\n• A Pro / Enterprise / Education edition of Windows is installed.\n\nThe wallpaper from screen 1 is used for the lock screen.';
 
@@ -320,6 +324,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gallerySetWallpaper => 'Set as wallpaper';
 
   @override
+  String get gallerySetAs => 'Set as:';
+
+  @override
+  String get galleryTargetWallpaper => 'Wallpaper';
+
+  @override
+  String get galleryTargetLockscreen => 'Lock screen';
+
+  @override
+  String get galleryLockscreenApplied => 'Lock screen updated';
+
+  @override
   String get gallerySetLockscreen => 'Set as lock screen';
 
   @override
@@ -402,6 +418,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get manageThemesAddFailed =>
       'Could not add this theme. Check the URL.';
+
+  @override
+  String get manageThemesApiBlocked =>
+      'This gallery blocks access to its Piwigo API: its albums cannot be imported.';
 
   @override
   String get manageThemesInvalidUrl => 'Invalid Piwigo URL';
