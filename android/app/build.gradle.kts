@@ -1,9 +1,30 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Release signing credentials. Two supported sources, in order:
+//   1. android/key.properties (local builds; git-ignored, never committed)
+//   2. UPA_KEYSTORE_* environment variables (CI, fed from GitHub secrets)
+// When neither is available the release build falls back to the debug key so
+// `flutter build apk --release` keeps working for local testing — such a build
+// is NOT publishable on the Play Store.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+fun signingValue(key: String, env: String): String? =
+    keystoreProperties.getProperty(key) ?: System.getenv(env)
+
+val keystorePath = signingValue("storeFile", "UPA_KEYSTORE_PATH")
+val hasReleaseKey = keystorePath != null && rootProject.file(keystorePath).exists()
 
 android {
     namespace = "eu.universe_photo_archive.upa_wallpaper_manager"
@@ -20,21 +41,35 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "eu.universe_photo_archive.upa_wallpaper_manager"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keystorePath!!)
+                storePassword = signingValue("storePassword", "UPA_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "UPA_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "UPA_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKey) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "UPA: no release keystore found — signing with the debug key. " +
+                        "This build cannot be uploaded to the Play Store."
+                )
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

@@ -48,3 +48,8 @@ app.*.map.json
 
 # Installer output
 /installer/Output/
+
+# Android release signing — must never reach the repository
+/android/key.properties
+*.jks
+*.keystore

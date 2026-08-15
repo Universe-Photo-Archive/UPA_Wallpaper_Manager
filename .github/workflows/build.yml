@@ -55,9 +55,17 @@ jobs:
           if-no-files-found: error
 
   android:
-    name: Android APK
+    name: Android APK + App Bundle
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # Release signing, fed from repository secrets. When they are absent the
+      # bundle is signed with the debug key and cannot be sent to the Play
+      # Store — the build still runs so the code is validated.
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      UPA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      UPA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      UPA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,6 +79,12 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Restore release keystore
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > android/upload-keystore.jks
+          echo "UPA_KEYSTORE_PATH=upload-keystore.jks" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -80,8 +94,17 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug
 
+      - name: Build release App Bundle
+        run: flutter build appbundle --release
+
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error

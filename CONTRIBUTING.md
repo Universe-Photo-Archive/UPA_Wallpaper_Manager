@@ -41,7 +41,8 @@ Chaque push sur `main` (ou sur une branche `cursor/**`) déclenche
 [le workflow `Build`](.github/workflows/build.yml), qui produit sur GitHub :
 
 - `windows-installer` — l'installateur `.exe`
-- `android-apk` — l'APK de debug
+- `android-apk` — l'APK de debug (installation directe sur un téléphone)
+- `android-aab` — l'App Bundle de release (format exigé par le Play Store)
 
 Les fichiers se récupèrent dans l'onglet **Actions**, section *Artifacts* du
 build concerné. C'est ce qui permet de vérifier les deux plateformes sans
@@ -60,6 +61,56 @@ git worktree add ../UPA_Wallpaper_Manager-android
 Les deux dossiers partagent le même historique : un commit fait d'un côté est
 immédiatement visible de l'autre. Deux clones indépendants, eux, finissent
 toujours par diverger.
+
+## Signature Android (Play Store)
+
+Le Play Store n'accepte que des App Bundles (`.aab`) signés avec **votre** clé.
+Cette clé ne doit jamais entrer dans le dépôt : la perdre rend toute mise à
+jour de l'application impossible. Sauvegardez-la, ainsi que ses mots de passe.
+
+### 1. Créer la clé (une seule fois)
+
+```bash
+keytool -genkey -v -keystore upload-keystore.jks ^
+  -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+Conservez le fichier `upload-keystore.jks` hors du dépôt (gestionnaire de mots
+de passe, disque chiffré, sauvegarde externe).
+
+### 2. Compiler en local
+
+Créez `android/key.properties` (déjà git-ignoré) :
+
+```properties
+storeFile=../upload-keystore.jks
+storePassword=<mot de passe du keystore>
+keyAlias=upload
+keyPassword=<mot de passe de la clé>
+```
+
+Puis :
+
+```bash
+flutter build appbundle --release
+```
+
+Le bundle est produit dans `build/app/outputs/bundle/release/app-release.aab`.
+
+### 3. Compiler via GitHub (optionnel)
+
+Ajoutez quatre secrets dans **Settings → Secrets and variables → Actions** :
+
+| Secret | Contenu |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | le keystore encodé : `base64 -w0 upload-keystore.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | mot de passe du keystore |
+| `ANDROID_KEY_ALIAS` | `upload` |
+| `ANDROID_KEY_PASSWORD` | mot de passe de la clé |
+
+Le workflow signe alors automatiquement l'App Bundle. Sans ces secrets, il est
+signé avec la clé de debug : la compilation est validée, mais le fichier est
+refusé par le Play Store.
 
 ## Publier une version
 
