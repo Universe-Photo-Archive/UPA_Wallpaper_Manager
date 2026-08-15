@@ -326,6 +326,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get gallerySetWallpaper => 'Définir comme fond d\'écran';
 
   @override
+  String get gallerySetAs => 'Définir comme :';
+
+  @override
+  String get galleryTargetWallpaper => 'Fond d\'écran';
+
+  @override
+  String get galleryTargetLockscreen => 'Écran de verrouillage';
+
+  @override
+  String get galleryLockscreenApplied => 'Écran de verrouillage mis à jour';
+
+  @override
   String get gallerySetLockscreen => 'Définir comme lockscreen';
 
   @override

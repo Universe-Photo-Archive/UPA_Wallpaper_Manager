@@ -78,8 +78,10 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 16),
                 ],
-                // Pause/Resume
-                _PauseResumeButton(),
+                // On mobile the per-screen rotation switch already starts and
+                // stops the slideshow, so a separate Pause button would be a
+                // duplicate. Desktop keeps it (multiple screens, tray menu).
+                if (!Platform.isAndroid) _PauseResumeButton(),
                 // The banner lockscreen toggle is Windows-specific; on
                 // Android the equivalent option lives in Settings.
                 if (Platform.isWindows) ...[

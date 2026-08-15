@@ -324,6 +324,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gallerySetWallpaper => 'Set as wallpaper';
 
   @override
+  String get gallerySetAs => 'Set as:';
+
+  @override
+  String get galleryTargetWallpaper => 'Wallpaper';
+
+  @override
+  String get galleryTargetLockscreen => 'Lock screen';
+
+  @override
+  String get galleryLockscreenApplied => 'Lock screen updated';
+
+  @override
   String get gallerySetLockscreen => 'Set as lock screen';
 
   @override

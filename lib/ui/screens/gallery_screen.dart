@@ -6,6 +6,7 @@ import '../../models/theme_category.dart';
 import '../../models/theme_source.dart';
 import '../../models/wallpaper_image.dart';
 import '../../providers/app_providers.dart';
+import '../../platform/lockscreen_channel.dart';
 import '../../platform/wallpaper_channel.dart';
 import '../widgets/manage_themes_dialog.dart';
 
@@ -380,30 +381,57 @@ class _ImageDetailDialog extends ConsumerWidget {
               child: Column(
                 children: [
                   if (!Platform.isIOS) ...[
-                    Text(l10n.gallerySetWallpaper,
+                    Text(l10n.gallerySetAs,
                         style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        ...screens.map((screen) => ElevatedButton.icon(
-                              onPressed: () =>
-                                  _setAsWallpaper(ref, context, screen.id),
-                              icon: const Icon(Icons.monitor, size: 16),
-                              label: Text(
-                                  '${l10n.screenName(screen.id + 1)}${screen.isPrimary ? " (${l10n.screenPrimary})" : ""}'),
-                            )),
-                        if (screens.length > 1)
-                          OutlinedButton.icon(
-                            onPressed: () =>
-                                _setAsWallpaperAll(ref, context, screens.length),
-                            icon: const Icon(Icons.desktop_windows, size: 16),
-                            label: Text(l10n.galleryAllScreens),
+                    // A phone has a single screen but two wallpaper slots
+                    // (home + lock); a desktop has one slot per monitor.
+                    if (Platform.isAndroid)
+                      Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _setAsWallpaper(ref, context, 0),
+                              icon: const Icon(Icons.wallpaper_rounded,
+                                  size: 16),
+                              label: Text(l10n.galleryTargetWallpaper),
+                            ),
                           ),
-                      ],
-                    ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _setAsLockscreen(ref, context),
+                              icon: const Icon(Icons.lock_outline_rounded,
+                                  size: 16),
+                              label: Text(l10n.galleryTargetLockscreen),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          ...screens.map((screen) => ElevatedButton.icon(
+                                onPressed: () =>
+                                    _setAsWallpaper(ref, context, screen.id),
+                                icon: const Icon(Icons.monitor, size: 16),
+                                label: Text(
+                                    '${l10n.screenName(screen.id + 1)}${screen.isPrimary ? " (${l10n.screenPrimary})" : ""}'),
+                              )),
+                          if (screens.length > 1)
+                            OutlinedButton.icon(
+                              onPressed: () => _setAsWallpaperAll(
+                                  ref, context, screens.length),
+                              icon: const Icon(Icons.desktop_windows, size: 16),
+                              label: Text(l10n.galleryAllScreens),
+                            ),
+                        ],
+                      ),
                   ],
                   if (Platform.isIOS)
                     ElevatedButton.icon(
@@ -457,6 +485,24 @@ class _ImageDetailDialog extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Future<void> _setAsLockscreen(WidgetRef ref, BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final path = await _resolveLocalPath(ref);
+    if (path == null || !context.mounted) return;
+
+    final success = await LockscreenChannel.setLockscreen(path);
+    if (!context.mounted) return;
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success
+            ? l10n.galleryLockscreenApplied
+            : l10n.galleryWallpaperFailed),
+      ),
+    );
   }
 
   Future<void> _setAsWallpaperAll(

@@ -14,9 +14,11 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
 
+    <!-- MainApplication owns the cached FlutterEngine (see its Kotlin doc:
+         Android 12+ recreates activities on every wallpaper change). -->
     <application
         android:label="UPA Wallpaper Manager"
-        android:name="${applicationName}"
+        android:name=".MainApplication"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

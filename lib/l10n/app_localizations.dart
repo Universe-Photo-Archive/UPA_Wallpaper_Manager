@@ -680,6 +680,30 @@ abstract class AppLocalizations {
   /// **'Définir comme fond d\'écran'**
   String get gallerySetWallpaper;
 
+  /// No description provided for @gallerySetAs.
+  ///
+  /// In fr, this message translates to:
+  /// **'Définir comme :'**
+  String get gallerySetAs;
+
+  /// No description provided for @galleryTargetWallpaper.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fond d\'écran'**
+  String get galleryTargetWallpaper;
+
+  /// No description provided for @galleryTargetLockscreen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écran de verrouillage'**
+  String get galleryTargetLockscreen;
+
+  /// No description provided for @galleryLockscreenApplied.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écran de verrouillage mis à jour'**
+  String get galleryLockscreenApplied;
+
   /// No description provided for @gallerySetLockscreen.
   ///
   /// In fr, this message translates to:

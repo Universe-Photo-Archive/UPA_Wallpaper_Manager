@@ -36,6 +36,12 @@ late final ProviderSubscription<AppConfig> _configSubscription;
 
 final _autostart = AutostartService();
 
+/// True when the slideshow should actually be running: not paused and at
+/// least one screen with rotation enabled.
+bool _rotationWanted(AppConfig config) =>
+    !config.slideshowPaused &&
+    config.screens.any((s) => s.rotationEnabled);
+
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -247,13 +253,17 @@ void main(List<String> args) async {
       rotationService.restartTimers();
     }
 
-    // Keep the Android foreground service in sync with the pause state so
-    // the persistent notification disappears while the slideshow is paused.
-    if (Platform.isAndroid && prev?.slideshowPaused != next.slideshowPaused) {
-      if (next.slideshowPaused) {
-        WallpaperChannel.stopBackgroundService();
-      } else {
-        WallpaperChannel.startBackgroundService();
+    // Keep the Android foreground service in sync with the rotation state so
+    // the persistent notification only exists while something is rotating.
+    if (Platform.isAndroid) {
+      final wasActive = prev != null && _rotationWanted(prev);
+      final isActive = _rotationWanted(next);
+      if (prev == null || wasActive != isActive) {
+        if (isActive) {
+          WallpaperChannel.startBackgroundService();
+        } else {
+          WallpaperChannel.stopBackgroundService();
+        }
       }
     }
   });
@@ -503,7 +513,7 @@ Future<void> _initializeApp(
       } catch (e) {
         _log.w('Android permission requests failed: $e');
       }
-      if (!finalConfig.slideshowPaused) {
+      if (_rotationWanted(finalConfig)) {
         await WallpaperChannel.startBackgroundService();
         _log.i('Android rotation foreground service started');
       }
