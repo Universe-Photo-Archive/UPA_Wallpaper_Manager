@@ -45,6 +45,27 @@ class ScreenConfig {
         'rotationDelayUnit': rotationDelayUnit,
         'currentWallpaperPath': currentWallpaperPath,
       };
+
+  /// Immutable-style update. Callers must NOT mutate a [ScreenConfig] that
+  /// is already part of the app state: the previous and next configs would
+  /// then share the same instance and change-detection (e.g. "theme changed
+  /// on screen X -> rotate now") would silently stop working.
+  ScreenConfig copyWith({
+    String? themeName,
+    bool? rotationEnabled,
+    int? rotationDelay,
+    String? rotationDelayUnit,
+    String? currentWallpaperPath,
+  }) {
+    return ScreenConfig(
+      screenId: screenId,
+      themeName: themeName ?? this.themeName,
+      rotationEnabled: rotationEnabled ?? this.rotationEnabled,
+      rotationDelay: rotationDelay ?? this.rotationDelay,
+      rotationDelayUnit: rotationDelayUnit ?? this.rotationDelayUnit,
+      currentWallpaperPath: currentWallpaperPath ?? this.currentWallpaperPath,
+    );
+  }
 }
 
 class AppConfig {

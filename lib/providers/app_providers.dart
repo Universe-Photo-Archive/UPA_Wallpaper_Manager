@@ -98,6 +98,12 @@ class LockscreenSupport {
 /// once at startup and reused everywhere via [lockscreenSupportProvider].
 final lockscreenSupportProvider =
     FutureProvider<LockscreenSupport>((ref) async {
+  if (Platform.isAndroid) {
+    // Android supports FLAG_LOCK wallpapers since Nougat; there is no
+    // elevation / edition requirement like on Windows.
+    final supported = await LockscreenChannel.isSupported();
+    return LockscreenSupport(isAdmin: true, isEditionSupported: supported);
+  }
   if (!Platform.isWindows) {
     return const LockscreenSupport(isAdmin: false, isEditionSupported: false);
   }
@@ -162,7 +168,10 @@ class ThemesManager {
 
     final api = _ref.read(piwigoApiProvider);
     final theme = await api.resolveCategory(parsed);
-    if (theme == null) return 'addFailed';
+    if (theme == null) {
+      if (await api.isApiBlocked(parsed.baseUrl)) return 'apiBlocked';
+      return 'addFailed';
+    }
 
     await cfg.addUserSource(PiwigoSource(
       baseUrl: parsed.baseUrl,

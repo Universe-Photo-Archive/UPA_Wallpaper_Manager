@@ -39,58 +39,86 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       });
     }
 
+    // Compact app bar on phones: no logo/title (the dropdown says it all),
+    // constrained dropdown width, icon-only "Manage" button.
+    final isCompact = MediaQuery.sizeOf(context).width < 640;
+
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 64,
-        title: Row(
-          children: [
-            Image.asset(
-              isDark
-                  ? 'assets/images/logo_white.png'
-                  : 'assets/images/logo_black.png',
-              height: 30,
-              filterQuality: FilterQuality.high,
-            ),
-            const SizedBox(width: 12),
-            Text(l10n.galleryTitle),
-          ],
-        ),
+        automaticallyImplyLeading: false,
+        titleSpacing: isCompact ? 12 : null,
+        title: isCompact
+            ? null
+            : Row(
+                children: [
+                  Image.asset(
+                    isDark
+                        ? 'assets/images/logo_white.png'
+                        : 'assets/images/logo_black.png',
+                    height: 30,
+                    filterQuality: FilterQuality.high,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(l10n.galleryTitle),
+                ],
+              ),
         actions: [
           if (themes.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: DropdownButton<String?>(
-                value: _selectedTheme?.uniqueKey,
-                hint: Text(l10n.screenAllThemes),
-                underline: const SizedBox(),
-                items: [
-                  DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text(l10n.screenAllThemes),
-                  ),
-                  ...themes.map((t) => DropdownMenuItem<String?>(
-                        value: t.uniqueKey,
-                        child: Text('${t.displayName} (${t.imageCount})'),
-                      )),
-                ],
-                onChanged: (key) {
-                  setState(() {
-                    _selectedTheme = key == null
-                        ? null
-                        : themes.firstWhere((t) => t.uniqueKey == key);
-                  });
-                  _loadImages();
-                },
+              padding: EdgeInsets.only(right: 8, left: isCompact ? 12 : 0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isCompact
+                      ? MediaQuery.sizeOf(context).width - 92
+                      : 320,
+                ),
+                child: DropdownButton<String?>(
+                  value: _selectedTheme?.uniqueKey,
+                  hint: Text(l10n.screenAllThemes),
+                  underline: const SizedBox(),
+                  isExpanded: true,
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(l10n.screenAllThemes,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    ...themes.map((t) => DropdownMenuItem<String?>(
+                          value: t.uniqueKey,
+                          child: Text('${t.displayName} (${t.imageCount})',
+                              overflow: TextOverflow.ellipsis),
+                        )),
+                  ],
+                  onChanged: (key) {
+                    setState(() {
+                      _selectedTheme = key == null
+                          ? null
+                          : themes.firstWhere((t) => t.uniqueKey == key);
+                    });
+                    _loadImages();
+                  },
+                ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16, left: 4),
-            child: FilledButton.tonalIcon(
-              onPressed: () => ManageThemesDialog.show(context),
-              icon: const Icon(Icons.tune_rounded, size: 18),
-              label: Text(l10n.manageThemes),
+          if (isCompact)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton.filledTonal(
+                onPressed: () => ManageThemesDialog.show(context),
+                icon: const Icon(Icons.tune_rounded, size: 20),
+                tooltip: l10n.manageThemes,
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 16, left: 4),
+              child: FilledButton.tonalIcon(
+                onPressed: () => ManageThemesDialog.show(context),
+                icon: const Icon(Icons.tune_rounded, size: 18),
+                label: Text(l10n.manageThemes),
+              ),
             ),
-          ),
         ],
       ),
       body: _loading

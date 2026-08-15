@@ -146,6 +146,12 @@ abstract class AppLocalizations {
   /// **'Appliquer aussi à l\'écran de verrouillage'**
   String get lockscreen;
 
+  /// No description provided for @settingsLockscreenAndroidSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'À chaque rotation, la nouvelle photo est aussi appliquée à l\'écran de verrouillage du téléphone.'**
+  String get settingsLockscreenAndroidSubtitle;
+
   /// No description provided for @lockscreenTooltip.
   ///
   /// In fr, this message translates to:
@@ -835,6 +841,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Impossible d\'ajouter ce thème. Vérifiez l\'URL.'**
   String get manageThemesAddFailed;
+
+  /// No description provided for @manageThemesApiBlocked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette galerie bloque l\'accès à son API Piwigo : impossible d\'importer ses albums.'**
+  String get manageThemesApiBlocked;
 
   /// No description provided for @manageThemesInvalidUrl.
   ///

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,56 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/app_providers.dart';
 import '../../services/log_service.dart';
 import '../../services/update_service.dart';
+
+/// ListTile-like row that keeps wide controls (SegmentedButton, buttons)
+/// usable on phones. A plain [ListTile] with a wide `trailing` overflows on
+/// narrow screens and the layout exception blanks the whole settings list;
+/// here the control wraps below the title when space is missing.
+class _ResponsiveControlTile extends StatelessWidget {
+  final Widget leading;
+  final String title;
+  final Widget control;
+
+  const _ResponsiveControlTile({
+    required this.leading,
+    required this.title,
+    required this.control,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final narrow = constraints.maxWidth < 480;
+      if (!narrow) {
+        return ListTile(
+          leading: leading,
+          title: Text(title),
+          trailing: FittedBox(fit: BoxFit.scaleDown, child: control),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                leading,
+                const SizedBox(width: 16),
+                Expanded(child: Text(title)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(fit: BoxFit.scaleDown, child: control),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -76,17 +127,21 @@ class _GeneralSettings extends ConsumerWidget {
         padding: const EdgeInsets.all(8),
         child: Column(
           children: [
-            SwitchListTile(
-              title: Text(l10n.settingsLaunchStartup),
-              secondary: const Icon(Icons.power_settings_new_rounded),
-              value: config.launchOnStartup,
-              onChanged: (val) {
-                ref
-                    .read(configProvider.notifier)
-                    .update((c) => c.copyWith(launchOnStartup: val));
-              },
-            ),
-            const Divider(height: 1),
+            // Auto-start at login is a desktop concept; Android has no
+            // equivalent the user can toggle from here.
+            if (!Platform.isAndroid) ...[
+              SwitchListTile(
+                title: Text(l10n.settingsLaunchStartup),
+                secondary: const Icon(Icons.power_settings_new_rounded),
+                value: config.launchOnStartup,
+                onChanged: (val) {
+                  ref
+                      .read(configProvider.notifier)
+                      .update((c) => c.copyWith(launchOnStartup: val));
+                },
+              ),
+              const Divider(height: 1),
+            ],
             SwitchListTile(
               title: Text(l10n.settingsRandomMode),
               secondary: const Icon(Icons.shuffle_rounded),
@@ -97,9 +152,42 @@ class _GeneralSettings extends ConsumerWidget {
                     .update((c) => c.copyWith(randomMode: val));
               },
             ),
+            // On Android the lock-screen option lives here (on Windows it is
+            // the toggle in the home banner, gated by admin + edition).
+            if (Platform.isAndroid) ...[
+              const Divider(height: 1),
+              const _AndroidLockscreenTile(),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Android-only: rotate the lock-screen photo along with the wallpaper.
+class _AndroidLockscreenTile extends ConsumerWidget {
+  const _AndroidLockscreenTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final config = ref.watch(configProvider);
+    final support = ref.watch(lockscreenSupportProvider).valueOrNull;
+    final supported = support?.isSupported ?? false;
+
+    return SwitchListTile(
+      title: Text(l10n.lockscreen),
+      subtitle: Text(l10n.settingsLockscreenAndroidSubtitle),
+      secondary: const Icon(Icons.lock_outline_rounded),
+      value: supported && config.lockscreenEnabled,
+      onChanged: supported
+          ? (val) {
+              ref
+                  .read(configProvider.notifier)
+                  .update((c) => c.copyWith(lockscreenEnabled: val));
+            }
+          : null,
     );
   }
 }
@@ -121,10 +209,10 @@ class _DisplaySettings extends ConsumerWidget {
         padding: const EdgeInsets.all(8),
         child: Column(
           children: [
-            ListTile(
+            _ResponsiveControlTile(
               leading: const Icon(Icons.palette_outlined),
-              title: Text(l10n.settingsUiTheme),
-              trailing: SegmentedButton<String>(
+              title: l10n.settingsUiTheme,
+              control: SegmentedButton<String>(
                 segments: [
                   ButtonSegment(
                       value: 'dark',
@@ -148,10 +236,10 @@ class _DisplaySettings extends ConsumerWidget {
               ),
             ),
             const Divider(height: 1),
-            ListTile(
+            _ResponsiveControlTile(
               leading: const Icon(Icons.language_rounded),
-              title: Text(l10n.settingsLanguage),
-              trailing: SegmentedButton<String>(
+              title: l10n.settingsLanguage,
+              control: SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(value: 'fr', label: Text('Français')),
                   ButtonSegment(value: 'en', label: Text('English')),
@@ -216,10 +304,10 @@ class _CacheSettings extends ConsumerWidget {
               ),
             ),
             const Divider(height: 1),
-            ListTile(
+            _ResponsiveControlTile(
               leading: const Icon(Icons.delete_outline_rounded),
-              title: Text(l10n.settingsClearCache),
-              trailing: ElevatedButton(
+              title: l10n.settingsClearCache,
+              control: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                   foregroundColor: Colors.white,
@@ -336,16 +424,19 @@ class _AdvancedSettings extends ConsumerWidget {
                 ),
               ),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.system_update_outlined),
-              title: Text(l10n.updateButton),
-              trailing: ElevatedButton.icon(
-                onPressed: () => _checkUpdates(context, ref),
-                icon: const Icon(Icons.refresh),
-                label: Text(l10n.updateButton),
+            // Android updates go through the Play Store, not GitHub releases.
+            if (!Platform.isAndroid) ...[
+              const Divider(height: 1),
+              _ResponsiveControlTile(
+                leading: const Icon(Icons.system_update_outlined),
+                title: l10n.updateButton,
+                control: ElevatedButton.icon(
+                  onPressed: () => _checkUpdates(context, ref),
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l10n.updateButton),
+                ),
               ),
-            ),
+            ],
             const Divider(height: 1),
             SwitchListTile(
               secondary: const Icon(Icons.bug_report_outlined),
