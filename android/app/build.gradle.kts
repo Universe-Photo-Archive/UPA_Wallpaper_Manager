@@ -80,3 +80,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Background wallpaper rotation (see RotationWorker).
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+}

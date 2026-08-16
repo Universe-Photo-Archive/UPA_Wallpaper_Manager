@@ -32,6 +32,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get rotationDelay => 'Délai du diaporama :';
 
   @override
+  String get rotationDelayMobileHint =>
+      'En arrière-plan, Android n\'applique la rotation qu\'une fois toutes les 15 minutes au maximum.';
+
+  @override
   String get lockscreen => 'Appliquer aussi à l\'écran de verrouillage';
 
   @override

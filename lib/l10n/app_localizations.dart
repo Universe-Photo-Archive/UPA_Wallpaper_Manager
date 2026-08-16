@@ -140,6 +140,12 @@ abstract class AppLocalizations {
   /// **'Délai du diaporama :'**
   String get rotationDelay;
 
+  /// No description provided for @rotationDelayMobileHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'En arrière-plan, Android n\'applique la rotation qu\'une fois toutes les 15 minutes au maximum.'**
+  String get rotationDelayMobileHint;
+
   /// No description provided for @lockscreen.
   ///
   /// In fr, this message translates to:

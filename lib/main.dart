@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:logger/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'models/app_config.dart';
@@ -14,6 +13,7 @@ import 'models/theme_source.dart';
 import 'providers/app_providers.dart';
 import 'models/wallpaper_image.dart';
 import 'services/autostart_service.dart';
+import 'services/background_rotation_service.dart';
 import 'services/cache_service.dart';
 import 'services/config_service.dart';
 import 'services/log_service.dart';
@@ -35,12 +35,44 @@ const String _kMinimizedFlag = '--minimized';
 late final ProviderSubscription<AppConfig> _configSubscription;
 
 final _autostart = AutostartService();
+final _backgroundRotation = BackgroundRotationService();
 
 /// True when the slideshow should actually be running: not paused and at
 /// least one screen with rotation enabled.
 bool _rotationWanted(AppConfig config) =>
     !config.slideshowPaused &&
     config.screens.any((s) => s.rotationEnabled);
+
+/// Mirrors the current rotation settings into the Android background job.
+///
+/// The job runs without Dart, so it gets the images already downloaded for
+/// the theme configured on the (single) mobile screen.
+Future<void> _syncBackgroundRotation(
+  ProviderContainer container,
+  AppConfig config,
+) async {
+  if (!Platform.isAndroid) return;
+
+  final screen = config.screens.isEmpty ? null : config.screens.first;
+  final cache = container.read(cacheServiceProvider);
+
+  final themes = (screen == null || screen.themeName == 'all')
+      ? container.read(themesProvider).map((t) => t.displayName).toList()
+      : [screen.themeName];
+
+  final images = <String>[];
+  for (final theme in themes) {
+    images.addAll(cache.getCachedPaths(theme));
+  }
+
+  await _backgroundRotation.sync(
+    enabled: _rotationWanted(config),
+    intervalMinutes: (screen?.rotationDelaySeconds ?? 900) ~/ 60,
+    lockscreen: config.lockscreenEnabled,
+    images: images,
+    current: container.read(currentWallpapersProvider)[screen?.screenId ?? 0],
+  );
+}
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -253,18 +285,9 @@ void main(List<String> args) async {
       rotationService.restartTimers();
     }
 
-    // Keep the Android foreground service in sync with the rotation state so
-    // the persistent notification only exists while something is rotating.
+    // Keep the Android background job in sync with the rotation settings.
     if (Platform.isAndroid) {
-      final wasActive = prev != null && _rotationWanted(prev);
-      final isActive = _rotationWanted(next);
-      if (prev == null || wasActive != isActive) {
-        if (isActive) {
-          WallpaperChannel.startBackgroundService();
-        } else {
-          WallpaperChannel.stopBackgroundService();
-        }
-      }
+      _syncBackgroundRotation(container, next);
     }
   });
 
@@ -291,6 +314,35 @@ Future<void> _initializeApp(
     await container.read(screensProvider.notifier).detectScreens();
     final screens = container.read(screensProvider);
     _log.i('Detected ${screens.length} screen(s)');
+
+    // Existing configs may carry a delay shorter than what the Android
+    // background job supports (seconds, or a handful of minutes). Raise them
+    // once, otherwise the rotation would silently stop when the app closes.
+    if (Platform.isAndroid) {
+      final current = container.read(configProvider);
+      final needsMigration = current.screens.any((s) =>
+          s.rotationDelayUnit == 'seconds' ||
+          (s.rotationDelayUnit == 'minutes' &&
+              s.rotationDelay < WallpaperChannel.minBackgroundIntervalMinutes));
+      if (needsMigration) {
+        await container.read(configProvider.notifier).update((c) {
+          final screens = c.screens
+              .map((s) => (s.rotationDelayUnit == 'hours')
+                  ? s
+                  : s.copyWith(
+                      rotationDelayUnit: 'minutes',
+                      rotationDelay: s.rotationDelayUnit == 'minutes' &&
+                              s.rotationDelay >=
+                                  WallpaperChannel.minBackgroundIntervalMinutes
+                          ? s.rotationDelay
+                          : WallpaperChannel.minBackgroundIntervalMinutes,
+                    ))
+              .toList();
+          return c.copyWith(screens: screens);
+        });
+        _log.i('Android: rotation delays raised to the 15-minute minimum');
+      }
+    }
 
     // Ensure config has entries for all detected screens
     final config = container.read(configProvider);
@@ -501,28 +553,14 @@ Future<void> _initializeApp(
     rotationService.start();
     container.read(rotationRunningProvider.notifier).state = true;
 
-    if (Platform.isAndroid) {
-      // Notification permission (Android 13+) is required for the foreground
-      // service notification; the battery-optimization exemption keeps the
-      // rotation timers running reliably in the background (Doze).
-      try {
-        await Permission.notification.request();
-        if (!await Permission.ignoreBatteryOptimizations.isGranted) {
-          await Permission.ignoreBatteryOptimizations.request();
-        }
-      } catch (e) {
-        _log.w('Android permission requests failed: $e');
-      }
-      if (_rotationWanted(finalConfig)) {
-        await WallpaperChannel.startBackgroundService();
-        _log.i('Android rotation foreground service started');
-      }
-    }
-
     // Force initial rotation
     _log.i('Performing initial rotation...');
     await rotationService.rotateNow();
     _log.i('Initial rotation done');
+
+    if (Platform.isAndroid) {
+      await _syncBackgroundRotation(container, container.read(configProvider));
+    }
 
     // Restore the slideshow pause state persisted in the config so the user's
     // last choice (paused / running) carries across restarts.

@@ -2,17 +2,19 @@ package eu.universe_photo_archive.upa_wallpaper_manager
 
 import android.app.Application
 import android.app.WallpaperManager
-import android.content.Intent
 import android.os.Build
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import androidx.work.Data
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
-import java.io.File
-import java.io.FileInputStream
+import java.util.concurrent.TimeUnit
 
 /**
  * Owns a long-lived [FlutterEngine] shared by every [MainActivity] instance.
@@ -52,7 +54,9 @@ class MainApplication : Application() {
                     "setWallpaper" -> {
                         val imagePath = call.argument<String>("imagePath") ?: ""
                         result.success(
-                            applyWallpaper(imagePath, WallpaperManager.FLAG_SYSTEM)
+                            Wallpapers.apply(
+                                this, imagePath, WallpaperManager.FLAG_SYSTEM
+                            )
                         )
                     }
                     "getWallpaper" -> {
@@ -61,12 +65,15 @@ class MainApplication : Application() {
                         result.success(null)
                     }
                     "getScreens" -> result.success(getScreens())
-                    "startBackgroundService" -> {
-                        startRotationService()
+                    "schedulePeriodicRotation" -> {
+                        val minutes = (call.argument<Int>("intervalMinutes") ?: 15)
+                            .coerceAtLeast(MIN_INTERVAL_MINUTES)
+                        val statePath = call.argument<String>("statePath") ?: ""
+                        scheduleRotation(minutes, statePath)
                         result.success(true)
                     }
-                    "stopBackgroundService" -> {
-                        stopRotationService()
+                    "cancelPeriodicRotation" -> {
+                        WorkManager.getInstance(this).cancelUniqueWork(ROTATION_WORK)
                         result.success(true)
                     }
                     else -> result.notImplemented()
@@ -79,12 +86,12 @@ class MainApplication : Application() {
                     "setLockscreen" -> {
                         val imagePath = call.argument<String>("imagePath") ?: ""
                         result.success(
-                            applyWallpaper(imagePath, WallpaperManager.FLAG_LOCK)
+                            Wallpapers.apply(
+                                this, imagePath, WallpaperManager.FLAG_LOCK
+                            )
                         )
                     }
-                    "removeLockscreen" -> {
-                        result.success(clearLockscreen())
-                    }
+                    "removeLockscreen" -> result.success(Wallpapers.clearLockscreen(this))
                     "isSupported" ->
                         result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
                     // No elevation concept on Android — the Windows-only
@@ -99,43 +106,22 @@ class MainApplication : Application() {
             }
     }
 
-    /**
-     * Applies [imagePath] as wallpaper for [flags] (system and/or lock).
-     *
-     * Uses [WallpaperManager.setStream] so the image is decoded by the system
-     * wallpaper service instead of in this process: decoding multi-megapixel
-     * photos with BitmapFactory routinely exceeded the app heap.
-     */
-    private fun applyWallpaper(imagePath: String, flags: Int): Boolean {
-        return try {
-            val file = File(imagePath)
-            if (!file.exists()) return false
+    private fun scheduleRotation(intervalMinutes: Int, statePath: String) {
+        val request = PeriodicWorkRequestBuilder<RotationWorker>(
+            intervalMinutes.toLong(), TimeUnit.MINUTES
+        )
+            .setInputData(
+                Data.Builder()
+                    .putString(RotationWorker.KEY_STATE_PATH, statePath)
+                    .build()
+            )
+            .build()
 
-            val wm = WallpaperManager.getInstance(applicationContext)
-            FileInputStream(file).use { stream ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    wm.setStream(stream, null, true, flags)
-                } else {
-                    wm.setStream(stream)
-                }
-            }
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-
-    private fun clearLockscreen(): Boolean {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                WallpaperManager.getInstance(applicationContext)
-                    .clear(WallpaperManager.FLAG_LOCK)
-            }
-            true
-        } catch (e: Exception) {
-            false
-        }
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            ROTATION_WORK,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
     }
 
     private fun getScreens(): List<Map<String, Any>> {
@@ -157,21 +143,13 @@ class MainApplication : Application() {
         )
     }
 
-    private fun startRotationService() {
-        val intent = Intent(this, RotationForegroundService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-    }
-
-    private fun stopRotationService() {
-        stopService(Intent(this, RotationForegroundService::class.java))
-    }
-
     companion object {
         const val ENGINE_ID = "upa_main_engine"
+
+        /** WorkManager refuses to run a periodic job more often than this. */
+        const val MIN_INTERVAL_MINUTES = 15
+
+        private const val ROTATION_WORK = "upa_wallpaper_rotation"
         private const val WALLPAPER_CHANNEL = "eu.universe_photo_archive/wallpaper"
         private const val LOCKSCREEN_CHANNEL = "eu.universe_photo_archive/lockscreen"
     }

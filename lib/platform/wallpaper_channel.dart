@@ -80,25 +80,37 @@ class WallpaperChannel {
     ];
   }
 
-  /// Starts the Android foreground service that keeps the app process (and
-  /// therefore the rotation timers + downloads) alive in the background.
-  /// No-op on other platforms.
-  static Future<void> startBackgroundService() async {
+  /// Shortest period WorkManager accepts for a periodic job. Below this the
+  /// rotation only happens while the app is open (Dart timers).
+  static const int minBackgroundIntervalMinutes = 15;
+
+  /// Schedules the Android background rotation, reading its candidate images
+  /// from the state file at [statePath]. No-op on other platforms.
+  static Future<void> schedulePeriodicRotation({
+    required int intervalMinutes,
+    required String statePath,
+  }) async {
     if (!Platform.isAndroid) return;
     try {
-      await _channel.invokeMethod('startBackgroundService');
+      await _channel.invokeMethod('schedulePeriodicRotation', {
+        'intervalMinutes':
+            intervalMinutes < minBackgroundIntervalMinutes
+                ? minBackgroundIntervalMinutes
+                : intervalMinutes,
+        'statePath': statePath,
+      });
     } on PlatformException {
       // Ignored: rotation still works while the app is in the foreground.
     } on MissingPluginException {
-      // Old native build without the service — same graceful degradation.
+      // Older native build — same graceful degradation.
     }
   }
 
-  /// Stops the Android foreground service (rotation paused or app quitting).
-  static Future<void> stopBackgroundService() async {
+  /// Cancels the Android background rotation job.
+  static Future<void> cancelPeriodicRotation() async {
     if (!Platform.isAndroid) return;
     try {
-      await _channel.invokeMethod('stopBackgroundService');
+      await _channel.invokeMethod('cancelPeriodicRotation');
     } on PlatformException {
       // Ignored.
     } on MissingPluginException {

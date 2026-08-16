@@ -10,6 +10,7 @@
 
   "screenConfig": "Configuration des écrans",
   "rotationDelay": "Délai du diaporama :",
+  "rotationDelayMobileHint": "En arrière-plan, Android n'applique la rotation qu'une fois toutes les 15 minutes au maximum.",
   "lockscreen": "Appliquer aussi à l'écran de verrouillage",
   "settingsLockscreenAndroidSubtitle": "À chaque rotation, la nouvelle photo est aussi appliquée à l'écran de verrouillage du téléphone.",
   "lockscreenTooltip": "Cette option fonctionnera uniquement si les deux conditions suivantes sont remplies :\n\n• L'application est exécutée en tant qu'administrateur.\n• Une version Pro / Enterprise / Education de Windows est installée.\n\nLe fond d'écran de l'écran 1 est utilisé pour l'écran de verrouillage.",

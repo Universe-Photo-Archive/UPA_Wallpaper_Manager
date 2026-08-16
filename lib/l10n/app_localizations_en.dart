@@ -32,6 +32,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rotationDelay => 'Slideshow delay:';
 
   @override
+  String get rotationDelayMobileHint =>
+      'In the background, Android rotates the wallpaper at most once every 15 minutes.';
+
+  @override
   String get lockscreen => 'Also apply to lock screen';
 
   @override

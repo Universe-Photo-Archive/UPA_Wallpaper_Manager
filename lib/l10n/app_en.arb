@@ -9,6 +9,7 @@
 
   "screenConfig": "Screen Configuration",
   "rotationDelay": "Slideshow delay:",
+  "rotationDelayMobileHint": "In the background, Android rotates the wallpaper at most once every 15 minutes.",
   "lockscreen": "Also apply to lock screen",
   "settingsLockscreenAndroidSubtitle": "Each rotation also applies the new photo to the phone's lock screen.",
   "lockscreenTooltip": "This option will only work if both of the following conditions are met:\n\n• The application is run as administrator.\n• A Pro / Enterprise / Education edition of Windows is installed.\n\nThe wallpaper from screen 1 is used for the lock screen.",

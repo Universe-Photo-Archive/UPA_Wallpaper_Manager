@@ -25,6 +25,20 @@ class ScreenCard extends ConsumerStatefulWidget {
 
 class _ScreenCardState extends ConsumerState<ScreenCard> {
   late final TextEditingController _delayController;
+  final FocusNode _delayFocus = FocusNode();
+
+  /// Android rotates in the background through a WorkManager job, which never
+  /// runs more often than every 15 minutes — shorter delays would silently be
+  /// ignored once the app is closed, so they are not offered at all.
+  static const int _androidMinMinutes = 15;
+
+  bool get _isMobile => Platform.isAndroid;
+
+  int get _minDelayFor {
+    if (!_isMobile) return 1;
+    final unit = widget.screenConfig?.rotationDelayUnit ?? 'minutes';
+    return unit == 'minutes' ? _androidMinMinutes : 1;
+  }
 
   @override
   void initState() {
@@ -32,6 +46,17 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
     _delayController = TextEditingController(
       text: (widget.screenConfig?.rotationDelay ?? 15).toString(),
     );
+    // Snap a too-short value back to the minimum once the field loses focus,
+    // so the user can still type freely while editing.
+    _delayFocus.addListener(() {
+      if (_delayFocus.hasFocus) return;
+      final min = _minDelayFor;
+      final value = int.tryParse(_delayController.text) ?? min;
+      if (value < min) {
+        _delayController.text = min.toString();
+        _updateScreenConfig(ref, widget.screen.id, rotationDelay: min);
+      }
+    });
   }
 
   @override
@@ -49,6 +74,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
 
   @override
   void dispose() {
+    _delayFocus.dispose();
     _delayController.dispose();
     super.dispose();
   }
@@ -64,10 +90,15 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
 
     final selectedTheme = screenConfig?.themeName ?? 'all';
     final rotationEnabled = screenConfig?.rotationEnabled ?? true;
-    final delayUnit = screenConfig?.rotationDelayUnit ?? 'minutes';
+    var delayUnit = screenConfig?.rotationDelayUnit ?? 'minutes';
+    // A config saved on desktop (or by an older build) may use seconds, which
+    // mobile no longer offers — fall back so the dropdown keeps a valid value.
+    if (_isMobile && delayUnit == 'seconds') delayUnit = 'minutes';
 
     final unitLabels = {
-      'seconds': l10n.timeSeconds,
+      // Seconds make no sense on mobile: the background job cannot run more
+      // often than every 15 minutes.
+      if (!_isMobile) 'seconds': l10n.timeSeconds,
       'minutes': l10n.timeMinutes,
       'hours': l10n.timeHours,
     };
@@ -273,6 +304,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                             height: 40,
                             child: TextField(
                               controller: _delayController,
+                              focusNode: _delayFocus,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 14),
@@ -283,7 +315,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                               ),
                               onChanged: (value) {
                                 final d = int.tryParse(value);
-                                if (d != null && d > 0) {
+                                if (d != null && d >= _minDelayFor) {
                                   _updateScreenConfig(ref, screen.id,
                                       rotationDelay: d);
                                 }
@@ -309,15 +341,42 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                                       ))
                                   .toList(),
                               onChanged: (unit) {
-                                if (unit != null) {
-                                  _updateScreenConfig(ref, screen.id,
-                                      rotationDelayUnit: unit);
+                                if (unit == null) return;
+                                // Switching to minutes on mobile must respect
+                                // the background job's 15-minute floor.
+                                final current =
+                                    int.tryParse(_delayController.text) ?? 15;
+                                final min = (_isMobile && unit == 'minutes')
+                                    ? _androidMinMinutes
+                                    : 1;
+                                if (current < min) {
+                                  _delayController.text = min.toString();
                                 }
+                                _updateScreenConfig(
+                                  ref,
+                                  screen.id,
+                                  rotationDelayUnit: unit,
+                                  rotationDelay:
+                                      current < min ? min : null,
+                                );
                               },
                             ),
                           ),
                   ],
                 ),
+                if (_isMobile) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.rotationDelayMobileHint,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
               ]);
 
           return Column(
