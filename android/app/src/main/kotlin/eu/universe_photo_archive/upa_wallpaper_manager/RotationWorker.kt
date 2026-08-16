@@ -41,18 +41,40 @@ class RotationWorker(context: Context, params: WorkerParameters) :
         val available = (0 until images.length())
             .mapNotNull { images.optString(it, null) }
             .filter { File(it).exists() }
-        if (available.isEmpty()) return Result.success()
+        if (available.isEmpty()) {
+            Wallpapers.log(applicationContext, "no image available, skipping")
+            return Result.success()
+        }
 
         // Avoid showing the same wallpaper twice in a row when possible.
-        val pool = available.filterNot { it == current }.ifEmpty { available }
-        val next = pool.random()
+        val pool = (available.filterNot { it == current }.ifEmpty { available })
+            .shuffled()
 
-        if (!Wallpapers.apply(applicationContext, next, WallpaperManager.FLAG_SYSTEM)) {
+        // Walk the candidates until one applies. A file can be unreadable if a
+        // previous download was interrupted; applying it would blank the
+        // wallpaper, so drop it instead of showing an empty background.
+        var next: String? = null
+        for (candidate in pool) {
+            if (!Wallpapers.isUsable(candidate)) {
+                Wallpapers.log(applicationContext, "discarding unusable $candidate")
+                runCatching { File(candidate).delete() }
+                continue
+            }
+            if (Wallpapers.apply(applicationContext, candidate, WallpaperManager.FLAG_SYSTEM)) {
+                next = candidate
+                break
+            }
+        }
+
+        if (next == null) {
+            Wallpapers.log(applicationContext, "no usable image among ${pool.size}")
             return Result.retry()
         }
+
         if (state.optBoolean("lockscreen", false)) {
             Wallpapers.apply(applicationContext, next, WallpaperManager.FLAG_LOCK)
         }
+        Wallpapers.log(applicationContext, "applied $next")
 
         // Remember the choice so the app can seed its preview on next launch
         // and the next run does not repeat it.

@@ -139,22 +139,36 @@ class CacheService {
       return localPath;
     }
 
+    // Download to a temporary name and rename once complete. Writing straight
+    // to [localPath] left a truncated file behind whenever the process was
+    // killed mid-download (routine on Android when the screen locks); that
+    // half-written file then looked cached and was applied as wallpaper,
+    // which the system renders as a blank / default background.
+    final partPath = '$localPath.part';
     try {
       final url = image.fullSizeUrl;
       _log.d('Downloading ${image.filename} from $url');
-      await _dio.download(url, localPath);
 
-      if (File(localPath).existsSync()) {
+      final part = File(partPath);
+      if (part.existsSync()) part.deleteSync();
+
+      await _dio.download(url, partPath);
+
+      if (part.existsSync() && part.lengthSync() > 0) {
+        await part.rename(localPath);
         image.isDownloaded = true;
         image.localPath = localPath;
         await _saveIndex();
         _log.i('Downloaded: ${image.filename}');
         return localPath;
       }
+      if (part.existsSync()) part.deleteSync();
     } catch (e) {
       _log.e('Download failed for ${image.filename}: $e');
-      final f = File(localPath);
-      if (f.existsSync()) f.deleteSync();
+      for (final path in [partPath, localPath]) {
+        final f = File(path);
+        if (f.existsSync()) f.deleteSync();
+      }
     }
     return null;
   }
@@ -179,16 +193,24 @@ class CacheService {
   // --- Cache queries ---
 
   /// Returns local paths of cached (downloaded) images for a theme.
+  ///
+  /// Zero-length files are rejected: they can only be leftovers from an
+  /// interrupted download and would be applied as a blank wallpaper.
   List<String> getCachedPaths(String themeName, {bool onlyUndisplayed = false}) {
     final images = _index[themeName] ?? [];
     return images
         .where((i) =>
             i.isDownloaded &&
             i.localPath != null &&
-            File(i.localPath!).existsSync() &&
+            _isUsableFile(i.localPath!) &&
             (!onlyUndisplayed || !i.isDisplayed))
         .map((i) => i.localPath!)
         .toList();
+  }
+
+  bool _isUsableFile(String filePath) {
+    final file = File(filePath);
+    return file.existsSync() && file.lengthSync() > 0;
   }
 
   /// Gets the local path for a specific image, or null if not cached.

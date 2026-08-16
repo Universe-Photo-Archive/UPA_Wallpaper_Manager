@@ -362,6 +362,17 @@ Future<void> _initializeApp(
     // desktop. Rotation will overwrite these entries on enabled screens.
     final initialWallpapers = <int, String>{};
     final cacheForPinning = container.read(cacheServiceProvider);
+
+    // Android cannot report the current wallpaper path, but the background job
+    // records what it applied — use it so the preview matches the desktop.
+    if (Platform.isAndroid) {
+      final applied = await _backgroundRotation.lastAppliedWallpaper();
+      if (applied != null) {
+        initialWallpapers[0] = applied;
+        cacheForPinning.pinWallpaper(0, applied);
+      }
+    }
+
     for (final s in screens) {
       final path = await WallpaperChannel.getWallpaper(screenId: s.id);
       if (path != null) {

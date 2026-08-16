@@ -35,8 +35,17 @@ import java.util.concurrent.TimeUnit
  */
 class MainApplication : Application() {
 
-    override fun onCreate() {
-        super.onCreate()
+    /**
+     * Returns the shared engine, starting Dart on first use.
+     *
+     * Deliberately lazy: WorkManager also starts this process to run the
+     * background rotation, and booting the whole Dart app there would run the
+     * startup sequence — network calls, downloads, cache cleanup — with no UI
+     * to show for it, competing with the job that woke the process up.
+     */
+    @Synchronized
+    fun obtainEngine(): FlutterEngine {
+        FlutterEngineCache.getInstance().get(ENGINE_ID)?.let { return it }
 
         val engine = FlutterEngine(this)
         GeneratedPluginRegistrant.registerWith(engine)
@@ -45,6 +54,7 @@ class MainApplication : Application() {
             DartExecutor.DartEntrypoint.createDefault()
         )
         FlutterEngineCache.getInstance().put(ENGINE_ID, engine)
+        return engine
     }
 
     private fun registerChannels(engine: FlutterEngine) {

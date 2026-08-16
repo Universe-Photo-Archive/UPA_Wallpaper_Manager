@@ -3,7 +3,6 @@ package eu.universe_photo_archive.upa_wallpaper_manager
 import android.content.Context
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.FlutterEngineCache
 
 /**
  * Thin activity on top of the cached engine owned by [MainApplication].
@@ -15,7 +14,7 @@ import io.flutter.embedding.engine.FlutterEngineCache
 class MainActivity : FlutterActivity() {
 
     override fun provideFlutterEngine(context: Context): FlutterEngine? {
-        return FlutterEngineCache.getInstance().get(MainApplication.ENGINE_ID)
+        return (context.applicationContext as? MainApplication)?.obtainEngine()
             ?: super.provideFlutterEngine(context)
     }
 
