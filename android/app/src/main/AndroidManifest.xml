@@ -15,11 +15,16 @@
         android:name="android.permission.FOREGROUND_SERVICE"
         tools:node="remove"/>
 
-    <!-- Read images from local folders added as themes -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Images added as a local theme go through the system document picker,
+         which grants access to the chosen files only. No storage permission
+         is needed, which also avoids the Play Store photo-and-video
+         declaration. Removed explicitly in case a plugin contributes them. -->
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove"/>
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"/>
+        tools:node="remove"/>
 
     <!-- MainApplication owns the cached FlutterEngine (see its Kotlin doc:
          Android 12+ recreates activities on every wallpaper change). -->

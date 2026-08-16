@@ -136,6 +136,8 @@
   "manageThemesProviderPiwigo": "Piwigo",
   "manageThemesPiwigoDescription": "Album d'une galerie Piwigo",
   "manageThemesProviderLocal": "Galerie locale",
+  "manageThemesProviderDeviceImages": "Images de l'appareil",
+  "manageThemesDeviceImagesDescription": "Choisissez des photos sur votre téléphone ; elles seront copiées dans l'application",
   "manageThemesLocalDescription": "Dossier d'images depuis votre ordinateur",
   "manageThemesLocalPickFolder": "Choisir un dossier d'images",
   "manageThemesInvalidFolder": "Dossier invalide ou inaccessible",

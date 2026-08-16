@@ -812,6 +812,18 @@ abstract class AppLocalizations {
   /// **'Galerie locale'**
   String get manageThemesProviderLocal;
 
+  /// No description provided for @manageThemesProviderDeviceImages.
+  ///
+  /// In fr, this message translates to:
+  /// **'Images de l\'appareil'**
+  String get manageThemesProviderDeviceImages;
+
+  /// No description provided for @manageThemesDeviceImagesDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez des photos sur votre téléphone ; elles seront copiées dans l\'application'**
+  String get manageThemesDeviceImagesDescription;
+
   /// No description provided for @manageThemesLocalDescription.
   ///
   /// In fr, this message translates to:

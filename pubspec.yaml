@@ -46,9 +46,6 @@ dependencies:
   # Images
   photo_view: ^0.15.0
 
-  # Permissions (mobile)
-  permission_handler: ^11.3.1
-
   # URL launcher
   url_launcher: ^6.3.1
 

@@ -396,6 +396,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get manageThemesProviderLocal => 'Galerie locale';
 
   @override
+  String get manageThemesProviderDeviceImages => 'Images de l\'appareil';
+
+  @override
+  String get manageThemesDeviceImagesDescription =>
+      'Choisissez des photos sur votre téléphone ; elles seront copiées dans l\'application';
+
+  @override
   String get manageThemesLocalDescription =>
       'Dossier d\'images depuis votre ordinateur';
 

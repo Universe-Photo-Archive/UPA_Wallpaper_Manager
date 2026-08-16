@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/theme_category.dart';
 import '../../providers/app_providers.dart';
@@ -148,37 +147,20 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
   Future<void> _onPickLocalFolder() async {
     final l10n = AppLocalizations.of(context)!;
 
-    if (Platform.isAndroid) {
-      try {
-        await Permission.photos.request();
-        await Permission.storage.request();
-      } catch (_) {}
-    }
-
     String? folderPath;
-    try {
-      folderPath = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: l10n.manageThemesLocalPickFolder,
-      );
-    } catch (_) {
-      folderPath = null;
-    }
-
-    // On Android, SAF folder paths are often unreadable by Dart's
-    // Directory.list. Fall back to picking individual images and copying
-    // them into the app's private storage so rotation can use them.
-    if (Platform.isAndroid && (folderPath == null || folderPath.isEmpty)) {
+    if (Platform.isAndroid) {
+      // Android goes through the system document picker, which grants access
+      // to the chosen files only: no storage permission, and therefore no
+      // Play Store declaration for READ_MEDIA_IMAGES. Scanning a whole folder
+      // is not possible this way, so the images are imported instead.
       folderPath = await _importPickedImages();
-    } else if (Platform.isAndroid && folderPath != null) {
-      final dir = Directory(folderPath);
-      var readable = false;
+    } else {
       try {
-        readable = dir.existsSync() && dir.listSync().isNotEmpty;
+        folderPath = await FilePicker.platform.getDirectoryPath(
+          dialogTitle: l10n.manageThemesLocalPickFolder,
+        );
       } catch (_) {
-        readable = false;
-      }
-      if (!readable) {
-        folderPath = await _importPickedImages();
+        folderPath = null;
       }
     }
 
@@ -199,18 +181,6 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
       _errorKey = errorKey;
     });
 
-    if (errorKey == 'addFailed' && Platform.isAndroid) {
-      final imported = await _importPickedImages();
-      if (imported != null && mounted) {
-        errorKey = await manager.addLocalThemeFromFolder(imported);
-        if (mounted) {
-          setState(() => _errorKey = errorKey);
-        }
-      }
-    }
-
-    if (!mounted) return;
-
     if (errorKey == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.manageThemesAdded)),
@@ -226,8 +196,8 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
     }
   }
 
-  /// Lets the user pick image files and copies them into a private folder
-  /// the app can always read (works around Android SAF folder paths).
+  /// Lets the user pick image files through the system document picker and
+  /// copies them into a private folder the app can always read afterwards.
   Future<String?> _importPickedImages() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
@@ -410,9 +380,15 @@ class _ChooseProviderView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _ProviderTile(
-            icon: Icons.folder_rounded,
-            title: l10n.manageThemesProviderLocal,
-            subtitle: l10n.manageThemesLocalDescription,
+            icon: Platform.isAndroid
+                ? Icons.photo_library_rounded
+                : Icons.folder_rounded,
+            title: Platform.isAndroid
+                ? l10n.manageThemesProviderDeviceImages
+                : l10n.manageThemesProviderLocal,
+            subtitle: Platform.isAndroid
+                ? l10n.manageThemesDeviceImagesDescription
+                : l10n.manageThemesLocalDescription,
             onTap: onPickLocal,
           ),
           const SizedBox(height: 12),
