@@ -76,6 +76,9 @@ class RotationWorker(context: Context, params: WorkerParameters) :
         }
         Wallpapers.log(applicationContext, "applied $next")
 
+        // Keep the in-app preview truthful when the app is open.
+        (applicationContext as? MainApplication)?.notifyWallpaperChanged(next)
+
         // Remember the choice so the app can seed its preview on next launch
         // and the next run does not repeat it.
         try {

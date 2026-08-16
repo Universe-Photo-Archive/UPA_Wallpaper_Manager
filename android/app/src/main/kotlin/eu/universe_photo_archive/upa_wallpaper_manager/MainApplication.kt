@@ -3,6 +3,8 @@ package eu.universe_photo_archive.upa_wallpaper_manager
 import android.app.Application
 import android.app.WallpaperManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.work.Data
@@ -35,6 +37,25 @@ import java.util.concurrent.TimeUnit
  */
 class MainApplication : Application() {
 
+    /** Kept so the background worker can push updates back to the UI. */
+    private var wallpaperChannel: MethodChannel? = null
+
+    /**
+     * Tells the running app that [imagePath] is now the device wallpaper.
+     *
+     * The background job applies wallpapers natively, so when the app happens
+     * to be open — for instance right after the rotation switch is toggled,
+     * which reschedules the job and makes it run immediately — its preview
+     * would otherwise keep showing the previous image. Silently ignored when
+     * no engine is running.
+     */
+    fun notifyWallpaperChanged(imagePath: String) {
+        val channel = wallpaperChannel ?: return
+        Handler(Looper.getMainLooper()).post {
+            runCatching { channel.invokeMethod("wallpaperChanged", imagePath) }
+        }
+    }
+
     /**
      * Returns the shared engine, starting Dart on first use.
      *
@@ -58,7 +79,9 @@ class MainApplication : Application() {
     }
 
     private fun registerChannels(engine: FlutterEngine) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, WALLPAPER_CHANNEL)
+        val wallpaper = MethodChannel(engine.dartExecutor.binaryMessenger, WALLPAPER_CHANNEL)
+        wallpaperChannel = wallpaper
+        wallpaper
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "setWallpaper" -> {

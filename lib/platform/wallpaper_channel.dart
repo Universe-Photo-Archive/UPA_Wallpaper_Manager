@@ -106,6 +106,19 @@ class WallpaperChannel {
     }
   }
 
+  /// Called when the Android background job applied a wallpaper while the app
+  /// was running, so the preview can follow what is actually on the device.
+  static void onWallpaperChangedExternally(void Function(String path) handler) {
+    if (!Platform.isAndroid) return;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'wallpaperChanged') {
+        final path = call.arguments as String?;
+        if (path != null && path.isNotEmpty) handler(path);
+      }
+      return null;
+    });
+  }
+
   /// Cancels the Android background rotation job.
   static Future<void> cancelPeriodicRotation() async {
     if (!Platform.isAndroid) return;

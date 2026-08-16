@@ -64,6 +64,23 @@ class BackgroundRotationService {
     }
   }
 
+  /// Records [path] as the wallpaper currently on screen without touching the
+  /// schedule. Called after a rotation driven by the app, so the background
+  /// job knows what is already displayed and does not repeat it.
+  Future<void> updateCurrent(String path) async {
+    if (!Platform.isAndroid) return;
+    try {
+      final file = await _stateFile();
+      if (!await file.exists()) return;
+      final data = json.decode(await file.readAsString());
+      if (data is! Map) return;
+      data['current'] = path;
+      await file.writeAsString(json.encode(data));
+    } catch (_) {
+      // The next full sync will fix the file.
+    }
+  }
+
   /// Wallpaper the background job applied last, so the app can seed its
   /// preview with what is actually on screen. Null when unknown.
   Future<String?> lastAppliedWallpaper() async {

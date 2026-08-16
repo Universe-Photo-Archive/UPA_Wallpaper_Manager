@@ -43,6 +43,33 @@ bool _rotationWanted(AppConfig config) =>
     !config.slideshowPaused &&
     config.screens.any((s) => s.rotationEnabled);
 
+/// Reflects a wallpaper applied outside of Dart (Android background job) in
+/// the app state, so the preview matches the device.
+void _applyExternalWallpaper(ProviderContainer container, String path) {
+  if (!File(path).existsSync()) return;
+  final current = Map<int, String>.from(
+      container.read(currentWallpapersProvider));
+  if (current[0] == path) return;
+  current[0] = path;
+  container.read(currentWallpapersProvider.notifier).state = current;
+  container.read(cacheServiceProvider).pinWallpaper(0, path);
+  _log.d('Preview synced with background rotation: $path');
+}
+
+/// Re-reads what the background job applied whenever the app is shown again.
+class _ForegroundWallpaperSync with WidgetsBindingObserver {
+  final ProviderContainer container;
+  _ForegroundWallpaperSync(this.container);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    _backgroundRotation.lastAppliedWallpaper().then((path) {
+      if (path != null) _applyExternalWallpaper(container, path);
+    });
+  }
+}
+
 /// Mirrors the current rotation settings into the Android background job.
 ///
 /// The job runs without Dart, so it gets the images already downloaded for
@@ -213,6 +240,12 @@ void main(List<String> args) async {
     current[screenId] = imagePath;
     container.read(currentWallpapersProvider.notifier).state = current;
 
+    // Let the Android background job know what is already on screen so it
+    // does not pick the same image on its next run.
+    if (Platform.isAndroid && screenId == 0) {
+      _backgroundRotation.updateCurrent(imagePath);
+    }
+
     try {
       final success = await WallpaperChannel.setWallpaper(
         imagePath: imagePath,
@@ -290,6 +323,19 @@ void main(List<String> args) async {
       _syncBackgroundRotation(container, next);
     }
   });
+
+  if (Platform.isAndroid) {
+    // The background job applies wallpapers natively; mirror them into the
+    // preview so the app never shows something other than the real wallpaper.
+    WallpaperChannel.onWallpaperChangedExternally((path) {
+      _applyExternalWallpaper(container, path);
+    });
+    // Also re-read the state file when the app comes back to the foreground,
+    // covering rotations that happened while it was closed.
+    WidgetsBinding.instance.addObserver(
+      _ForegroundWallpaperSync(container),
+    );
+  }
 
   runApp(
     UncontrolledProviderScope(
