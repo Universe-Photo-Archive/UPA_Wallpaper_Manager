@@ -143,7 +143,7 @@ abstract class AppLocalizations {
   /// No description provided for @rotationDelayMobileHint.
   ///
   /// In fr, this message translates to:
-  /// **'En arrière-plan, Android n\'applique la rotation qu\'une fois toutes les 15 minutes au maximum.'**
+  /// **'Le diaporama continue quand l\'application est fermée, via sa notification.'**
   String get rotationDelayMobileHint;
 
   /// No description provided for @lockscreen.
@@ -313,6 +313,18 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Diaporama activé'**
   String get screenRotationEnabled;
+
+  /// No description provided for @targetWallpaper.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fond d\'écran'**
+  String get targetWallpaper;
+
+  /// No description provided for @targetLockscreen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écran de verrouillage'**
+  String get targetLockscreen;
 
   /// No description provided for @screenTheme.
   ///
@@ -704,6 +716,18 @@ abstract class AppLocalizations {
   /// **'Écran de verrouillage'**
   String get galleryTargetLockscreen;
 
+  /// No description provided for @galleryTargetBoth.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les deux'**
+  String get galleryTargetBoth;
+
+  /// No description provided for @galleryBothApplied.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fond d\'écran et écran de verrouillage mis à jour'**
+  String get galleryBothApplied;
+
   /// No description provided for @galleryLockscreenApplied.
   ///
   /// In fr, this message translates to:
@@ -949,6 +973,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'À propos'**
   String get aboutTitle;
+
+  /// No description provided for @aboutCredits.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédits photos'**
+  String get aboutCredits;
 
   /// No description provided for @aboutDescription.
   ///

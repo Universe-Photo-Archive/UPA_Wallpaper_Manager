@@ -33,7 +33,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get rotationDelayMobileHint =>
-      'In the background, Android rotates the wallpaper at most once every 15 minutes.';
+      'The slideshow keeps running when the app is closed, through its notification.';
 
   @override
   String get lockscreen => 'Also apply to lock screen';
@@ -131,6 +131,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenRotationEnabled => 'Slideshow enabled';
+
+  @override
+  String get targetWallpaper => 'Wallpaper';
+
+  @override
+  String get targetLockscreen => 'Lock screen';
 
   @override
   String get screenTheme => 'Theme:';
@@ -337,6 +343,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get galleryTargetLockscreen => 'Lock screen';
 
   @override
+  String get galleryTargetBoth => 'Both';
+
+  @override
+  String get galleryBothApplied => 'Wallpaper and lock screen updated';
+
+  @override
   String get galleryLockscreenApplied => 'Lock screen updated';
 
   @override
@@ -463,6 +475,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutTitle => 'About';
+
+  @override
+  String get aboutCredits => 'Photo credits';
 
   @override
   String get aboutDescription =>

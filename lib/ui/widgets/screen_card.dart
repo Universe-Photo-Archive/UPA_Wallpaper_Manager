@@ -27,10 +27,9 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
   late final TextEditingController _delayController;
   final FocusNode _delayFocus = FocusNode();
 
-  /// Android rotates in the background through a WorkManager job, which never
-  /// runs more often than every 15 minutes — shorter delays would silently be
-  /// ignored once the app is closed, so they are not offered at all.
-  static const int _androidMinMinutes = 15;
+  /// The slideshow service honours the exact delay, but below a minute the
+  /// rotation is pointless and drains the battery.
+  static const int _androidMinMinutes = 1;
 
   bool get _isMobile => Platform.isAndroid;
 
@@ -96,12 +95,19 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
     if (_isMobile && delayUnit == 'seconds') delayUnit = 'minutes';
 
     final unitLabels = {
-      // Seconds make no sense on mobile: the background job cannot run more
-      // often than every 15 minutes.
+      // The slideshow service works in minutes; seconds would only burn
+      // battery for a change nobody sees.
       if (!_isMobile) 'seconds': l10n.timeSeconds,
       'minutes': l10n.timeMinutes,
       'hours': l10n.timeHours,
     };
+
+    // On Android the two "screens" are the home wallpaper and the lock
+    // screen; each gets a coloured title so the cards cannot be confused.
+    final isLockTarget = _isMobile && screen.id == 1;
+    final targetColor = isLockTarget
+        ? Theme.of(context).colorScheme.secondary
+        : Theme.of(context).colorScheme.primary;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
@@ -137,9 +143,27 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
           );
 
           // Header: screen name + badges + rotation toggle (desktop), or
-          // just the rotation toggle (mobile).
+          // the target title and its toggle (mobile).
           final header = Row(
             children: [
+              if (_isMobile) ...[
+                Icon(
+                  isLockTarget
+                      ? Icons.lock_outline_rounded
+                      : Icons.wallpaper_rounded,
+                  size: 18,
+                  color: targetColor,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isLockTarget ? l10n.targetLockscreen : l10n.targetWallpaper,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: targetColor,
+                  ),
+                ),
+              ],
               if (!narrow) ...[
                 Container(
                   padding:
@@ -202,16 +226,19 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                 ),
                 const Spacer(),
               ],
-              Flexible(
-                child: Text(l10n.screenRotationEnabled,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.6))),
-              ),
+              // The coloured title already says which slot this is; on mobile
+              // the switch speaks for itself.
+              if (!_isMobile)
+                Flexible(
+                  child: Text(l10n.screenRotationEnabled,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6))),
+                ),
               if (narrow) const Spacer(),
               const SizedBox(width: 6),
               Switch(

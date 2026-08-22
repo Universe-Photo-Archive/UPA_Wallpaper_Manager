@@ -80,54 +80,79 @@ class WallpaperChannel {
     ];
   }
 
-  /// Shortest period WorkManager accepts for a periodic job. Below this the
-  /// rotation only happens while the app is open (Dart timers).
-  static const int minBackgroundIntervalMinutes = 15;
-
-  /// Schedules the Android background rotation, reading its candidate images
-  /// from the state file at [statePath]. No-op on other platforms.
-  static Future<void> schedulePeriodicRotation({
-    required int intervalMinutes,
-    required String statePath,
-  }) async {
-    if (!Platform.isAndroid) return;
+  /// Applies [imagePath] to the home wallpaper and the lock screen at once.
+  static Future<bool> setBothWallpapers(String imagePath) async {
+    if (!File(imagePath).existsSync()) return false;
     try {
-      await _channel.invokeMethod('schedulePeriodicRotation', {
-        'intervalMinutes':
-            intervalMinutes < minBackgroundIntervalMinutes
-                ? minBackgroundIntervalMinutes
-                : intervalMinutes,
-        'statePath': statePath,
+      final result = await _channel.invokeMethod<bool>('setBothWallpapers', {
+        'imagePath': imagePath,
       });
+      return result ?? false;
     } on PlatformException {
-      // Ignored: rotation still works while the app is in the foreground.
+      return false;
     } on MissingPluginException {
-      // Older native build — same graceful degradation.
+      return false;
     }
   }
 
-  /// Called when the Android background job applied a wallpaper while the app
-  /// was running, so the preview can follow what is actually on the device.
-  static void onWallpaperChangedExternally(void Function(String path) handler) {
+  /// Shortest period WorkManager accepts for a periodic job. Only relevant to
+  /// the fallback that covers the foreground service being killed.
+  static const int minBackgroundIntervalMinutes = 15;
+
+  /// Starts (or refreshes) the foreground service driving the slideshow.
+  static Future<void> startForegroundRotation() =>
+      _invokeVoid('startForegroundRotation');
+
+  /// Stops the slideshow service and removes its notification.
+  static Future<void> stopForegroundRotation() =>
+      _invokeVoid('stopForegroundRotation');
+
+  /// Schedules the fallback job used when the service is not running.
+  static Future<void> schedulePeriodicRotation({
+    required int intervalMinutes,
+  }) =>
+      _invokeVoid('schedulePeriodicRotation', {
+        'intervalMinutes': intervalMinutes < minBackgroundIntervalMinutes
+            ? minBackgroundIntervalMinutes
+            : intervalMinutes,
+      });
+
+  /// Cancels the fallback job.
+  static Future<void> cancelPeriodicRotation() =>
+      _invokeVoid('cancelPeriodicRotation');
+
+  /// Listens to the rotations performed natively while the app is running, so
+  /// the previews and the pause state follow what the device actually does.
+  static void listenToNativeRotation({
+    required void Function(int screenId, String path) onWallpaperChanged,
+    required void Function(bool paused) onPausedChanged,
+  }) {
     if (!Platform.isAndroid) return;
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'wallpaperChanged') {
-        final path = call.arguments as String?;
-        if (path != null && path.isNotEmpty) handler(path);
+      switch (call.method) {
+        case 'wallpaperChanged':
+          final args = Map<String, dynamic>.from(call.arguments as Map);
+          final path = args['path'] as String?;
+          final screenId = args['screenId'] as int? ?? 0;
+          if (path != null && path.isNotEmpty) {
+            onWallpaperChanged(screenId, path);
+          }
+        case 'pausedChanged':
+          onPausedChanged(call.arguments as bool? ?? false);
       }
       return null;
     });
   }
 
-  /// Cancels the Android background rotation job.
-  static Future<void> cancelPeriodicRotation() async {
+  static Future<void> _invokeVoid(String method,
+      [Map<String, dynamic>? args]) async {
     if (!Platform.isAndroid) return;
     try {
-      await _channel.invokeMethod('cancelPeriodicRotation');
+      await _channel.invokeMethod(method, args);
     } on PlatformException {
-      // Ignored.
+      // Rotation still works while the app is open.
     } on MissingPluginException {
-      // Ignored.
+      // Older native build — same graceful degradation.
     }
   }
 }

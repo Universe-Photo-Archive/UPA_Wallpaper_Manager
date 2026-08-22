@@ -389,9 +389,21 @@ class _ImageDetailDialog extends ConsumerWidget {
                     if (Platform.isAndroid)
                       Column(
                         children: [
+                          // Applying to both slots is the most common choice,
+                          // so it leads.
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
+                              onPressed: () => _setAsBoth(ref, context),
+                              icon: const Icon(Icons.done_all_rounded,
+                                  size: 16),
+                              label: Text(l10n.galleryTargetBoth),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
                               onPressed: () => _setAsWallpaper(ref, context, 0),
                               icon: const Icon(Icons.wallpaper_rounded,
                                   size: 16),
@@ -485,6 +497,31 @@ class _ImageDetailDialog extends ConsumerWidget {
         );
       }
     }
+  }
+
+  /// Applies the image to the home wallpaper and the lock screen at once.
+  Future<void> _setAsBoth(WidgetRef ref, BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final path = await _resolveLocalPath(ref);
+    if (path == null || !context.mounted) return;
+
+    final success = await WallpaperChannel.setBothWallpapers(path);
+    if (success) {
+      final current =
+          Map<int, String>.from(ref.read(currentWallpapersProvider));
+      current[0] = path;
+      current[1] = path;
+      ref.read(currentWallpapersProvider.notifier).state = current;
+    }
+    if (!context.mounted) return;
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            success ? l10n.galleryBothApplied : l10n.galleryWallpaperFailed),
+      ),
+    );
   }
 
   Future<void> _setAsLockscreen(WidgetRef ref, BuildContext context) async {

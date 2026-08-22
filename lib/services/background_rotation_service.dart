@@ -5,17 +5,45 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../platform/wallpaper_channel.dart';
 
-/// Keeps the Android background rotation in sync with the app state.
+/// One rotating wallpaper slot: the home screen or the lock screen.
+class RotationTargetState {
+  /// Matches `RotationTarget.TARGET_*` on the native side.
+  final int id;
+  final bool enabled;
+  final int intervalSeconds;
+  final String theme;
+  final List<String> images;
+  final String? current;
+
+  const RotationTargetState({
+    required this.id,
+    required this.enabled,
+    required this.intervalSeconds,
+    required this.theme,
+    required this.images,
+    this.current,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'enabled': enabled,
+        'intervalSeconds': intervalSeconds,
+        'theme': theme,
+        'images': images,
+        if (current != null) 'current': current,
+      };
+}
+
+/// Bridges the app settings and the Android background slideshow.
 ///
-/// The rotation that happens while the app is closed is a WorkManager job
-/// (see `RotationWorker.kt`): Android 14 has no foreground service type for
-/// "change the wallpaper every N minutes", and the `specialUse` catch-all
-/// needs a Play Store review. WorkManager never runs a job more often than
-/// every 15 minutes, so shorter delays only apply while the app is open.
+/// The rotation that happens while the app is closed runs natively (see
+/// `RotationForegroundService.kt`), because it must keep its schedule when
+/// Dart is not running at all. Everything it needs — which slot rotates, how
+/// often, and the images already downloaded for it — is mirrored into a small
+/// JSON file it reads on every tick.
 ///
-/// The job cannot call into Dart, so everything it needs — whether rotation is
-/// enabled, the lock-screen preference and the list of already-downloaded
-/// images — is written to a small JSON file it reads on wake-up.
+/// Both sides write to that file: Dart owns the schedule, the native side owns
+/// what is currently displayed and the pause flag.
 class BackgroundRotationService {
   static const String _fileName = 'rotation_state.json';
 
@@ -26,73 +54,122 @@ class BackgroundRotationService {
     return File(p.join(dir.path, _fileName));
   }
 
-  /// Writes the state file and (re)schedules or cancels the periodic job.
+  /// Mirrors the current settings and starts, refreshes or stops the service.
   ///
-  /// [images] must be absolute paths of images already on disk — the job runs
-  /// without network access.
+  /// [targets] must carry absolute paths of images already on disk: the
+  /// background rotation never touches the network.
   Future<void> sync({
-    required bool enabled,
-    required int intervalMinutes,
-    required bool lockscreen,
-    required List<String> images,
-    String? current,
+    required bool paused,
+    required List<RotationTargetState> targets,
   }) async {
     if (!Platform.isAndroid) return;
 
     try {
       final file = await _stateFile();
+      final previous = await _read(file);
+
+      // Keep whatever the native side recorded as displayed, unless this sync
+      // provides a fresher value.
+      final previousCurrent = <int, String>{};
+      for (final target in (previous?['targets'] as List<dynamic>? ?? [])) {
+        if (target is! Map) continue;
+        final id = target['id'] as int?;
+        final current = target['current'] as String?;
+        if (id != null && current != null) previousCurrent[id] = current;
+      }
+
       await file.writeAsString(json.encode({
-        'enabled': enabled,
-        'lockscreen': lockscreen,
-        'images': images,
-        if (current != null) 'current': current,
+        'paused': paused,
+        'targets': [
+          for (final target in targets)
+            {
+              ...target.toJson(),
+              if (target.current == null && previousCurrent[target.id] != null)
+                'current': previousCurrent[target.id],
+            }
+        ],
       }));
 
-      if (enabled && images.isNotEmpty) {
+      final active = !paused &&
+          targets.any((t) => t.enabled && t.images.isNotEmpty);
+
+      if (active) {
+        await WallpaperChannel.startForegroundRotation();
+        // Fallback for a reboot or a manufacturer task killer: the job only
+        // acts when the service is gone.
+        final shortest = targets
+            .where((t) => t.enabled)
+            .map((t) => t.intervalSeconds)
+            .fold<int>(3600, (a, b) => b < a ? b : a);
         await WallpaperChannel.schedulePeriodicRotation(
-          intervalMinutes: intervalMinutes,
-          statePath: file.path,
+          intervalMinutes: (shortest / 60).ceil(),
         );
-        _log.i('Background rotation scheduled every $intervalMinutes min '
-            '(${images.length} images)');
+        _log.i('Slideshow service running (${targets.where((t) => t.enabled).length} target(s))');
       } else {
+        await WallpaperChannel.stopForegroundRotation();
         await WallpaperChannel.cancelPeriodicRotation();
-        _log.i('Background rotation cancelled');
+        _log.i('Slideshow service stopped');
       }
     } catch (e) {
       _log.w('Failed to sync background rotation state: $e');
     }
   }
 
-  /// Records [path] as the wallpaper currently on screen without touching the
-  /// schedule. Called after a rotation driven by the app, so the background
-  /// job knows what is already displayed and does not repeat it.
-  Future<void> updateCurrent(String path) async {
+  /// Records [path] as displayed on [screenId] without touching the schedule.
+  Future<void> updateCurrent(int screenId, String path) async {
     if (!Platform.isAndroid) return;
     try {
       final file = await _stateFile();
-      if (!await file.exists()) return;
-      final data = json.decode(await file.readAsString());
-      if (data is! Map) return;
-      data['current'] = path;
+      final data = await _read(file);
+      if (data == null) return;
+      final targets = data['targets'];
+      if (targets is! List) return;
+      for (final target in targets) {
+        if (target is Map && target['id'] == screenId) {
+          target['current'] = path;
+          break;
+        }
+      }
       await file.writeAsString(json.encode(data));
     } catch (_) {
       // The next full sync will fix the file.
     }
   }
 
-  /// Wallpaper the background job applied last, so the app can seed its
-  /// preview with what is actually on screen. Null when unknown.
-  Future<String?> lastAppliedWallpaper() async {
-    if (!Platform.isAndroid) return null;
+  /// Wallpapers the background rotation applied last, per screen id, so the
+  /// app can seed its previews with what is actually displayed.
+  Future<Map<int, String>> lastAppliedWallpapers() async {
+    if (!Platform.isAndroid) return {};
     try {
-      final file = await _stateFile();
-      if (!await file.exists()) return null;
+      final data = await _read(await _stateFile());
+      final targets = data?['targets'];
+      if (targets is! List) return {};
+      final result = <int, String>{};
+      for (final target in targets) {
+        if (target is! Map) continue;
+        final id = target['id'] as int?;
+        final current = target['current'] as String?;
+        if (id == null || current == null || current.isEmpty) continue;
+        if (await File(current).exists()) result[id] = current;
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Pause flag as the native side left it (the notification can toggle it).
+  Future<bool> isPaused() async {
+    if (!Platform.isAndroid) return false;
+    final data = await _read(await _stateFile());
+    return data?['paused'] as bool? ?? false;
+  }
+
+  Future<Map<String, dynamic>?> _read(File file) async {
+    if (!await file.exists()) return null;
+    try {
       final data = json.decode(await file.readAsString());
-      if (data is! Map) return null;
-      final current = data['current'] as String?;
-      if (current == null || current.isEmpty) return null;
-      return await File(current).exists() ? current : null;
+      return data is Map<String, dynamic> ? data : null;
     } catch (_) {
       return null;
     }

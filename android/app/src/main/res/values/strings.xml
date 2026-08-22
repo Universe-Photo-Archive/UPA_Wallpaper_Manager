@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">UPA Wallpaper Manager</string>
+
+    <!-- Persistent notification of the background slideshow -->
+    <string name="rotation_channel_name">Wallpaper slideshow</string>
+    <string name="rotation_channel_description">Shown while the slideshow changes your wallpaper in the background</string>
+    <string name="rotation_paused">Slideshow paused</string>
+    <string name="rotation_idle">Slideshow inactive</string>
+    <string name="rotation_target_home">Wallpaper</string>
+    <string name="rotation_target_lock">Lock screen</string>
+    <string name="rotation_all_themes">All themes</string>
+    <string name="rotation_pause">Pause</string>
+    <string name="rotation_resume">Resume</string>
+    <string name="rotation_next">Next image</string>
+</resources>

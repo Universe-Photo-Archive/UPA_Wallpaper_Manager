@@ -5,15 +5,15 @@
     <!-- Set the device wallpaper -->
     <uses-permission android:name="android.permission.SET_WALLPAPER"/>
 
-    <!-- Background rotation runs as a plain WorkManager job, never as a
-         foreground service. WorkManager's own manifest still contributes
-         FOREGROUND_SERVICE (it needs it only for expedited / long-running
-         work, which this app never requests); leaving it in would make the
-         Play Store ask for a foreground-service justification. Removing it is
-         safe as long as no worker calls setForeground/setForegroundAsync. -->
-    <uses-permission
-        android:name="android.permission.FOREGROUND_SERVICE"
-        tools:node="remove"/>
+    <!-- The slideshow runs in a foreground service so it keeps its schedule
+         when the app is closed: Doze defers deferrable work well past the
+         delay the user picked, and several manufacturers cancel scheduled
+         work when the app is swiped away. No predefined service type covers
+         "change the wallpaper at a user-chosen interval", hence specialUse. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- The service's own notification, which also controls the slideshow. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <!-- Images added as a local theme go through the system document picker,
          which grants access to the chosen files only. No storage permission
@@ -29,7 +29,7 @@
     <!-- MainApplication owns the cached FlutterEngine (see its Kotlin doc:
          Android 12+ recreates activities on every wallpaper change). -->
     <application
-        android:label="UPA Wallpaper Manager"
+        android:label="@string/app_name"
         android:name=".MainApplication"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
@@ -56,8 +56,20 @@
             </intent-filter>
         </activity>
 
-        <!-- Counterpart of the FOREGROUND_SERVICE removal above: drop the
-             foreground service WorkManager declares but this app never starts. -->
+        <!-- Slideshow service. Started only while the user has a slideshow
+             enabled, stopped as soon as every target is turned off. -->
+        <service
+            android:name=".RotationForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-enabled wallpaper slideshow that must change the wallpaper and lock screen at the exact interval chosen by the user, including while the app is closed. The persistent notification shows the active themes and offers pause and next-image controls."/>
+        </service>
+
+        <!-- WorkManager declares a typeless foreground service for expedited
+             work this app never requests; drop it so the only foreground
+             service shipped is the one above. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             tools:node="remove"/>

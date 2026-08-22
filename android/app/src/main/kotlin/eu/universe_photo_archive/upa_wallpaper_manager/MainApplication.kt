@@ -29,40 +29,23 @@ import java.util.concurrent.TimeUnit
  * connecting -> loading themes -> online) and jumped back to the home tab.
  *
  * Caching the engine here keeps the Dart side — router location, providers,
- * theme list, rotation timers — alive across those recreations; the activity
- * simply re-attaches to the running engine.
+ * theme list — alive across those recreations; the activity simply
+ * re-attaches to the running engine.
  *
  * The platform channels also live here (bound to the application context)
  * so a rotation triggered while no activity exists still reaches native code.
  */
 class MainApplication : Application() {
 
-    /** Kept so the background worker can push updates back to the UI. */
+    /** Kept so background rotation can push updates back to the UI. */
     private var wallpaperChannel: MethodChannel? = null
-
-    /**
-     * Tells the running app that [imagePath] is now the device wallpaper.
-     *
-     * The background job applies wallpapers natively, so when the app happens
-     * to be open — for instance right after the rotation switch is toggled,
-     * which reschedules the job and makes it run immediately — its preview
-     * would otherwise keep showing the previous image. Silently ignored when
-     * no engine is running.
-     */
-    fun notifyWallpaperChanged(imagePath: String) {
-        val channel = wallpaperChannel ?: return
-        Handler(Looper.getMainLooper()).post {
-            runCatching { channel.invokeMethod("wallpaperChanged", imagePath) }
-        }
-    }
 
     /**
      * Returns the shared engine, starting Dart on first use.
      *
-     * Deliberately lazy: WorkManager also starts this process to run the
-     * background rotation, and booting the whole Dart app there would run the
-     * startup sequence — network calls, downloads, cache cleanup — with no UI
-     * to show for it, competing with the job that woke the process up.
+     * Deliberately lazy: the background rotation also starts this process, and
+     * booting the whole Dart app there would run the startup sequence —
+     * network calls, downloads, cache cleanup — with no UI to show for it.
      */
     @Synchronized
     fun obtainEngine(): FlutterEngine {
@@ -78,40 +61,79 @@ class MainApplication : Application() {
         return engine
     }
 
+    /**
+     * Tells the running app that [imagePath] is now displayed on [targetId],
+     * so its preview matches the device. Ignored when no engine is running.
+     */
+    fun notifyWallpaperChanged(targetId: Int, imagePath: String) {
+        val channel = wallpaperChannel ?: return
+        Handler(Looper.getMainLooper()).post {
+            runCatching {
+                channel.invokeMethod(
+                    "wallpaperChanged",
+                    mapOf("screenId" to targetId, "path" to imagePath)
+                )
+            }
+        }
+    }
+
+    /** Mirrors a pause / resume triggered from the notification. */
+    fun notifyPausedChanged(paused: Boolean) {
+        val channel = wallpaperChannel ?: return
+        Handler(Looper.getMainLooper()).post {
+            runCatching { channel.invokeMethod("pausedChanged", paused) }
+        }
+    }
+
     private fun registerChannels(engine: FlutterEngine) {
         val wallpaper = MethodChannel(engine.dartExecutor.binaryMessenger, WALLPAPER_CHANNEL)
         wallpaperChannel = wallpaper
-        wallpaper
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "setWallpaper" -> {
-                        val imagePath = call.argument<String>("imagePath") ?: ""
-                        result.success(
-                            Wallpapers.apply(
-                                this, imagePath, WallpaperManager.FLAG_SYSTEM
-                            )
-                        )
+        wallpaper.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "setWallpaper" -> {
+                    val imagePath = call.argument<String>("imagePath") ?: ""
+                    // Screen 1 is the lock screen on Android; there is only
+                    // ever one physical display.
+                    val flag = if (call.argument<Int>("screenId") == RotationTarget.TARGET_LOCK) {
+                        WallpaperManager.FLAG_LOCK
+                    } else {
+                        WallpaperManager.FLAG_SYSTEM
                     }
-                    "getWallpaper" -> {
-                        // Android does not expose the current wallpaper's file
-                        // path; the Dart side treats null as "unknown".
-                        result.success(null)
-                    }
-                    "getScreens" -> result.success(getScreens())
-                    "schedulePeriodicRotation" -> {
-                        val minutes = (call.argument<Int>("intervalMinutes") ?: 15)
-                            .coerceAtLeast(MIN_INTERVAL_MINUTES)
-                        val statePath = call.argument<String>("statePath") ?: ""
-                        scheduleRotation(minutes, statePath)
-                        result.success(true)
-                    }
-                    "cancelPeriodicRotation" -> {
-                        WorkManager.getInstance(this).cancelUniqueWork(ROTATION_WORK)
-                        result.success(true)
-                    }
-                    else -> result.notImplemented()
+                    result.success(Wallpapers.apply(this, imagePath, flag))
                 }
+                "setBothWallpapers" -> {
+                    val imagePath = call.argument<String>("imagePath") ?: ""
+                    val home = Wallpapers.apply(this, imagePath, WallpaperManager.FLAG_SYSTEM)
+                    val lock = Wallpapers.apply(this, imagePath, WallpaperManager.FLAG_LOCK)
+                    result.success(home && lock)
+                }
+                "getWallpaper" -> {
+                    // Android does not expose the current wallpaper's file
+                    // path; the Dart side treats null as "unknown".
+                    result.success(null)
+                }
+                "getScreens" -> result.success(getScreens())
+                "startForegroundRotation" -> {
+                    RotationForegroundService.start(this)
+                    result.success(true)
+                }
+                "stopForegroundRotation" -> {
+                    RotationForegroundService.stop(this)
+                    result.success(true)
+                }
+                "schedulePeriodicRotation" -> {
+                    val minutes = (call.argument<Int>("intervalMinutes") ?: 15)
+                        .coerceAtLeast(MIN_INTERVAL_MINUTES)
+                    scheduleFallback(minutes)
+                    result.success(true)
+                }
+                "cancelPeriodicRotation" -> {
+                    WorkManager.getInstance(this).cancelUniqueWork(ROTATION_WORK)
+                    result.success(true)
+                }
+                else -> result.notImplemented()
             }
+        }
 
         MethodChannel(engine.dartExecutor.binaryMessenger, LOCKSCREEN_CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -119,9 +141,7 @@ class MainApplication : Application() {
                     "setLockscreen" -> {
                         val imagePath = call.argument<String>("imagePath") ?: ""
                         result.success(
-                            Wallpapers.apply(
-                                this, imagePath, WallpaperManager.FLAG_LOCK
-                            )
+                            Wallpapers.apply(this, imagePath, WallpaperManager.FLAG_LOCK)
                         )
                     }
                     "removeLockscreen" -> result.success(Wallpapers.clearLockscreen(this))
@@ -139,16 +159,15 @@ class MainApplication : Application() {
             }
     }
 
-    private fun scheduleRotation(intervalMinutes: Int, statePath: String) {
+    /**
+     * Safety net for the cases where the foreground service is not alive:
+     * after a reboot, or once a manufacturer's task killer has taken it down.
+     * The job rotates only when the service is gone, so the two never fight.
+     */
+    private fun scheduleFallback(intervalMinutes: Int) {
         val request = PeriodicWorkRequestBuilder<RotationWorker>(
             intervalMinutes.toLong(), TimeUnit.MINUTES
-        )
-            .setInputData(
-                Data.Builder()
-                    .putString(RotationWorker.KEY_STATE_PATH, statePath)
-                    .build()
-            )
-            .build()
+        ).setInputData(Data.Builder().build()).build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             ROTATION_WORK,
@@ -163,15 +182,27 @@ class MainApplication : Application() {
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(metrics)
 
+        // A phone has one display but two wallpaper slots. Exposing them as
+        // two "screens" lets the shared rotation code drive each one with its
+        // own theme and delay, exactly like two monitors on the desktop.
         return listOf(
             mapOf(
-                "id" to 0,
-                "name" to "Main Screen",
+                "id" to RotationTarget.TARGET_HOME,
+                "name" to getString(R.string.rotation_target_home),
                 "width" to metrics.widthPixels,
                 "height" to metrics.heightPixels,
                 "left" to 0,
                 "top" to 0,
                 "isPrimary" to true
+            ),
+            mapOf(
+                "id" to RotationTarget.TARGET_LOCK,
+                "name" to getString(R.string.rotation_target_lock),
+                "width" to metrics.widthPixels,
+                "height" to metrics.heightPixels,
+                "left" to 0,
+                "top" to 0,
+                "isPrimary" to false
             )
         )
     }

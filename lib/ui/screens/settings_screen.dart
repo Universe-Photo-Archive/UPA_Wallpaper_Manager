@@ -152,42 +152,11 @@ class _GeneralSettings extends ConsumerWidget {
                     .update((c) => c.copyWith(randomMode: val));
               },
             ),
-            // On Android the lock-screen option lives here (on Windows it is
-            // the toggle in the home banner, gated by admin + edition).
-            if (Platform.isAndroid) ...[
-              const Divider(height: 1),
-              const _AndroidLockscreenTile(),
-            ],
+            // The Android lock screen is configured from its own card on the
+            // home tab, with its own theme and delay.
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Android-only: rotate the lock-screen photo along with the wallpaper.
-class _AndroidLockscreenTile extends ConsumerWidget {
-  const _AndroidLockscreenTile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final config = ref.watch(configProvider);
-    final support = ref.watch(lockscreenSupportProvider).valueOrNull;
-    final supported = support?.isSupported ?? false;
-
-    return SwitchListTile(
-      title: Text(l10n.lockscreen),
-      subtitle: Text(l10n.settingsLockscreenAndroidSubtitle),
-      secondary: const Icon(Icons.lock_outline_rounded),
-      value: supported && config.lockscreenEnabled,
-      onChanged: supported
-          ? (val) {
-              ref
-                  .read(configProvider.notifier)
-                  .update((c) => c.copyWith(lockscreenEnabled: val));
-            }
-          : null,
     );
   }
 }
@@ -862,6 +831,12 @@ class _AboutSection extends StatelessWidget {
                       Uri.parse('https://universe-photo-archive.eu')),
                   icon: const Icon(Icons.language_rounded, size: 16),
                   label: Text(l10n.aboutWebsite),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => launchUrl(
+                      Uri.parse('https://universe-photo-archive.eu/credits/')),
+                  icon: const Icon(Icons.photo_camera_outlined, size: 16),
+                  label: Text(l10n.aboutCredits),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => launchUrl(Uri.parse(

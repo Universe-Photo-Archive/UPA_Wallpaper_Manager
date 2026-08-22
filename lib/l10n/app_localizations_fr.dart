@@ -33,7 +33,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get rotationDelayMobileHint =>
-      'En arrière-plan, Android n\'applique la rotation qu\'une fois toutes les 15 minutes au maximum.';
+      'Le diaporama continue quand l\'application est fermée, via sa notification.';
 
   @override
   String get lockscreen => 'Appliquer aussi à l\'écran de verrouillage';
@@ -132,6 +132,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get screenRotationEnabled => 'Diaporama activé';
+
+  @override
+  String get targetWallpaper => 'Fond d\'écran';
+
+  @override
+  String get targetLockscreen => 'Écran de verrouillage';
 
   @override
   String get screenTheme => 'Thème :';
@@ -339,6 +345,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get galleryTargetLockscreen => 'Écran de verrouillage';
 
   @override
+  String get galleryTargetBoth => 'Les deux';
+
+  @override
+  String get galleryBothApplied =>
+      'Fond d\'écran et écran de verrouillage mis à jour';
+
+  @override
   String get galleryLockscreenApplied => 'Écran de verrouillage mis à jour';
 
   @override
@@ -469,6 +482,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aboutTitle => 'À propos';
+
+  @override
+  String get aboutCredits => 'Crédits photos';
 
   @override
   String get aboutDescription =>

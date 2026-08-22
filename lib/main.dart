@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,8 @@ import 'models/theme_source.dart';
 import 'providers/app_providers.dart';
 import 'models/wallpaper_image.dart';
 import 'services/autostart_service.dart';
-import 'services/background_rotation_service.dart';
+import 'services/background_rotation_service.dart'
+    show BackgroundRotationService, RotationTargetState;
 import 'services/cache_service.dart';
 import 'services/config_service.dart';
 import 'services/log_service.dart';
@@ -36,27 +38,23 @@ late final ProviderSubscription<AppConfig> _configSubscription;
 
 final _autostart = AutostartService();
 final _backgroundRotation = BackgroundRotationService();
+Timer? _backgroundStateRefresh;
 
-/// True when the slideshow should actually be running: not paused and at
-/// least one screen with rotation enabled.
-bool _rotationWanted(AppConfig config) =>
-    !config.slideshowPaused &&
-    config.screens.any((s) => s.rotationEnabled);
-
-/// Reflects a wallpaper applied outside of Dart (Android background job) in
-/// the app state, so the preview matches the device.
-void _applyExternalWallpaper(ProviderContainer container, String path) {
+/// Reflects a wallpaper applied outside of Dart (Android slideshow service)
+/// in the app state, so the preview matches the device.
+void _applyExternalWallpaper(
+    ProviderContainer container, int screenId, String path) {
   if (!File(path).existsSync()) return;
   final current = Map<int, String>.from(
       container.read(currentWallpapersProvider));
-  if (current[0] == path) return;
-  current[0] = path;
+  if (current[screenId] == path) return;
+  current[screenId] = path;
   container.read(currentWallpapersProvider.notifier).state = current;
-  container.read(cacheServiceProvider).pinWallpaper(0, path);
-  _log.d('Preview synced with background rotation: $path');
+  container.read(cacheServiceProvider).pinWallpaper(screenId, path);
+  _log.d('Preview synced with background rotation: screen=$screenId $path');
 }
 
-/// Re-reads what the background job applied whenever the app is shown again.
+/// Re-reads what the background rotation did whenever the app is shown again.
 class _ForegroundWallpaperSync with WidgetsBindingObserver {
   final ProviderContainer container;
   _ForegroundWallpaperSync(this.container);
@@ -64,40 +62,60 @@ class _ForegroundWallpaperSync with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
-    _backgroundRotation.lastAppliedWallpaper().then((path) {
-      if (path != null) _applyExternalWallpaper(container, path);
+    _backgroundRotation.lastAppliedWallpapers().then((applied) {
+      applied.forEach((screenId, path) {
+        _applyExternalWallpaper(container, screenId, path);
+      });
     });
+    // The notification's pause button may have been used while away.
+    _backgroundRotation.isPaused().then((paused) {
+      if (paused == container.read(configProvider).slideshowPaused) return;
+      container
+          .read(configProvider.notifier)
+          .update((c) => c.copyWith(slideshowPaused: paused));
+    });
+    // Hand the service a fresh image list: cache cleanup may have removed
+    // some of the files it knows about, and new ones have been downloaded.
+    _syncBackgroundRotation(container, container.read(configProvider));
   }
 }
 
-/// Mirrors the current rotation settings into the Android background job.
+/// Mirrors the current rotation settings into the Android slideshow service.
 ///
-/// The job runs without Dart, so it gets the images already downloaded for
-/// the theme configured on the (single) mobile screen.
+/// The service runs without Dart, so each target is handed the images already
+/// downloaded for its own theme.
 Future<void> _syncBackgroundRotation(
   ProviderContainer container,
   AppConfig config,
 ) async {
   if (!Platform.isAndroid) return;
 
-  final screen = config.screens.isEmpty ? null : config.screens.first;
   final cache = container.read(cacheServiceProvider);
+  final allThemes =
+      container.read(themesProvider).map((t) => t.displayName).toList();
+  final wallpapers = container.read(currentWallpapersProvider);
 
-  final themes = (screen == null || screen.themeName == 'all')
-      ? container.read(themesProvider).map((t) => t.displayName).toList()
-      : [screen.themeName];
-
-  final images = <String>[];
-  for (final theme in themes) {
-    images.addAll(cache.getCachedPaths(theme));
+  final targets = <RotationTargetState>[];
+  for (final screen in config.screens) {
+    final themes =
+        screen.themeName == 'all' ? allThemes : [screen.themeName];
+    final images = <String>[];
+    for (final theme in themes) {
+      images.addAll(cache.getCachedPaths(theme));
+    }
+    targets.add(RotationTargetState(
+      id: screen.screenId,
+      enabled: screen.rotationEnabled,
+      intervalSeconds: screen.rotationDelaySeconds,
+      theme: screen.themeName == 'all' ? '' : screen.themeName,
+      images: images,
+      current: wallpapers[screen.screenId],
+    ));
   }
 
   await _backgroundRotation.sync(
-    enabled: _rotationWanted(config),
-    intervalMinutes: (screen?.rotationDelaySeconds ?? 900) ~/ 60,
-    lockscreen: config.lockscreenEnabled,
-    images: images,
-    current: container.read(currentWallpapersProvider)[screen?.screenId ?? 0],
+    paused: config.slideshowPaused,
+    targets: targets,
   );
 }
 
@@ -240,13 +258,15 @@ void main(List<String> args) async {
     current[screenId] = imagePath;
     container.read(currentWallpapersProvider.notifier).state = current;
 
-    // Let the Android background job know what is already on screen so it
-    // does not pick the same image on its next run.
-    if (Platform.isAndroid && screenId == 0) {
-      _backgroundRotation.updateCurrent(imagePath);
+    // Let the Android slideshow service know what is already on screen so it
+    // does not pick the same image on its next tick.
+    if (Platform.isAndroid) {
+      _backgroundRotation.updateCurrent(screenId, imagePath);
     }
 
     try {
+      // On Android screen 1 *is* the lock screen, and the native side maps it
+      // to FLAG_LOCK — no separate lock-screen call is needed there.
       final success = await WallpaperChannel.setWallpaper(
         imagePath: imagePath,
         screenId: screenId,
@@ -256,6 +276,7 @@ void main(List<String> args) async {
           'Native setWallpaper(screen=$screenId) -> $success');
 
       if (success &&
+          !Platform.isAndroid &&
           configService.config.lockscreenEnabled &&
           screenId == 0 &&
           lockscreenSupported) {
@@ -303,6 +324,12 @@ void main(List<String> args) async {
         rotationService.rotateScreen(sc.screenId);
       }
 
+      // Turning a slideshow on shows a new image straight away, instead of
+      // leaving the user waiting for the first tick.
+      if (prevSc != null && !prevSc.rotationEnabled && sc.rotationEnabled) {
+        rotationService.rotateScreen(sc.screenId);
+      }
+
       if (prevSc != null &&
           (prevSc.rotationDelaySeconds != sc.rotationDelaySeconds ||
               prevSc.rotationEnabled != sc.rotationEnabled)) {
@@ -311,8 +338,10 @@ void main(List<String> args) async {
     }
 
     // Restart timers only when delay / enabled actually changed — not on
-    // every unrelated config write (language, cache size, ...).
-    if (delayOrEnabledChanged &&
+    // every unrelated config write (language, cache size, ...). On Android
+    // the native service owns the periodic rotation, so Dart has no timers.
+    if (!Platform.isAndroid &&
+        delayOrEnabledChanged &&
         rotationService.isRunning &&
         !rotationService.isPaused) {
       rotationService.restartTimers();
@@ -325,11 +354,19 @@ void main(List<String> args) async {
   });
 
   if (Platform.isAndroid) {
-    // The background job applies wallpapers natively; mirror them into the
-    // preview so the app never shows something other than the real wallpaper.
-    WallpaperChannel.onWallpaperChangedExternally((path) {
-      _applyExternalWallpaper(container, path);
-    });
+    // The slideshow service applies wallpapers natively; mirror them into the
+    // preview so the app never shows something other than the real wallpaper,
+    // and follow the pause button of its notification.
+    WallpaperChannel.listenToNativeRotation(
+      onWallpaperChanged: (screenId, path) =>
+          _applyExternalWallpaper(container, screenId, path),
+      onPausedChanged: (paused) {
+        if (paused == container.read(configProvider).slideshowPaused) return;
+        container
+            .read(configProvider.notifier)
+            .update((c) => c.copyWith(slideshowPaused: paused));
+      },
+    );
     // Also re-read the state file when the app comes back to the foreground,
     // covering rotations that happened while it was closed.
     WidgetsBinding.instance.addObserver(
@@ -361,41 +398,38 @@ Future<void> _initializeApp(
     final screens = container.read(screensProvider);
     _log.i('Detected ${screens.length} screen(s)');
 
-    // Existing configs may carry a delay shorter than what the Android
-    // background job supports (seconds, or a handful of minutes). Raise them
-    // once, otherwise the rotation would silently stop when the app closes.
+    // Seconds are not offered on mobile; the slideshow service works in
+    // minutes. Older configs written before that are converted once.
     if (Platform.isAndroid) {
       final current = container.read(configProvider);
-      final needsMigration = current.screens.any((s) =>
-          s.rotationDelayUnit == 'seconds' ||
-          (s.rotationDelayUnit == 'minutes' &&
-              s.rotationDelay < WallpaperChannel.minBackgroundIntervalMinutes));
-      if (needsMigration) {
+      if (current.screens.any((s) => s.rotationDelayUnit == 'seconds')) {
         await container.read(configProvider.notifier).update((c) {
           final screens = c.screens
-              .map((s) => (s.rotationDelayUnit == 'hours')
-                  ? s
-                  : s.copyWith(
+              .map((s) => s.rotationDelayUnit == 'seconds'
+                  ? s.copyWith(
                       rotationDelayUnit: 'minutes',
-                      rotationDelay: s.rotationDelayUnit == 'minutes' &&
-                              s.rotationDelay >=
-                                  WallpaperChannel.minBackgroundIntervalMinutes
-                          ? s.rotationDelay
-                          : WallpaperChannel.minBackgroundIntervalMinutes,
-                    ))
+                      rotationDelay:
+                          s.rotationDelay < 60 ? 1 : s.rotationDelay ~/ 60,
+                    )
+                  : s)
               .toList();
           return c.copyWith(screens: screens);
         });
-        _log.i('Android: rotation delays raised to the 15-minute minimum');
+        _log.i('Android: second-based delays converted to minutes');
       }
     }
 
-    // Ensure config has entries for all detected screens
+    // Ensure config has entries for all detected screens. On Android the
+    // second "screen" is the lock screen, which starts disabled so nothing
+    // changes for users who only want the home wallpaper to rotate.
     final config = container.read(configProvider);
     if (config.screens.length < screens.length) {
       final updatedScreens = List<ScreenConfig>.from(config.screens);
       for (int i = updatedScreens.length; i < screens.length; i++) {
-        updatedScreens.add(ScreenConfig(screenId: i));
+        updatedScreens.add(ScreenConfig(
+          screenId: i,
+          rotationEnabled: !(Platform.isAndroid && i == 1),
+        ));
       }
       await container
           .read(configProvider.notifier)
@@ -409,14 +443,14 @@ Future<void> _initializeApp(
     final initialWallpapers = <int, String>{};
     final cacheForPinning = container.read(cacheServiceProvider);
 
-    // Android cannot report the current wallpaper path, but the background job
-    // records what it applied — use it so the preview matches the desktop.
+    // Android cannot report the current wallpaper path, but the slideshow
+    // service records what it applied — use it so the previews match.
     if (Platform.isAndroid) {
-      final applied = await _backgroundRotation.lastAppliedWallpaper();
-      if (applied != null) {
-        initialWallpapers[0] = applied;
-        cacheForPinning.pinWallpaper(0, applied);
-      }
+      final applied = await _backgroundRotation.lastAppliedWallpapers();
+      applied.forEach((screenId, path) {
+        initialWallpapers[screenId] = path;
+        cacheForPinning.pinWallpaper(screenId, path);
+      });
     }
 
     for (final s in screens) {
@@ -607,15 +641,37 @@ Future<void> _initializeApp(
       ));
     }
 
-    rotationService.start();
-    container.read(rotationRunningProvider.notifier).state = true;
+    // On Android the periodic rotation belongs to the native slideshow
+    // service, which keeps its schedule when the app is closed. Starting the
+    // Dart timers as well would rotate twice.
+    if (!Platform.isAndroid) {
+      rotationService.start();
+      container.read(rotationRunningProvider.notifier).state = true;
 
-    // Force initial rotation
-    _log.i('Performing initial rotation...');
-    await rotationService.rotateNow();
-    _log.i('Initial rotation done');
+      // Force initial rotation
+      _log.i('Performing initial rotation...');
+      await rotationService.rotateNow();
+      _log.i('Initial rotation done');
+    } else {
+      container.read(rotationRunningProvider.notifier).state = true;
+      // Give each enabled slot an image right away if it has none yet.
+      final wallpapers = container.read(currentWallpapersProvider);
+      for (final sc in finalConfig.screens) {
+        if (sc.rotationEnabled && wallpapers[sc.screenId] == null) {
+          await rotationService.rotateScreen(sc.screenId);
+        }
+      }
+    }
 
     if (Platform.isAndroid) {
+      // The image list handed to the service goes stale as the cache evolves:
+      // cleanup deletes old files and prefetch adds new ones. Refreshing it
+      // regularly is what keeps the background rotation alive over days.
+      _backgroundStateRefresh?.cancel();
+      _backgroundStateRefresh = Timer.periodic(
+        const Duration(minutes: 10),
+        (_) => _syncBackgroundRotation(container, container.read(configProvider)),
+      );
       await _syncBackgroundRotation(container, container.read(configProvider));
     }
 
