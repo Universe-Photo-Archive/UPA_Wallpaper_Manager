@@ -91,11 +91,25 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      # Gradle occasionally fails to reach the plugin portal on the runners;
+      # a couple of retries turns that into a slow build instead of a red one.
       - name: Build debug APK
-        run: flutter build apk --debug
+        run: |
+          for attempt in 1 2 3; do
+            flutter build apk --debug && exit 0
+            echo "::warning::APK build attempt $attempt failed, retrying"
+            sleep 20
+          done
+          exit 1
 
       - name: Build release App Bundle
-        run: flutter build appbundle --release
+        run: |
+          for attempt in 1 2 3; do
+            flutter build appbundle --release && exit 0
+            echo "::warning::App Bundle attempt $attempt failed, retrying"
+            sleep 20
+          done
+          exit 1
 
       - uses: actions/upload-artifact@v4
         with:
