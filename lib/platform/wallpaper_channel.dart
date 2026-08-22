@@ -121,11 +121,11 @@ class WallpaperChannel {
   static Future<void> cancelPeriodicRotation() =>
       _invokeVoid('cancelPeriodicRotation');
 
-  /// Listens to the rotations performed natively while the app is running, so
-  /// the previews and the pause state follow what the device actually does.
+  /// Listens to what the slideshow service does while the app is running, so
+  /// the previews and the switches follow the device.
   static void listenToNativeRotation({
     required void Function(int screenId, String path) onWallpaperChanged,
-    required void Function(bool paused) onPausedChanged,
+    required void Function() onSlideshowStopped,
   }) {
     if (!Platform.isAndroid) return;
     _channel.setMethodCallHandler((call) async {
@@ -137,8 +137,8 @@ class WallpaperChannel {
           if (path != null && path.isNotEmpty) {
             onWallpaperChanged(screenId, path);
           }
-        case 'pausedChanged':
-          onPausedChanged(call.arguments as bool? ?? false);
+        case 'slideshowStopped':
+          onSlideshowStopped();
       }
       return null;
     });

@@ -67,17 +67,30 @@ class _ForegroundWallpaperSync with WidgetsBindingObserver {
         _applyExternalWallpaper(container, screenId, path);
       });
     });
-    // The notification's pause button may have been used while away.
-    _backgroundRotation.isPaused().then((paused) {
-      if (paused == container.read(configProvider).slideshowPaused) return;
-      container
-          .read(configProvider.notifier)
-          .update((c) => c.copyWith(slideshowPaused: paused));
+    // The notification's stop button may have been used while away.
+    _backgroundRotation.allTargetsDisabled().then((stopped) {
+      if (!stopped) return;
+      if (!container.read(configProvider).screens.any((s) => s.rotationEnabled)) {
+        return;
+      }
+      _stopAllSlideshows(container);
     });
     // Hand the service a fresh image list: cache cleanup may have removed
     // some of the files it knows about, and new ones have been downloaded.
     _syncBackgroundRotation(container, container.read(configProvider));
   }
+}
+
+/// Switches every slideshow off, as the notification's stop button does.
+void _stopAllSlideshows(ProviderContainer container) {
+  final config = container.read(configProvider);
+  if (!config.screens.any((s) => s.rotationEnabled)) return;
+  container.read(configProvider.notifier).update((c) => c.copyWith(
+        slideshowPaused: false,
+        screens:
+            c.screens.map((s) => s.copyWith(rotationEnabled: false)).toList(),
+      ));
+  _log.i('Slideshows stopped from the notification');
 }
 
 /// Mirrors the current rotation settings into the Android slideshow service.
@@ -360,12 +373,7 @@ void main(List<String> args) async {
     WallpaperChannel.listenToNativeRotation(
       onWallpaperChanged: (screenId, path) =>
           _applyExternalWallpaper(container, screenId, path),
-      onPausedChanged: (paused) {
-        if (paused == container.read(configProvider).slideshowPaused) return;
-        container
-            .read(configProvider.notifier)
-            .update((c) => c.copyWith(slideshowPaused: paused));
-      },
+      onSlideshowStopped: () => _stopAllSlideshows(container),
     );
     // Also re-read the state file when the app comes back to the foreground,
     // covering rotations that happened while it was closed.
@@ -397,6 +405,15 @@ Future<void> _initializeApp(
     await container.read(screensProvider.notifier).detectScreens();
     final screens = container.read(screensProvider);
     _log.i('Detected ${screens.length} screen(s)');
+
+    // Mobile has no pause any more: the notification stops the slideshow by
+    // switching the slots off. Clear a flag left over by an older build,
+    // which would otherwise keep the service from ever starting again.
+    if (Platform.isAndroid && container.read(configProvider).slideshowPaused) {
+      await container
+          .read(configProvider.notifier)
+          .update((c) => c.copyWith(slideshowPaused: false));
+    }
 
     // Seconds are not offered on mobile; the slideshow service works in
     // minutes. Older configs written before that are converted once.

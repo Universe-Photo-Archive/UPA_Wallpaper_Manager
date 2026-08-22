@@ -84,6 +84,24 @@ object RotationState {
         write(context, state)
     }
 
+    /**
+     * Turns every slot off, as the notification's stop button does.
+     *
+     * Disabling the targets rather than setting a pause flag is what lets the
+     * app's own switches bring the slideshow back: they drive exactly the same
+     * state, so the user always sees where things stand.
+     */
+    @Synchronized
+    fun disableAllTargets(context: Context) {
+        val state = read(context) ?: return
+        state.put("paused", false)
+        val array = state.optJSONArray("targets") ?: return
+        for (index in 0 until array.length()) {
+            array.optJSONObject(index)?.put("enabled", false)
+        }
+        write(context, state)
+    }
+
     @Synchronized
     fun setCurrent(context: Context, targetId: Int, path: String) {
         val state = read(context) ?: return

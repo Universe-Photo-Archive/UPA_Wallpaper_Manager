@@ -134,10 +134,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get screenRotationEnabled => 'Diaporama activé';
 
   @override
-  String get targetWallpaper => 'Fond d\'écran';
+  String get targetWallpaper =>
+      'Activer la rotation automatique du fond d\'écran';
 
   @override
-  String get targetLockscreen => 'Écran de verrouillage';
+  String get targetLockscreen =>
+      'Activer la rotation automatique de l\'écran de verrouillage';
 
   @override
   String get screenTheme => 'Thème :';

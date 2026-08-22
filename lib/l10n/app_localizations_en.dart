@@ -133,10 +133,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get screenRotationEnabled => 'Slideshow enabled';
 
   @override
-  String get targetWallpaper => 'Wallpaper';
+  String get targetWallpaper => 'Rotate the wallpaper automatically';
 
   @override
-  String get targetLockscreen => 'Lock screen';
+  String get targetLockscreen => 'Rotate the lock screen automatically';
 
   @override
   String get screenTheme => 'Theme:';

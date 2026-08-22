@@ -155,12 +155,19 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                   color: targetColor,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  isLockTarget ? l10n.targetLockscreen : l10n.targetWallpaper,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: targetColor,
+                // The label states what the switch next to it does; it wraps
+                // rather than running under the switch.
+                Expanded(
+                  child: Text(
+                    isLockTarget ? l10n.targetLockscreen : l10n.targetWallpaper,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: targetColor,
+                    ),
                   ),
                 ),
               ],
@@ -239,7 +246,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                               .onSurface
                               .withValues(alpha: 0.6))),
                 ),
-              if (narrow) const Spacer(),
+              if (narrow && !_isMobile) const Spacer(),
               const SizedBox(width: 6),
               Switch(
                 value: rotationEnabled,

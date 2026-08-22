@@ -317,13 +317,13 @@ abstract class AppLocalizations {
   /// No description provided for @targetWallpaper.
   ///
   /// In fr, this message translates to:
-  /// **'Fond d\'écran'**
+  /// **'Activer la rotation automatique du fond d\'écran'**
   String get targetWallpaper;
 
   /// No description provided for @targetLockscreen.
   ///
   /// In fr, this message translates to:
-  /// **'Écran de verrouillage'**
+  /// **'Activer la rotation automatique de l\'écran de verrouillage'**
   String get targetLockscreen;
 
   /// No description provided for @screenTheme.

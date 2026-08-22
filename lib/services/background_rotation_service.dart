@@ -158,11 +158,14 @@ class BackgroundRotationService {
     }
   }
 
-  /// Pause flag as the native side left it (the notification can toggle it).
-  Future<bool> isPaused() async {
+  /// True when the native side switched every slot off, which the stop button
+  /// of the notification does.
+  Future<bool> allTargetsDisabled() async {
     if (!Platform.isAndroid) return false;
     final data = await _read(await _stateFile());
-    return data?['paused'] as bool? ?? false;
+    final targets = data?['targets'];
+    if (targets is! List || targets.isEmpty) return false;
+    return targets.every((t) => t is Map && t['enabled'] != true);
   }
 
   Future<Map<String, dynamic>?> _read(File file) async {

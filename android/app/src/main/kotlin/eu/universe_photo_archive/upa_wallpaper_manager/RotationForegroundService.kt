@@ -44,18 +44,17 @@ class RotationForegroundService : Service() {
         startInForeground()
 
         when (intent?.action) {
-            ACTION_PAUSE -> RotationState.setPaused(this, true)
-            ACTION_RESUME -> RotationState.setPaused(this, false)
             ACTION_NEXT -> handler.post { rotateAllNow() }
             ACTION_STOP -> {
+                // Switch every slot off so the app's own toggles reflect it,
+                // then disappear. Turning a slot back on restarts the service.
+                RotationState.disableAllTargets(this)
+                (applicationContext as? MainApplication)?.notifySlideshowStopped()
+                cancelAll()
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
-        }
-
-        if (intent?.action == ACTION_PAUSE || intent?.action == ACTION_RESUME) {
-            (applicationContext as? MainApplication)
-                ?.notifyPausedChanged(intent.action == ACTION_PAUSE)
         }
 
         reschedule()
@@ -159,11 +158,9 @@ class RotationForegroundService : Service() {
 
     private fun buildNotification(): Notification {
         val state = RotationState.read(this)
-        val paused = state != null && RotationState.isPaused(state)
         val targets = state?.let { RotationState.targets(it) } ?: emptyList()
 
         val summary = when {
-            paused -> getString(R.string.rotation_paused)
             targets.none { it.enabled } -> getString(R.string.rotation_idle)
             else -> targets.filter { it.enabled }.joinToString(" • ") { target ->
                 val label = if (target.id == RotationTarget.TARGET_LOCK) {
@@ -190,14 +187,8 @@ class RotationForegroundService : Service() {
             .setContentIntent(openAppIntent())
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .addAction(
-                if (paused) {
-                    action(R.string.rotation_resume, ACTION_RESUME, 1)
-                } else {
-                    action(R.string.rotation_pause, ACTION_PAUSE, 2)
-                }
-            )
-            .addAction(action(R.string.rotation_next, ACTION_NEXT, 3))
+            .addAction(action(R.string.rotation_stop, ACTION_STOP, 1))
+            .addAction(action(R.string.rotation_next, ACTION_NEXT, 2))
             .build()
     }
 
@@ -228,8 +219,6 @@ class RotationForegroundService : Service() {
         var isRunning: Boolean = false
             private set
 
-        const val ACTION_PAUSE = "eu.universe_photo_archive.ROTATION_PAUSE"
-        const val ACTION_RESUME = "eu.universe_photo_archive.ROTATION_RESUME"
         const val ACTION_NEXT = "eu.universe_photo_archive.ROTATION_NEXT"
         const val ACTION_STOP = "eu.universe_photo_archive.ROTATION_STOP"
 

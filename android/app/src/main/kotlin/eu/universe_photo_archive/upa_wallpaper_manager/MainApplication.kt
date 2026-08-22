@@ -77,11 +77,11 @@ class MainApplication : Application() {
         }
     }
 
-    /** Mirrors a pause / resume triggered from the notification. */
-    fun notifyPausedChanged(paused: Boolean) {
+    /** Mirrors the notification's stop button into the app's own switches. */
+    fun notifySlideshowStopped() {
         val channel = wallpaperChannel ?: return
         Handler(Looper.getMainLooper()).post {
-            runCatching { channel.invokeMethod("pausedChanged", paused) }
+            runCatching { channel.invokeMethod("slideshowStopped", null) }
         }
     }
 

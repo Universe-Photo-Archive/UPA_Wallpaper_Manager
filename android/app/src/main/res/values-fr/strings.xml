@@ -5,12 +5,10 @@
     <!-- Notification persistante du diaporama en arrière-plan -->
     <string name="rotation_channel_name">Diaporama des fonds d\'écran</string>
     <string name="rotation_channel_description">Affichée pendant que le diaporama change votre fond d\'écran en arrière-plan</string>
-    <string name="rotation_paused">Diaporama en pause</string>
     <string name="rotation_idle">Diaporama inactif</string>
     <string name="rotation_target_home">Fond d\'écran</string>
     <string name="rotation_target_lock">Écran de verrouillage</string>
     <string name="rotation_all_themes">Tous les thèmes</string>
-    <string name="rotation_pause">Pause</string>
-    <string name="rotation_resume">Reprendre</string>
+    <string name="rotation_stop">Arrêter le diaporama</string>
     <string name="rotation_next">Image suivante</string>
 </resources>
