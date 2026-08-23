@@ -263,18 +263,14 @@ class ThemesManager {
     final removedName = theme.displayName;
     final config = _ref.read(configProvider);
     final hasReferences =
-        config.screens.any((s) => s.themeName == removedName);
+        config.screens.any((s) => s.themeNames.contains(removedName));
     if (hasReferences) {
       await _ref.read(configProvider.notifier).update((c) {
         final updated = c.screens.map((s) {
-          if (s.themeName == removedName) {
-            return ScreenConfig(
-              screenId: s.screenId,
-              themeName: 'all',
-              rotationEnabled: s.rotationEnabled,
-              rotationDelay: s.rotationDelay,
-              rotationDelayUnit: s.rotationDelayUnit,
-              currentWallpaperPath: s.currentWallpaperPath,
+          if (s.themeNames.contains(removedName)) {
+            return s.copyWith(
+              themeNames:
+                  s.themeNames.where((n) => n != removedName).toList(),
             );
           }
           return s;

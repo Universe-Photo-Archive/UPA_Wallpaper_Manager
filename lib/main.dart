@@ -111,8 +111,7 @@ Future<void> _syncBackgroundRotation(
 
   final targets = <RotationTargetState>[];
   for (final screen in config.screens) {
-    final themes =
-        screen.themeName == 'all' ? allThemes : [screen.themeName];
+    final themes = screen.resolveThemes(allThemes);
     final images = <String>[];
     for (final theme in themes) {
       images.addAll(cache.getCachedPaths(theme));
@@ -121,7 +120,9 @@ Future<void> _syncBackgroundRotation(
       id: screen.screenId,
       enabled: screen.rotationEnabled,
       intervalSeconds: screen.rotationDelaySeconds,
-      theme: screen.themeName == 'all' ? '' : screen.themeName,
+      // Empty tells the notification to say "all themes"; a single name is
+      // shown as is, several are joined.
+      theme: screen.usesAllThemes ? '' : screen.themeNames.join(', '),
       images: images,
       current: wallpapers[screen.screenId],
     ));
@@ -359,15 +360,16 @@ void main(List<String> args) async {
 
       rotationService.setScreenConfig(ScreenRotationConfig(
         screenId: sc.screenId,
-        themeName: sc.themeName,
+        themeNames: sc.themeNames,
         enabled: sc.rotationEnabled,
         delaySeconds: sc.rotationDelaySeconds,
       ));
 
-      // If theme changed for this screen, force immediate rotation
-      if (prevSc != null && prevSc.themeName != sc.themeName) {
-        _log.i(
-            'Theme changed on screen ${sc.screenId}: ${prevSc.themeName} -> ${sc.themeName}');
+      // If the theme selection changed for this screen, rotate now.
+      final prevThemes = prevSc?.themeNames.join('|');
+      if (prevSc != null && prevThemes != sc.themeNames.join('|')) {
+        _log.i('Themes changed on screen ${sc.screenId}: '
+            '$prevThemes -> ${sc.themeNames.join("|")}');
         rotationService.rotateScreen(sc.screenId);
       }
 
@@ -686,7 +688,7 @@ Future<void> _initializeApp(
     for (final sc in finalConfig.screens) {
       rotationService.setScreenConfig(ScreenRotationConfig(
         screenId: sc.screenId,
-        themeName: sc.themeName,
+        themeNames: sc.themeNames,
         enabled: sc.rotationEnabled,
         delaySeconds: sc.rotationDelaySeconds,
       ));

@@ -1,6 +1,10 @@
 class ScreenConfig {
   final int screenId;
-  String themeName;
+
+  /// Themes this slot picks from. Empty means "every theme", which is also
+  /// what the user sees when they tick the master checkbox.
+  List<String> themeNames;
+
   bool rotationEnabled;
   int rotationDelay;
   String rotationDelayUnit; // 'seconds', 'minutes', 'hours'
@@ -8,12 +12,18 @@ class ScreenConfig {
 
   ScreenConfig({
     required this.screenId,
-    this.themeName = 'all',
+    this.themeNames = const [],
     this.rotationEnabled = true,
     this.rotationDelay = 15,
     this.rotationDelayUnit = 'minutes',
     this.currentWallpaperPath,
   });
+
+  bool get usesAllThemes => themeNames.isEmpty;
+
+  /// Themes to draw from, [allThemes] standing in for "every theme".
+  List<String> resolveThemes(List<String> allThemes) =>
+      usesAllThemes ? allThemes : themeNames;
 
   int get rotationDelaySeconds {
     switch (rotationDelayUnit) {
@@ -27,9 +37,17 @@ class ScreenConfig {
   }
 
   factory ScreenConfig.fromJson(Map<String, dynamic> json) {
+    // Configs written before multi-selection carried a single themeName,
+    // with the literal 'all' standing for every theme.
+    final legacy = json['themeName'] as String?;
+    final names = (json['themeNames'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        ((legacy == null || legacy == 'all') ? const <String>[] : [legacy]);
+
     return ScreenConfig(
       screenId: json['screenId'] as int,
-      themeName: json['themeName'] as String? ?? 'all',
+      themeNames: names,
       rotationEnabled: json['rotationEnabled'] as bool? ?? true,
       rotationDelay: json['rotationDelay'] as int? ?? 15,
       rotationDelayUnit: json['rotationDelayUnit'] as String? ?? 'minutes',
@@ -39,7 +57,7 @@ class ScreenConfig {
 
   Map<String, dynamic> toJson() => {
         'screenId': screenId,
-        'themeName': themeName,
+        'themeNames': themeNames,
         'rotationEnabled': rotationEnabled,
         'rotationDelay': rotationDelay,
         'rotationDelayUnit': rotationDelayUnit,
@@ -51,7 +69,7 @@ class ScreenConfig {
   /// then share the same instance and change-detection (e.g. "theme changed
   /// on screen X -> rotate now") would silently stop working.
   ScreenConfig copyWith({
-    String? themeName,
+    List<String>? themeNames,
     bool? rotationEnabled,
     int? rotationDelay,
     String? rotationDelayUnit,
@@ -59,7 +77,7 @@ class ScreenConfig {
   }) {
     return ScreenConfig(
       screenId: screenId,
-      themeName: themeName ?? this.themeName,
+      themeNames: themeNames ?? this.themeNames,
       rotationEnabled: rotationEnabled ?? this.rotationEnabled,
       rotationDelay: rotationDelay ?? this.rotationDelay,
       rotationDelayUnit: rotationDelayUnit ?? this.rotationDelayUnit,
@@ -67,6 +85,7 @@ class ScreenConfig {
     );
   }
 }
+
 
 /// An image the user never wants to see again, on any slot.
 ///

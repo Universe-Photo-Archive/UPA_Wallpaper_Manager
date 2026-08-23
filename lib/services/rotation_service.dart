@@ -9,13 +9,15 @@ typedef RotationCallback = void Function(int screenId, String imagePath);
 
 class ScreenRotationConfig {
   final int screenId;
-  String themeName;
+
+  /// Themes this screen draws from; empty means every known theme.
+  List<String> themeNames;
   bool enabled;
   int delaySeconds;
 
   ScreenRotationConfig({
     required this.screenId,
-    this.themeName = 'all',
+    this.themeNames = const [],
     this.enabled = true,
     this.delaySeconds = 900,
   });
@@ -59,7 +61,7 @@ class RotationService {
   String? themeNameForScreen(int screenId) {
     final config = _screenConfigs[screenId];
     if (config == null) return _currentThemes[screenId];
-    if (config.themeName != 'all') return config.themeName;
+    if (config.themeNames.length == 1) return config.themeNames.first;
     return _currentThemes[screenId];
   }
 
@@ -216,9 +218,8 @@ class RotationService {
   /// downloads it on-demand if needed, and ensures every image in the theme
   /// is shown exactly once before the cycle resets.
   Future<String?> _getNextImageForScreen(ScreenRotationConfig config) async {
-    final themes = config.themeName == 'all'
-        ? allThemeNames
-        : [config.themeName];
+    final themes =
+        config.themeNames.isEmpty ? allThemeNames : config.themeNames;
 
     // Build list of ALL images (downloaded or not) for the theme(s)
     final allImages = <_Candidate>[];
@@ -244,7 +245,7 @@ class RotationService {
     var eligible = allImages.where((c) {
       if (c.image.isDisplayed) return false;
       if (otherFilenames.contains(c.image.filename)) return false;
-      if (config.themeName == 'all' && otherThemes.contains(c.theme)) {
+      if (themes.length > 1 && otherThemes.contains(c.theme)) {
         return false;
       }
       return true;
@@ -254,7 +255,7 @@ class RotationService {
     if (eligible.isEmpty) {
       final totalUndisplayed = allImages.where((c) => !c.image.isDisplayed).length;
       if (totalUndisplayed == 0) {
-        _log.i('Full cycle complete for ${config.themeName} '
+        _log.i('Full cycle complete for ${themes.join(", ")} '
             '(${allImages.length} images). Resetting.');
         for (final theme in themes) {
           _cache.resetCycle(theme);

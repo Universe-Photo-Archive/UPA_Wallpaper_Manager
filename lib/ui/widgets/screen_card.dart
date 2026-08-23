@@ -6,6 +6,7 @@ import '../../models/app_config.dart';
 import '../../models/screen_info.dart';
 import '../../models/theme_category.dart';
 import '../../providers/app_providers.dart';
+import 'theme_picker.dart';
 
 class ScreenCard extends ConsumerStatefulWidget {
   final ScreenInfo screen;
@@ -87,7 +88,10 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
     final wallpapers = ref.watch(currentWallpapersProvider);
     final currentPath = wallpapers[screen.id];
 
-    final selectedTheme = screenConfig?.themeName ?? 'all';
+    // Empty means every theme, which is how the master checkbox reads.
+    final selectedThemes = (screenConfig?.themeNames ?? const <String>[])
+        .where((n) => themes.any((t) => t.displayName == n))
+        .toSet();
     final rotationEnabled = screenConfig?.rotationEnabled ?? true;
     var delayUnit = screenConfig?.rotationDelayUnit ?? 'minutes';
     // A config saved on desktop (or by an older build) may use seconds, which
@@ -136,7 +140,13 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
               : _Placeholder();
 
           final preview = Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            // Stretching is only safe when the width is bounded, which it is
+            // in the stacked mobile layout. Beside the settings on desktop the
+            // column sits in a Row with unbounded width, where stretching
+            // throws and leaves the whole card body blank.
+            crossAxisAlignment:
+                narrow ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
@@ -146,24 +156,26 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
               ),
               // Ban the photo on screen right now: it disappears from both
               // slots and another one takes its place immediately.
-              if (currentPath != null) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => _excludeCurrent(context, screen.id),
-                  icon: const Icon(Icons.block_outlined, size: 16),
-                  label: Text(
-                    l10n.excludeImage,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.7),
-                    visualDensity: VisualDensity.compact,
+              if (currentPath != null)
+                SizedBox(
+                  width: narrow ? null : 260,
+                  child: TextButton.icon(
+                    onPressed: () => _excludeCurrent(context, screen.id),
+                    icon: const Icon(Icons.block_outlined, size: 16),
+                    label: Text(
+                      l10n.excludeImage,
+                      style: const TextStyle(fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
                 ),
-              ],
             ],
           );
 
@@ -296,46 +308,12 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                                   .onSurface
                                   .withValues(alpha: 0.7))),
                       const SizedBox(height: 6),
-                      SizedBox(
-                        height: 44,
-                        child: DropdownButtonFormField<String>(
-                          initialValue: themes
-                                  .any((t) => t.displayName == selectedTheme)
-                              ? selectedTheme
-                              : 'all',
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                          ),
-                          items: [
-                            DropdownMenuItem(
-                              value: 'all',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.all_inclusive, size: 16),
-                                  const SizedBox(width: 8),
-                                  Text(l10n.screenAllThemes,
-                                      style: const TextStyle(fontSize: 14)),
-                                ],
-                              ),
-                            ),
-                            ...themes.map((t) => DropdownMenuItem(
-                                  value: t.displayName,
-                                  child: Text(
-                                    '${t.displayName} (${t.imageCount})',
-                                    style: const TextStyle(fontSize: 14),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                )),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              _updateScreenConfig(ref, screen.id,
-                                  themeName: val);
-                            }
-                          },
+                      ThemeCheckboxField(
+                        themes: themes,
+                        selected: selectedThemes,
+                        onChanged: (names) => _updateScreenConfig(
+                          ref, screen.id,
+                          themeNames: names.toList(),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -475,7 +453,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
   void _updateScreenConfig(
     WidgetRef ref,
     int screenId, {
-    String? themeName,
+    List<String>? themeNames,
     bool? rotationEnabled,
     int? rotationDelay,
     String? rotationDelayUnit,
@@ -487,7 +465,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
         // Replace (never mutate) the entry: the old instance stays part of
         // the previous state so listeners can diff prev vs next reliably.
         screens[idx] = screens[idx].copyWith(
-          themeName: themeName,
+          themeNames: themeNames,
           rotationEnabled: rotationEnabled,
           rotationDelay: rotationDelay,
           rotationDelayUnit: rotationDelayUnit,
@@ -495,7 +473,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
       } else {
         screens.add(ScreenConfig(
           screenId: screenId,
-          themeName: themeName ?? 'all',
+          themeNames: themeNames ?? const [],
           rotationEnabled: rotationEnabled ?? true,
           rotationDelay: rotationDelay ?? 15,
           rotationDelayUnit: rotationDelayUnit ?? 'minutes',

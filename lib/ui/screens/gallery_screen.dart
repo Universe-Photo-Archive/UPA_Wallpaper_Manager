@@ -9,6 +9,7 @@ import '../../providers/app_providers.dart';
 import '../../platform/lockscreen_channel.dart';
 import '../../platform/wallpaper_channel.dart';
 import '../widgets/manage_themes_dialog.dart';
+import '../widgets/theme_picker.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
   const GalleryScreen({super.key});
@@ -232,10 +233,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   }
 }
 
-/// Theme picker with checkboxes, so several themes can be browsed together.
-///
-/// Ticking "all themes" selects every one of them, and unticking any theme
-/// naturally leaves that master box unticked.
+/// Theme picker of the gallery: several themes can be browsed at once.
 class _ThemeMultiSelect extends StatelessWidget {
   final List<ThemeCategory> themes;
   final Set<String> selected;
@@ -249,114 +247,36 @@ class _ThemeMultiSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final allSelected =
-        themes.isNotEmpty && selected.length == themes.length;
-
-    final label = switch (selected.length) {
-      0 => l10n.gallerySelectTheme,
-      1 => themes
-          .firstWhere((t) => t.uniqueKey == selected.first,
-              orElse: () => themes.first)
-          .displayName,
-      _ when allSelected => l10n.screenAllThemes,
-      _ => l10n.galleryThemesSelected(selected.length),
-    };
+    // The gallery stores unique keys, but the label reads better with names.
+    final names = themes
+        .where((t) => selected.contains(t.uniqueKey))
+        .map((t) => t.displayName)
+        .toSet();
+    final label =
+        themeSelectionLabel(context, themes, names, emptyMeansAll: false);
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => _openPicker(context),
+      onTap: () async {
+        final result = await pickThemes(
+          context: context,
+          themes: themes,
+          selected: selected,
+          valueOf: (t) => t.uniqueKey,
+        );
+        if (result != null) onChanged(result);
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
-              child: Text(label, overflow: TextOverflow.ellipsis),
-            ),
+            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
             const Icon(Icons.arrow_drop_down_rounded),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _openPicker(BuildContext context) async {
-    final l10n = AppLocalizations.of(context)!;
-    final working = Set<String>.from(selected);
-
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          final allSelected =
-              themes.isNotEmpty && working.length == themes.length;
-          return SafeArea(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(ctx).height * 0.75,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CheckboxListTile(
-                    value: allSelected,
-                    title: Text(l10n.screenAllThemes,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    onChanged: (checked) => setSheetState(() {
-                      working
-                        ..clear()
-                        ..addAll(checked == true
-                            ? themes.map((t) => t.uniqueKey)
-                            : const <String>[]);
-                    }),
-                  ),
-                  const Divider(height: 1),
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: themes.length,
-                      itemBuilder: (_, index) {
-                        final theme = themes[index];
-                        return CheckboxListTile(
-                          value: working.contains(theme.uniqueKey),
-                          title: Text(
-                            '${theme.displayName} (${theme.imageCount})',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onChanged: (checked) => setSheetState(() {
-                            if (checked == true) {
-                              working.add(theme.uniqueKey);
-                            } else {
-                              working.remove(theme.uniqueKey);
-                            }
-                          }),
-                        );
-                      },
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(44),
-                      ),
-                      child: Text(l10n.dialogOk),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-
-    if (confirmed == true) onChanged(working);
   }
 }
 
