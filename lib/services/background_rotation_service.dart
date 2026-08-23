@@ -34,6 +34,25 @@ class RotationTargetState {
       };
 }
 
+/// Quiet window handed to the native side, in minutes from midnight.
+class QuietHoursState {
+  final bool enabled;
+  final int startMinutes;
+  final int endMinutes;
+
+  const QuietHoursState({
+    required this.enabled,
+    required this.startMinutes,
+    required this.endMinutes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'enabled': enabled,
+        'startMinutes': startMinutes,
+        'endMinutes': endMinutes,
+      };
+}
+
 /// Bridges the app settings and the Android background slideshow.
 ///
 /// The rotation that happens while the app is closed runs natively (see
@@ -58,9 +77,15 @@ class BackgroundRotationService {
   ///
   /// [targets] must carry absolute paths of images already on disk: the
   /// background rotation never touches the network.
+  ///
+  /// [labels] are the notification texts, already translated by the app: the
+  /// service must follow the language chosen in the app, not the one of the
+  /// device.
   Future<void> sync({
     required bool paused,
     required List<RotationTargetState> targets,
+    QuietHoursState? quietHours,
+    Map<String, String> labels = const {},
   }) async {
     if (!Platform.isAndroid) return;
 
@@ -80,6 +105,8 @@ class BackgroundRotationService {
 
       await file.writeAsString(json.encode({
         'paused': paused,
+        if (quietHours != null) 'quietHours': quietHours.toJson(),
+        if (labels.isNotEmpty) 'labels': labels,
         'targets': [
           for (final target in targets)
             {

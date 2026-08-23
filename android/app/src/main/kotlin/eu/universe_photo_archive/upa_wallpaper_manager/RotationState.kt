@@ -5,6 +5,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Calendar
 
 /**
  * The rotation settings shared between Dart and the native background code.
@@ -76,6 +77,49 @@ object RotationState {
     /** True when at least one target should be rotating right now. */
     fun hasActiveTarget(state: JSONObject): Boolean =
         !isPaused(state) && targets(state).any { it.enabled && it.images.isNotEmpty() }
+
+    /**
+     * Notification text in the language chosen inside the app.
+     *
+     * Android string resources follow the *device* language, which is not
+     * necessarily the one the user picked in the app, so the app supplies its
+     * own translations and the resources are only a fallback.
+     */
+    fun label(context: Context, key: String, fallbackRes: Int): String {
+        val state = read(context)
+        val labels = state?.optJSONObject("labels")
+        val value = labels?.optString(key, "") ?: ""
+        return value.ifEmpty { context.getString(fallbackRes) }
+    }
+
+    /**
+     * Minutes from midnight until the quiet window ends, or null when the
+     * slideshow may run right now.
+     *
+     * The window is evaluated against local time and may wrap past midnight.
+     */
+    fun minutesUntilQuietEnds(state: JSONObject): Int? {
+        val quiet = state.optJSONObject("quietHours") ?: return null
+        if (!quiet.optBoolean("enabled", false)) return null
+
+        val start = quiet.optInt("startMinutes", 0)
+        val end = quiet.optInt("endMinutes", 0)
+        if (start == end) return null
+
+        val now = Calendar.getInstance()
+        val current = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+
+        val inside = if (start < end) {
+            current >= start && current < end
+        } else {
+            current >= start || current < end
+        }
+        if (!inside) return null
+
+        val remaining = if (current < end) end - current else (24 * 60 - current) + end
+        // Never return zero: the caller uses this as a delay.
+        return remaining.coerceAtLeast(1)
+    }
 
     @Synchronized
     fun setPaused(context: Context, paused: Boolean) {

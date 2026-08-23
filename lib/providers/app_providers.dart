@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import '../models/app_config.dart';
 import '../models/screen_info.dart';
 import '../models/theme_category.dart';
@@ -291,6 +292,60 @@ class ThemesManager {
     final rotation = _ref.read(rotationServiceProvider);
     rotation.allThemeNames =
         _ref.read(themesProvider).map((t) => t.displayName).toList();
+  }
+}
+
+// --- Excluded images ---
+
+/// Adds and removes images from the "never show again" list.
+///
+/// The cache is the single place that filters them out, so every consumer —
+/// in-app rotation, prefetch and the Android background slideshow — honours
+/// the list without knowing about it.
+final exclusionsProvider = Provider<ExclusionsManager>((ref) {
+  return ExclusionsManager(ref);
+});
+
+class ExclusionsManager {
+  final Ref _ref;
+  ExclusionsManager(this._ref);
+
+  /// Bans the image currently displayed on [screenId] and immediately puts
+  /// another one in its place, so the user is not left looking at it.
+  Future<bool> excludeCurrent(int screenId) async {
+    final path = _ref.read(currentWallpapersProvider)[screenId];
+    if (path == null) return false;
+
+    final cache = _ref.read(cacheServiceProvider);
+    final theme = cache.themeOfCachedFile(path);
+    if (theme == null) return false;
+
+    final filename = p.basename(path);
+    final entry =
+        ExcludedImage(theme: theme, filename: filename, localPath: path);
+
+    final config = _ref.read(configProvider);
+    if (config.excludedImages.any((e) => e.key == entry.key)) return false;
+
+    await _ref.read(configProvider.notifier).update((c) => c.copyWith(
+          excludedImages: [...c.excludedImages, entry],
+        ));
+
+    await _ref.read(rotationServiceProvider).rotateScreen(screenId);
+    return true;
+  }
+
+  Future<void> restore(ExcludedImage image) async {
+    await _ref.read(configProvider.notifier).update((c) => c.copyWith(
+          excludedImages:
+              c.excludedImages.where((e) => e.key != image.key).toList(),
+        ));
+  }
+
+  Future<void> clear() async {
+    await _ref
+        .read(configProvider.notifier)
+        .update((c) => c.copyWith(excludedImages: const []));
   }
 }
 

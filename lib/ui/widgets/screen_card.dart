@@ -135,11 +135,36 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                 )
               : _Placeholder();
 
-          final preview = ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: narrow
-                ? AspectRatio(aspectRatio: 16 / 9, child: previewImage())
-                : SizedBox(width: 260, height: 146, child: previewImage()),
+          final preview = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: narrow
+                    ? AspectRatio(aspectRatio: 16 / 9, child: previewImage())
+                    : SizedBox(width: 260, height: 146, child: previewImage()),
+              ),
+              // Ban the photo on screen right now: it disappears from both
+              // slots and another one takes its place immediately.
+              if (currentPath != null) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => _excludeCurrent(context, screen.id),
+                  icon: const Icon(Icons.block_outlined, size: 16),
+                  label: Text(
+                    l10n.excludeImage,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.7),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ],
           );
 
           // Header: screen name + badges + rotation toggle (desktop), or
@@ -435,6 +460,15 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
           );
         }),
       ),
+    );
+  }
+
+  Future<void> _excludeCurrent(BuildContext context, int screenId) async {
+    final l10n = AppLocalizations.of(context)!;
+    final excluded = await ref.read(exclusionsProvider).excludeCurrent(screenId);
+    if (!context.mounted || !excluded) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.excludeImageDone)),
     );
   }
 

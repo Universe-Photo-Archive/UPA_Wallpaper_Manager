@@ -14,8 +14,9 @@ import 'models/theme_source.dart';
 import 'providers/app_providers.dart';
 import 'models/wallpaper_image.dart';
 import 'services/autostart_service.dart';
+import 'l10n/app_localizations.dart';
 import 'services/background_rotation_service.dart'
-    show BackgroundRotationService, RotationTargetState;
+    show BackgroundRotationService, QuietHoursState, RotationTargetState;
 import 'services/cache_service.dart';
 import 'services/config_service.dart';
 import 'services/log_service.dart';
@@ -129,7 +130,29 @@ Future<void> _syncBackgroundRotation(
   await _backgroundRotation.sync(
     paused: config.slideshowPaused,
     targets: targets,
+    quietHours: QuietHoursState(
+      enabled: config.quietHours.enabled && config.quietHours.isValid,
+      startMinutes: config.quietHours.startMinutes,
+      endMinutes: config.quietHours.endMinutes,
+    ),
+    // The notification must follow the language chosen in the app, which is
+    // not necessarily the device's, so the translations travel with the state.
+    labels: _notificationLabels(config.language),
   );
+}
+
+/// Notification texts in the app's language, handed to the native service.
+Map<String, String> _notificationLabels(String languageCode) {
+  final l10n = lookupAppLocalizations(Locale(languageCode));
+  return {
+    'home': l10n.galleryTargetWallpaper,
+    'lock': l10n.galleryTargetLockscreen,
+    'allThemes': l10n.screenAllThemes,
+    'idle': l10n.notificationIdle,
+    'quiet': l10n.notificationQuiet,
+    'stop': l10n.notificationStop,
+    'next': l10n.notificationNext,
+  };
 }
 
 void main(List<String> args) async {
@@ -209,6 +232,8 @@ void main(List<String> args) async {
     prefetchCount: 10,
   );
   await cacheService.init();
+  cacheService.excludedKeys =
+      configService.config.excludedImages.map((e) => e.key).toSet();
 
   final themesConfigService = ThemesConfigService();
   await themesConfigService.init();
@@ -217,6 +242,13 @@ void main(List<String> args) async {
     cache: cacheService,
     randomMode: configService.config.randomMode,
   );
+  // Quiet hours are enforced natively on Android; this covers the desktop
+  // timers, which Dart drives itself.
+  rotationService.shouldRotateNow = () {
+    final now = DateTime.now();
+    return !configService.config.quietHours
+        .containsMinutes(now.hour * 60 + now.minute);
+  };
 
   final trayService = SystemTrayService();
 
@@ -311,6 +343,8 @@ void main(List<String> args) async {
 
     logService.debugMode = next.debugMode;
     rotationService.randomMode = next.randomMode;
+    cacheService.excludedKeys =
+        next.excludedImages.map((e) => e.key).toSet();
 
     // Sync auto-start with the OS whenever the user toggles the setting.
     if (prev?.launchOnStartup != next.launchOnStartup) {

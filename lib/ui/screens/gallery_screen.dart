@@ -18,8 +18,11 @@ class GalleryScreen extends ConsumerStatefulWidget {
 }
 
 class _GalleryScreenState extends ConsumerState<GalleryScreen> {
-  ThemeCategory? _selectedTheme;
+  /// Unique keys of the themes whose images are shown. Empty means nothing is
+  /// selected yet; several themes can be browsed at once.
+  Set<String> _selectedKeys = {};
   bool _loading = false;
+  int _loadToken = 0;
   List<WallpaperImage> _images = [];
 
   @override
@@ -28,15 +31,13 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final themes = ref.watch(themesProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // If the previously selected theme was removed, reset selection.
-    if (_selectedTheme != null &&
-        !themes.any((t) => t.uniqueKey == _selectedTheme!.uniqueKey)) {
+    // Drop selections whose theme was removed in the meantime.
+    final available = themes.map((t) => t.uniqueKey).toSet();
+    if (_selectedKeys.any((k) => !available.contains(k))) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        setState(() {
-          _selectedTheme = null;
-          _images = [];
-        });
+        setState(() => _selectedKeys = _selectedKeys.intersection(available));
+        _loadImages();
       });
     }
 
@@ -74,29 +75,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                       ? MediaQuery.sizeOf(context).width - 92
                       : 320,
                 ),
-                child: DropdownButton<String?>(
-                  value: _selectedTheme?.uniqueKey,
-                  hint: Text(l10n.screenAllThemes),
-                  underline: const SizedBox(),
-                  isExpanded: true,
-                  items: [
-                    DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text(l10n.screenAllThemes,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    ...themes.map((t) => DropdownMenuItem<String?>(
-                          value: t.uniqueKey,
-                          child: Text('${t.displayName} (${t.imageCount})',
-                              overflow: TextOverflow.ellipsis),
-                        )),
-                  ],
-                  onChanged: (key) {
-                    setState(() {
-                      _selectedTheme = key == null
-                          ? null
-                          : themes.firstWhere((t) => t.uniqueKey == key);
-                    });
+                child: _ThemeMultiSelect(
+                  themes: themes,
+                  selected: _selectedKeys,
+                  onChanged: (keys) {
+                    setState(() => _selectedKeys = keys);
                     _loadImages();
                   },
                 ),
@@ -139,7 +122,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                                 .withValues(alpha: 0.2)),
                         const SizedBox(height: 20),
                         Text(
-                          _selectedTheme == null
+                          _selectedKeys.isEmpty
                               ? l10n.gallerySelectThemeHint
                               : l10n.galleryEmpty,
                           style:
@@ -187,9 +170,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     );
   }
 
+  /// Loads the images of every selected theme, in selection order.
   Future<void> _loadImages() async {
-    final theme = _selectedTheme;
-    if (theme == null) {
+    final selected = ref
+        .read(themesProvider)
+        .where((t) => _selectedKeys.contains(t.uniqueKey))
+        .toList();
+
+    if (selected.isEmpty) {
       setState(() {
         _images = [];
         _loading = false;
@@ -197,39 +185,39 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       return;
     }
 
+    // Requests are slow enough that the user can change the selection while
+    // one is in flight; only the newest one may touch the state.
+    final token = ++_loadToken;
     setState(() => _loading = true);
 
-    List<WallpaperImage> images = [];
-    try {
-      if (theme.sourceBaseUrl.startsWith(LocalSource.urlScheme)) {
-        final folderPath =
-            theme.sourceBaseUrl.substring(LocalSource.urlScheme.length);
-        final localSvc = ref.read(localGalleryServiceProvider);
-        images = await localSvc.getImages(LocalSource(
-          folderPath: folderPath,
-          name: theme.nameRaw,
-          id: theme.id,
-          recursive: true,
-        ));
-      } else {
-        final api = ref.read(piwigoApiProvider);
-        images = await api.getThemeImages(
-          theme.id,
-          baseUrl: theme.sourceBaseUrl,
-          recursive: theme.needsRecursiveFetch,
-        );
+    final images = <WallpaperImage>[];
+    for (final theme in selected) {
+      try {
+        if (theme.sourceBaseUrl.startsWith(LocalSource.urlScheme)) {
+          final folderPath =
+              theme.sourceBaseUrl.substring(LocalSource.urlScheme.length);
+          final localSvc = ref.read(localGalleryServiceProvider);
+          images.addAll(await localSvc.getImages(LocalSource(
+            folderPath: folderPath,
+            name: theme.nameRaw,
+            id: theme.id,
+            recursive: true,
+          )));
+        } else {
+          final api = ref.read(piwigoApiProvider);
+          images.addAll(await api.getThemeImages(
+            theme.id,
+            baseUrl: theme.sourceBaseUrl,
+            recursive: theme.needsRecursiveFetch,
+          ));
+        }
+      } catch (_) {
+        // Keep the gallery usable even if one theme fails to load.
       }
-    } catch (_) {
-      // Keep the gallery usable even if a local folder scan fails;
-      // Piwigo errors are already handled inside getThemeImages.
-      images = [];
+      if (!mounted || token != _loadToken) return;
     }
 
-    if (!mounted) return;
-    // The user may have switched theme while this request was in flight —
-    // ignore stale results, the newer request will update the state.
-    if (_selectedTheme?.uniqueKey != theme.uniqueKey) return;
-
+    if (!mounted || token != _loadToken) return;
     setState(() {
       _images = images;
       _loading = false;
@@ -241,6 +229,134 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       context: context,
       builder: (ctx) => _ImageDetailDialog(image: image),
     );
+  }
+}
+
+/// Theme picker with checkboxes, so several themes can be browsed together.
+///
+/// Ticking "all themes" selects every one of them, and unticking any theme
+/// naturally leaves that master box unticked.
+class _ThemeMultiSelect extends StatelessWidget {
+  final List<ThemeCategory> themes;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+
+  const _ThemeMultiSelect({
+    required this.themes,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final allSelected =
+        themes.isNotEmpty && selected.length == themes.length;
+
+    final label = switch (selected.length) {
+      0 => l10n.gallerySelectTheme,
+      1 => themes
+          .firstWhere((t) => t.uniqueKey == selected.first,
+              orElse: () => themes.first)
+          .displayName,
+      _ when allSelected => l10n.screenAllThemes,
+      _ => l10n.galleryThemesSelected(selected.length),
+    };
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _openPicker(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(label, overflow: TextOverflow.ellipsis),
+            ),
+            const Icon(Icons.arrow_drop_down_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPicker(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final working = Set<String>.from(selected);
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final allSelected =
+              themes.isNotEmpty && working.length == themes.length;
+          return SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(ctx).height * 0.75,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CheckboxListTile(
+                    value: allSelected,
+                    title: Text(l10n.screenAllThemes,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    onChanged: (checked) => setSheetState(() {
+                      working
+                        ..clear()
+                        ..addAll(checked == true
+                            ? themes.map((t) => t.uniqueKey)
+                            : const <String>[]);
+                    }),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: themes.length,
+                      itemBuilder: (_, index) {
+                        final theme = themes[index];
+                        return CheckboxListTile(
+                          value: working.contains(theme.uniqueKey),
+                          title: Text(
+                            '${theme.displayName} (${theme.imageCount})',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onChanged: (checked) => setSheetState(() {
+                            if (checked == true) {
+                              working.add(theme.uniqueKey);
+                            } else {
+                              working.remove(theme.uniqueKey);
+                            }
+                          }),
+                        );
+                      },
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                      child: Text(l10n.dialogOk),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true) onChanged(working);
   }
 }
 

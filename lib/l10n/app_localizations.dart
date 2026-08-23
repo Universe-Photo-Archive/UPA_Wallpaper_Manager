@@ -752,6 +752,12 @@ abstract class AppLocalizations {
   /// **'Téléchargement...'**
   String get galleryDownloading;
 
+  /// No description provided for @gallerySelectTheme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir des thèmes'**
+  String get gallerySelectTheme;
+
   /// No description provided for @gallerySelectThemeHint.
   ///
   /// In fr, this message translates to:
@@ -973,6 +979,126 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'À propos'**
   String get aboutTitle;
+
+  /// No description provided for @notificationIdle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Diaporama inactif'**
+  String get notificationIdle;
+
+  /// No description provided for @notificationQuiet.
+  ///
+  /// In fr, this message translates to:
+  /// **'En pause jusqu\'à la fin de la plage horaire'**
+  String get notificationQuiet;
+
+  /// No description provided for @notificationStop.
+  ///
+  /// In fr, this message translates to:
+  /// **'Arrêter le diaporama'**
+  String get notificationStop;
+
+  /// No description provided for @notificationNext.
+  ///
+  /// In fr, this message translates to:
+  /// **'Image suivante'**
+  String get notificationNext;
+
+  /// No description provided for @settingsQuietHours.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mettre le diaporama en pause'**
+  String get settingsQuietHours;
+
+  /// No description provided for @settingsQuietHoursSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune rotation pendant la plage horaire choisie'**
+  String get settingsQuietHoursSubtitle;
+
+  /// No description provided for @settingsQuietFrom.
+  ///
+  /// In fr, this message translates to:
+  /// **'De'**
+  String get settingsQuietFrom;
+
+  /// No description provided for @settingsQuietTo.
+  ///
+  /// In fr, this message translates to:
+  /// **'À'**
+  String get settingsQuietTo;
+
+  /// No description provided for @settingsQuietInvalid.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les deux heures doivent être différentes'**
+  String get settingsQuietInvalid;
+
+  /// No description provided for @excludeImage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Exclure cette image'**
+  String get excludeImage;
+
+  /// No description provided for @excludeImageDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Image exclue : elle ne sera plus affichée'**
+  String get excludeImageDone;
+
+  /// No description provided for @settingsExcluded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Images exclues'**
+  String get settingsExcluded;
+
+  /// No description provided for @settingsExcludedSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} image(s) ne seront plus affichées'**
+  String settingsExcludedSubtitle(int count);
+
+  /// No description provided for @excludedTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Images exclues'**
+  String get excludedTitle;
+
+  /// No description provided for @excludedEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune image exclue'**
+  String get excludedEmpty;
+
+  /// No description provided for @excludedRestore.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer de la liste'**
+  String get excludedRestore;
+
+  /// No description provided for @excludedRestored.
+  ///
+  /// In fr, this message translates to:
+  /// **'Image réintégrée au diaporama'**
+  String get excludedRestored;
+
+  /// No description provided for @excludedClearAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vider la liste'**
+  String get excludedClearAll;
+
+  /// No description provided for @excludedClearConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer toutes les images de la liste d\'exclusion ?'**
+  String get excludedClearConfirm;
+
+  /// No description provided for @galleryThemesSelected.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} thème(s) sélectionné(s)'**
+  String galleryThemesSelected(int count);
 
   /// No description provided for @aboutCredits.
   ///

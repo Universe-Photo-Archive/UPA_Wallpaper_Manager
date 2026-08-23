@@ -31,10 +31,38 @@ class CacheService {
   /// reference) never points to a deleted file.
   final Map<int, String> _pinnedWallpapers = {};
 
+  /// `theme/filename` of every image the user banned. Filtering here rather
+  /// than at each call site guarantees an excluded image cannot come back
+  /// through rotation, prefetch or the background slideshow.
+  Set<String> _excludedKeys = const {};
+
   CacheService({
     this.maxCachedImages = defaultMaxImages,
     this.prefetchCount = defaultPrefetchCount,
   });
+
+  set excludedKeys(Set<String> keys) => _excludedKeys = keys;
+
+  bool isExcluded(String themeName, String filename) =>
+      _excludedKeys.contains('$themeName/$filename');
+
+  /// Theme a cached file belongs to, deduced from its place in the cache
+  /// (`<cacheDir>/<theme>/<file>`). Null for anything outside the cache.
+  String? themeOfCachedFile(String filePath) {
+    final normalized = _normalizePath(filePath);
+    final root = '${_normalizePath(_cacheDir.path)}/';
+    if (!normalized.startsWith(root)) return null;
+    final relative = normalized.substring(root.length);
+    final slash = relative.indexOf('/');
+    if (slash <= 0) return null;
+    return relative.substring(0, slash);
+  }
+
+  List<WallpaperImage> _selectable(String themeName) {
+    final images = _index[themeName] ?? [];
+    if (_excludedKeys.isEmpty) return images;
+    return images.where((i) => !isExcluded(themeName, i.filename)).toList();
+  }
 
   Future<void> init() async {
     final appDir = await getApplicationSupportDirectory();
@@ -107,7 +135,12 @@ class CacheService {
     _saveIndex();
   }
 
+  /// Images of a theme that may be shown — excluded ones are filtered out.
   List<WallpaperImage> getThemeImages(String themeName) =>
+      _selectable(themeName);
+
+  /// Every known image of a theme, excluded ones included.
+  List<WallpaperImage> getAllThemeImages(String themeName) =>
       _index[themeName] ?? [];
 
   /// Marks [path] as the wallpaper currently shown on [screenId], protecting
@@ -176,7 +209,7 @@ class CacheService {
   /// Downloads a batch of images for a theme that are not yet cached.
   Future<int> downloadBatch(String themeName, {int? count}) async {
     count ??= prefetchCount;
-    final images = _index[themeName] ?? [];
+    final images = _selectable(themeName);
     final toDownload =
         images.where((i) => !i.isDownloaded && !i.isDisplayed).take(count);
 
@@ -197,7 +230,7 @@ class CacheService {
   /// Zero-length files are rejected: they can only be leftovers from an
   /// interrupted download and would be applied as a blank wallpaper.
   List<String> getCachedPaths(String themeName, {bool onlyUndisplayed = false}) {
-    final images = _index[themeName] ?? [];
+    final images = _selectable(themeName);
     return images
         .where((i) =>
             i.isDownloaded &&
@@ -257,8 +290,7 @@ class CacheService {
 
   /// Returns all undisplayed images for a theme (including non-downloaded).
   List<WallpaperImage> getUndisplayedImages(String themeName) {
-    final images = _index[themeName] ?? [];
-    return images.where((i) => !i.isDisplayed).toList();
+    return _selectable(themeName).where((i) => !i.isDisplayed).toList();
   }
 
   /// Resets display cycle for a theme (all images become undisplayed).

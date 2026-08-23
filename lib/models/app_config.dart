@@ -68,6 +68,87 @@ class ScreenConfig {
   }
 }
 
+/// An image the user never wants to see again, on any slot.
+///
+/// Identified by theme + file name rather than by absolute path: the file is
+/// re-downloaded to the same place after a cache clear, and the pair stays
+/// stable across reinstalls.
+class ExcludedImage {
+  final String theme;
+  final String filename;
+
+  /// Where the file was when it was excluded, used to show a thumbnail in the
+  /// exclusion list. May no longer exist once the cache has been cleaned.
+  final String? localPath;
+
+  const ExcludedImage({
+    required this.theme,
+    required this.filename,
+    this.localPath,
+  });
+
+  String get key => '$theme/$filename';
+
+  factory ExcludedImage.fromJson(Map<String, dynamic> json) => ExcludedImage(
+        theme: json['theme'] as String? ?? '',
+        filename: json['filename'] as String? ?? '',
+        localPath: json['localPath'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'theme': theme,
+        'filename': filename,
+        if (localPath != null) 'localPath': localPath,
+      };
+}
+
+/// Window during which the slideshow stops on its own, typically overnight.
+///
+/// Stored as minutes from midnight so it is independent of the 12 / 24-hour
+/// display format. A window may wrap around midnight (23:00 -> 07:00).
+class QuietHours {
+  final bool enabled;
+  final int startMinutes;
+  final int endMinutes;
+
+  const QuietHours({
+    this.enabled = false,
+    this.startMinutes = 0,
+    this.endMinutes = 7 * 60,
+  });
+
+  bool get isValid => startMinutes != endMinutes;
+
+  /// True when [minutesOfDay] falls inside the window.
+  bool containsMinutes(int minutesOfDay) {
+    if (!enabled || !isValid) return false;
+    if (startMinutes < endMinutes) {
+      return minutesOfDay >= startMinutes && minutesOfDay < endMinutes;
+    }
+    // Wraps past midnight.
+    return minutesOfDay >= startMinutes || minutesOfDay < endMinutes;
+  }
+
+  factory QuietHours.fromJson(Map<String, dynamic> json) => QuietHours(
+        enabled: json['enabled'] as bool? ?? false,
+        startMinutes: json['startMinutes'] as int? ?? 0,
+        endMinutes: json['endMinutes'] as int? ?? 7 * 60,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'enabled': enabled,
+        'startMinutes': startMinutes,
+        'endMinutes': endMinutes,
+      };
+
+  QuietHours copyWith({bool? enabled, int? startMinutes, int? endMinutes}) =>
+      QuietHours(
+        enabled: enabled ?? this.enabled,
+        startMinutes: startMinutes ?? this.startMinutes,
+        endMinutes: endMinutes ?? this.endMinutes,
+      );
+}
+
 class AppConfig {
   String uiThemeMode;
   String language;
@@ -78,8 +159,13 @@ class AppConfig {
 
   int cacheMaxSizeMb;
 
-  double rateLimitSeconds;
   int timeoutSeconds;
+
+  /// Window during which the slideshow pauses itself.
+  QuietHours quietHours;
+
+  /// Images the user banned from every slot.
+  List<ExcludedImage> excludedImages;
 
   bool skipUpdateCheck;
   bool debugMode;
@@ -94,8 +180,9 @@ class AppConfig {
     this.lockscreenEnabled = false,
     this.slideshowPaused = false,
     this.cacheMaxSizeMb = 500,
-    this.rateLimitSeconds = 1.0,
     this.timeoutSeconds = 10,
+    this.quietHours = const QuietHours(),
+    this.excludedImages = const [],
     this.skipUpdateCheck = false,
     this.debugMode = false,
     this.screens = const [],
@@ -112,8 +199,14 @@ class AppConfig {
       lockscreenEnabled: json['lockscreenEnabled'] as bool? ?? false,
       slideshowPaused: json['slideshowPaused'] as bool? ?? false,
       cacheMaxSizeMb: json['cacheMaxSizeMb'] as int? ?? 500,
-      rateLimitSeconds: (json['rateLimitSeconds'] as num?)?.toDouble() ?? 1.0,
       timeoutSeconds: json['timeoutSeconds'] as int? ?? 10,
+      quietHours: json['quietHours'] is Map<String, dynamic>
+          ? QuietHours.fromJson(json['quietHours'] as Map<String, dynamic>)
+          : const QuietHours(),
+      excludedImages: (json['excludedImages'] as List<dynamic>?)
+              ?.map((e) => ExcludedImage.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       skipUpdateCheck: json['skipUpdateCheck'] as bool? ?? false,
       debugMode: json['debugMode'] as bool? ?? false,
       screens: (json['screens'] as List<dynamic>?)
@@ -131,8 +224,9 @@ class AppConfig {
         'lockscreenEnabled': lockscreenEnabled,
         'slideshowPaused': slideshowPaused,
         'cacheMaxSizeMb': cacheMaxSizeMb,
-        'rateLimitSeconds': rateLimitSeconds,
         'timeoutSeconds': timeoutSeconds,
+        'quietHours': quietHours.toJson(),
+        'excludedImages': excludedImages.map((e) => e.toJson()).toList(),
         'skipUpdateCheck': skipUpdateCheck,
         'debugMode': debugMode,
         'screens': screens.map((s) => s.toJson()).toList(),
@@ -146,8 +240,9 @@ class AppConfig {
     bool? lockscreenEnabled,
     bool? slideshowPaused,
     int? cacheMaxSizeMb,
-    double? rateLimitSeconds,
     int? timeoutSeconds,
+    QuietHours? quietHours,
+    List<ExcludedImage>? excludedImages,
     bool? skipUpdateCheck,
     bool? debugMode,
     List<ScreenConfig>? screens,
@@ -160,8 +255,9 @@ class AppConfig {
       lockscreenEnabled: lockscreenEnabled ?? this.lockscreenEnabled,
       slideshowPaused: slideshowPaused ?? this.slideshowPaused,
       cacheMaxSizeMb: cacheMaxSizeMb ?? this.cacheMaxSizeMb,
-      rateLimitSeconds: rateLimitSeconds ?? this.rateLimitSeconds,
       timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
+      quietHours: quietHours ?? this.quietHours,
+      excludedImages: excludedImages ?? this.excludedImages,
       skipUpdateCheck: skipUpdateCheck ?? this.skipUpdateCheck,
       debugMode: debugMode ?? this.debugMode,
       screens: screens ?? this.screens,

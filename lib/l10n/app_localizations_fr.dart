@@ -366,6 +366,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get galleryDownloading => 'Téléchargement...';
 
   @override
+  String get gallerySelectTheme => 'Choisir des thèmes';
+
+  @override
   String get gallerySelectThemeHint =>
       'Sélectionnez un thème pour parcourir les fonds d\'écran';
 
@@ -484,6 +487,73 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aboutTitle => 'À propos';
+
+  @override
+  String get notificationIdle => 'Diaporama inactif';
+
+  @override
+  String get notificationQuiet =>
+      'En pause jusqu\'à la fin de la plage horaire';
+
+  @override
+  String get notificationStop => 'Arrêter le diaporama';
+
+  @override
+  String get notificationNext => 'Image suivante';
+
+  @override
+  String get settingsQuietHours => 'Mettre le diaporama en pause';
+
+  @override
+  String get settingsQuietHoursSubtitle =>
+      'Aucune rotation pendant la plage horaire choisie';
+
+  @override
+  String get settingsQuietFrom => 'De';
+
+  @override
+  String get settingsQuietTo => 'À';
+
+  @override
+  String get settingsQuietInvalid => 'Les deux heures doivent être différentes';
+
+  @override
+  String get excludeImage => 'Exclure cette image';
+
+  @override
+  String get excludeImageDone => 'Image exclue : elle ne sera plus affichée';
+
+  @override
+  String get settingsExcluded => 'Images exclues';
+
+  @override
+  String settingsExcludedSubtitle(int count) {
+    return '$count image(s) ne seront plus affichées';
+  }
+
+  @override
+  String get excludedTitle => 'Images exclues';
+
+  @override
+  String get excludedEmpty => 'Aucune image exclue';
+
+  @override
+  String get excludedRestore => 'Retirer de la liste';
+
+  @override
+  String get excludedRestored => 'Image réintégrée au diaporama';
+
+  @override
+  String get excludedClearAll => 'Vider la liste';
+
+  @override
+  String get excludedClearConfirm =>
+      'Retirer toutes les images de la liste d\'exclusion ?';
+
+  @override
+  String galleryThemesSelected(int count) {
+    return '$count thème(s) sélectionné(s)';
+  }
 
   @override
   String get aboutCredits => 'Crédits photos';

@@ -134,15 +134,23 @@ class RotationForegroundService : Service() {
         val state = RotationState.read(this)
         val targets = state?.let { RotationState.targets(it) } ?: emptyList()
 
+        // Labels come from the app so the notification speaks the language
+        // selected there, falling back to the device's resources.
+        val quietLeft = state?.let { RotationState.minutesUntilQuietEnds(it) }
         val summary = when {
-            targets.none { it.enabled } -> getString(R.string.rotation_idle)
+            targets.none { it.enabled } ->
+                RotationState.label(this, "idle", R.string.rotation_idle)
+            quietLeft != null ->
+                RotationState.label(this, "quiet", R.string.rotation_quiet)
             else -> targets.filter { it.enabled }.joinToString(" • ") { target ->
                 val label = if (target.id == RotationTarget.TARGET_LOCK) {
-                    getString(R.string.rotation_target_lock)
+                    RotationState.label(this, "lock", R.string.rotation_target_lock)
                 } else {
-                    getString(R.string.rotation_target_home)
+                    RotationState.label(this, "home", R.string.rotation_target_home)
                 }
-                val theme = target.theme.ifEmpty { getString(R.string.rotation_all_themes) }
+                val theme = target.theme.ifEmpty {
+                    RotationState.label(this, "allThemes", R.string.rotation_all_themes)
+                }
                 "$label : $theme"
             }
         }
@@ -161,8 +169,18 @@ class RotationForegroundService : Service() {
             .setContentIntent(openAppIntent())
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .addAction(action(R.string.rotation_stop, ACTION_STOP, 1))
-            .addAction(action(R.string.rotation_next, ACTION_NEXT, 2))
+            .addAction(
+                action(
+                    RotationState.label(this, "stop", R.string.rotation_stop),
+                    ACTION_STOP, 1
+                )
+            )
+            .addAction(
+                action(
+                    RotationState.label(this, "next", R.string.rotation_next),
+                    ACTION_NEXT, 2
+                )
+            )
             .build()
     }
 
@@ -173,13 +191,13 @@ class RotationForegroundService : Service() {
         )
     }
 
-    private fun action(labelRes: Int, action: String, requestCode: Int): Notification.Action {
+    private fun action(label: String, action: String, requestCode: Int): Notification.Action {
         val intent = Intent(this, RotationForegroundService::class.java).setAction(action)
         val pending = PendingIntent.getService(
             this, requestCode, intent, PendingIntent.FLAG_IMMUTABLE
         )
         @Suppress("DEPRECATION")
-        return Notification.Action.Builder(0, getString(labelRes), pending).build()
+        return Notification.Action.Builder(0, label, pending).build()
     }
 
     companion object {

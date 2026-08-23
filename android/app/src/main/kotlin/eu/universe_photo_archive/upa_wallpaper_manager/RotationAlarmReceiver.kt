@@ -30,6 +30,18 @@ class RotationAlarmReceiver : BroadcastReceiver() {
                     .firstOrNull { it.id == targetId } ?: return@Thread
                 if (!target.enabled || target.images.isEmpty()) return@Thread
 
+                // Inside the user's quiet window: skip this turn and come back
+                // when it closes, instead of ticking through the night.
+                val quietLeft = RotationState.minutesUntilQuietEnds(state)
+                if (quietLeft != null) {
+                    Wallpapers.log(appContext, "quiet hours: $quietLeft min left")
+                    RotationAlarms.schedule(
+                        appContext, targetId, quietLeft * 60_000L
+                    )
+                    RotationForegroundService.refreshNotification(appContext)
+                    return@Thread
+                }
+
                 RotationState.rotate(appContext, target)
                 // Re-read the delay every time so a settings change takes
                 // effect without restarting anything.

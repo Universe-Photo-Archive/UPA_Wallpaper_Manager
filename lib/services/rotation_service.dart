@@ -38,6 +38,11 @@ class RotationService {
 
   List<String> allThemeNames = [];
 
+  /// Consulted before every scheduled rotation. Returning false skips the
+  /// turn without stopping the timer — used for the quiet-hours window.
+  /// Rotations the user asks for explicitly are never affected.
+  bool Function()? shouldRotateNow;
+
   RotationService({
     required CacheService cache,
     this.randomMode = true,
@@ -155,7 +160,12 @@ class RotationService {
       Duration(seconds: config.delaySeconds),
       () async {
         if (!_running || _paused) return;
-        await _rotateScreen(config);
+        if (shouldRotateNow?.call() == false) {
+          _log.d('Rotation skipped for screen ${config.screenId} '
+              '(outside the allowed hours)');
+        } else {
+          await _rotateScreen(config);
+        }
         if (_running && !_paused && config.enabled) {
           _scheduleScreen(config);
         }

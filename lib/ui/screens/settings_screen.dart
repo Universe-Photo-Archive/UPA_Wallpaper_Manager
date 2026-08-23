@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/app_providers.dart';
 import '../../services/log_service.dart';
 import '../../services/update_service.dart';
+import 'excluded_images_screen.dart';
 
 /// ListTile-like row that keeps wide controls (SegmentedButton, buttons)
 /// usable on phones. A plain [ListTile] with a wide `trailing` overflows on
@@ -154,8 +155,144 @@ class _GeneralSettings extends ConsumerWidget {
             ),
             // The Android lock screen is configured from its own card on the
             // home tab, with its own theme and delay.
+            const Divider(height: 1),
+            const _QuietHoursTile(),
+            const Divider(height: 1),
+            const _ExcludedImagesTile(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Time range during which the slideshow stops on its own.
+class _QuietHoursTile extends ConsumerWidget {
+  const _QuietHoursTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final quiet = ref.watch(configProvider).quietHours;
+
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.bedtime_outlined),
+          title: Text(l10n.settingsQuietHours),
+          subtitle: Text(l10n.settingsQuietHoursSubtitle),
+          value: quiet.enabled,
+          onChanged: (val) => ref
+              .read(configProvider.notifier)
+              .update((c) => c.copyWith(
+                    quietHours: c.quietHours.copyWith(enabled: val),
+                  )),
+        ),
+        if (quiet.enabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(72, 0, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _TimeButton(
+                      label: l10n.settingsQuietFrom,
+                      minutes: quiet.startMinutes,
+                      onPicked: (minutes) => ref
+                          .read(configProvider.notifier)
+                          .update((c) => c.copyWith(
+                                quietHours:
+                                    c.quietHours.copyWith(startMinutes: minutes),
+                              )),
+                    ),
+                    _TimeButton(
+                      label: l10n.settingsQuietTo,
+                      minutes: quiet.endMinutes,
+                      onPicked: (minutes) => ref
+                          .read(configProvider.notifier)
+                          .update((c) => c.copyWith(
+                                quietHours:
+                                    c.quietHours.copyWith(endMinutes: minutes),
+                              )),
+                    ),
+                  ],
+                ),
+                if (!quiet.isValid)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      l10n.settingsQuietInvalid,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Shows one bound of the quiet window and opens the system time picker.
+///
+/// The picker and the printed value both follow the device convention, so a
+/// 12-hour locale gets AM / PM without any special casing here.
+class _TimeButton extends StatelessWidget {
+  final String label;
+  final int minutes;
+  final ValueChanged<int> onPicked;
+
+  const _TimeButton({
+    required this.label,
+    required this.minutes,
+    required this.onPicked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final time = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$label ', style: Theme.of(context).textTheme.bodyMedium),
+        OutlinedButton(
+          onPressed: () async {
+            final picked = await showTimePicker(
+              context: context,
+              initialTime: time,
+            );
+            if (picked != null) onPicked(picked.hour * 60 + picked.minute);
+          },
+          child: Text(time.format(context)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Entry point to the list of images banned from every slot.
+class _ExcludedImagesTile extends ConsumerWidget {
+  const _ExcludedImagesTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final excluded = ref.watch(configProvider).excludedImages;
+
+    return ListTile(
+      leading: const Icon(Icons.block_outlined),
+      title: Text(l10n.settingsExcluded),
+      subtitle: Text(l10n.settingsExcludedSubtitle(excluded.length)),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const ExcludedImagesScreen()),
       ),
     );
   }
@@ -341,33 +478,6 @@ class _AdvancedSettings extends ConsumerWidget {
         child: Column(
           children: [
             ListTile(
-              leading: const Icon(Icons.speed_rounded),
-              title: Text(l10n.settingsRateLimit),
-              trailing: SizedBox(
-                width: 80,
-                child: TextField(
-                  controller: TextEditingController(
-                      text: config.rateLimitSeconds.toString()),
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    suffixText: 's',
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                  ),
-                  onChanged: (val) {
-                    final rate = double.tryParse(val);
-                    if (rate != null && rate > 0) {
-                      ref.read(configProvider.notifier).update(
-                          (c) => c.copyWith(rateLimitSeconds: rate));
-                    }
-                  },
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
               leading: const Icon(Icons.timer_outlined),
               title: Text(l10n.settingsTimeout),
               trailing: SizedBox(
@@ -545,26 +655,10 @@ class _LogsTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () => _showLogViewer(context),
-                      icon: const Icon(Icons.visibility_outlined, size: 18),
-                      label: Text(l10n.settingsLogsView),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openInOs(context),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                      label: Text(l10n.settingsLogsOpenInOs),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openFolder(context),
-                      icon: const Icon(Icons.folder_open_outlined, size: 18),
-                      label: Text(l10n.settingsLogsOpenFolder),
-                    ),
-                  ],
+                ElevatedButton.icon(
+                  onPressed: () => _showLogViewer(context),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: Text(l10n.settingsLogsView),
                 ),
               ],
             ),
@@ -582,34 +676,6 @@ class _LogsTile extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l10n.settingsLogsPathCopied)),
     );
-  }
-
-  Future<void> _openInOs(BuildContext context) async {
-    final l10n = AppLocalizations.of(context)!;
-    var ok = await logService.openInOs();
-    if (!ok) {
-      // Fallback: try url_launcher with file:// scheme.
-      try {
-        ok = await launchUrl(Uri.file(logService.logFilePath));
-      } catch (_) {
-        ok = false;
-      }
-    }
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.settingsLogsCannotOpen)),
-      );
-    }
-  }
-
-  Future<void> _openFolder(BuildContext context) async {
-    final l10n = AppLocalizations.of(context)!;
-    final ok = await logService.openFolderInOs();
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.settingsLogsCannotOpen)),
-      );
-    }
   }
 
   void _showLogViewer(BuildContext context) {

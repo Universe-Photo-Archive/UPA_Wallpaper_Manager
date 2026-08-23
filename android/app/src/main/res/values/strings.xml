@@ -6,6 +6,7 @@
     <string name="rotation_channel_name">Wallpaper slideshow</string>
     <string name="rotation_channel_description">Shown while the slideshow changes your wallpaper in the background</string>
     <string name="rotation_idle">Slideshow inactive</string>
+    <string name="rotation_quiet">Paused until the end of quiet hours</string>
     <string name="rotation_target_home">Wallpaper</string>
     <string name="rotation_target_lock">Lock screen</string>
     <string name="rotation_all_themes">All themes</string>

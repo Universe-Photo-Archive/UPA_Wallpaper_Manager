@@ -56,9 +56,13 @@ object RotationAlarms {
         cancelAll(context)
         val state = RotationState.read(context) ?: return
         if (RotationState.isPaused(state)) return
+        // During the quiet window the first wake-up is pushed to its end.
+        val quietLeft = RotationState.minutesUntilQuietEnds(state)
         for (target in RotationState.targets(state)) {
             if (!target.enabled || target.images.isEmpty()) continue
-            schedule(context, target.id, target.intervalSeconds * 1000L)
+            val delayMs = quietLeft?.let { it * 60_000L }
+                ?: (target.intervalSeconds * 1000L)
+            schedule(context, target.id, delayMs)
         }
     }
 

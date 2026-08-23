@@ -361,6 +361,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get galleryDownloading => 'Downloading...';
 
   @override
+  String get gallerySelectTheme => 'Choose themes';
+
+  @override
   String get gallerySelectThemeHint => 'Select a theme to browse wallpapers';
 
   @override
@@ -475,6 +478,72 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutTitle => 'About';
+
+  @override
+  String get notificationIdle => 'Slideshow inactive';
+
+  @override
+  String get notificationQuiet => 'Paused until the end of quiet hours';
+
+  @override
+  String get notificationStop => 'Stop slideshow';
+
+  @override
+  String get notificationNext => 'Next image';
+
+  @override
+  String get settingsQuietHours => 'Pause the slideshow';
+
+  @override
+  String get settingsQuietHoursSubtitle =>
+      'No rotation during the chosen time range';
+
+  @override
+  String get settingsQuietFrom => 'From';
+
+  @override
+  String get settingsQuietTo => 'To';
+
+  @override
+  String get settingsQuietInvalid => 'Both times must differ';
+
+  @override
+  String get excludeImage => 'Exclude this image';
+
+  @override
+  String get excludeImageDone => 'Image excluded: it will no longer be shown';
+
+  @override
+  String get settingsExcluded => 'Excluded images';
+
+  @override
+  String settingsExcludedSubtitle(int count) {
+    return '$count image(s) will no longer be shown';
+  }
+
+  @override
+  String get excludedTitle => 'Excluded images';
+
+  @override
+  String get excludedEmpty => 'No excluded image';
+
+  @override
+  String get excludedRestore => 'Remove from the list';
+
+  @override
+  String get excludedRestored => 'Image put back into the slideshow';
+
+  @override
+  String get excludedClearAll => 'Clear the list';
+
+  @override
+  String get excludedClearConfirm =>
+      'Remove every image from the exclusion list?';
+
+  @override
+  String galleryThemesSelected(int count) {
+    return '$count theme(s) selected';
+  }
 
   @override
   String get aboutCredits => 'Photo credits';
