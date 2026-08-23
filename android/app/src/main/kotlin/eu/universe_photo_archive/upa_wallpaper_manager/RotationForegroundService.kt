@@ -31,13 +31,13 @@ class RotationForegroundService : Service() {
 
     private lateinit var worker: HandlerThread
     private lateinit var handler: Handler
-    private val scheduled = mutableMapOf<Int, Runnable>()
 
     override fun onCreate() {
         super.onCreate()
         worker = HandlerThread("upa-rotation").apply { start() }
         handler = Handler(worker.looper)
         isRunning = true
+        instance = this
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -50,7 +50,7 @@ class RotationForegroundService : Service() {
                 // then disappear. Turning a slot back on restarts the service.
                 RotationState.disableAllTargets(this)
                 (applicationContext as? MainApplication)?.notifySlideshowStopped()
-                cancelAll()
+                RotationAlarms.cancelAll(this)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
@@ -63,9 +63,12 @@ class RotationForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        cancelAll()
+        // Alarms are deliberately left armed: the broadcast receiver keeps the
+        // slideshow going even after a task killer takes the service down.
+        // Only an explicit stop cancels them.
         worker.quitSafely()
         isRunning = false
+        instance = null
         super.onDestroy()
     }
 
@@ -74,41 +77,12 @@ class RotationForegroundService : Service() {
     // --- Scheduling -------------------------------------------------------
 
     private fun cancelAll() {
-        scheduled.values.forEach { handler.removeCallbacks(it) }
-        scheduled.clear()
+        RotationAlarms.cancelAll(this)
     }
 
-    /** Rebuilds the per-target timers from the state file. */
+    /** Rebuilds the per-target wake-ups from the state file. */
     private fun reschedule() {
-        cancelAll()
-        val state = RotationState.read(this) ?: return
-        if (RotationState.isPaused(state)) return
-
-        for (target in RotationState.targets(state)) {
-            if (!target.enabled || target.images.isEmpty()) continue
-            scheduleNext(target.id, target.intervalSeconds * 1000L)
-        }
-    }
-
-    private fun scheduleNext(targetId: Int, delayMs: Long) {
-        scheduled.remove(targetId)?.let { handler.removeCallbacks(it) }
-        val runnable = object : Runnable {
-            override fun run() {
-                val state = RotationState.read(this@RotationForegroundService)
-                if (state == null || RotationState.isPaused(state)) return
-                val target = RotationState.targets(state)
-                    .firstOrNull { it.id == targetId } ?: return
-                if (!target.enabled) return
-
-                RotationState.rotate(this@RotationForegroundService, target)
-                updateNotification()
-                // Re-read the interval each time so a settings change applies
-                // without restarting the service.
-                scheduleNext(targetId, target.intervalSeconds * 1000L)
-            }
-        }
-        scheduled[targetId] = runnable
-        handler.postDelayed(runnable, delayMs)
+        RotationAlarms.rescheduleAll(this)
     }
 
     private fun rotateAllNow() {
@@ -218,6 +192,16 @@ class RotationForegroundService : Service() {
         @Volatile
         var isRunning: Boolean = false
             private set
+
+        @Volatile
+        private var instance: RotationForegroundService? = null
+
+        /** Refreshes the notification text after a rotation done elsewhere. */
+        fun refreshNotification(context: Context) {
+            instance?.let { service ->
+                runCatching { service.updateNotification() }
+            }
+        }
 
         const val ACTION_NEXT = "eu.universe_photo_archive.ROTATION_NEXT"
         const val ACTION_STOP = "eu.universe_photo_archive.ROTATION_STOP"

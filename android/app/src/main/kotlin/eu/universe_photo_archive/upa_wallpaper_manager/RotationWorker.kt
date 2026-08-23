@@ -5,33 +5,48 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 
 /**
- * Safety net for the slideshow when [RotationForegroundService] is not alive.
+ * Watchdog for the slideshow.
  *
- * The service normally drives the rotation, but it does not survive a reboot
- * or a manufacturer's "clear all" task killer, and it cannot be started from
- * the background on recent Android versions. This periodic job fills those
- * gaps: it rotates once, at WorkManager's own pace (never more than every 15
- * minutes, and later than that while the device is dozing), until the user
- * opens the app again and the service takes over.
+ * The rotation normally runs on alarms armed by [RotationAlarms]. Those can
+ * still be lost: a reboot clears them, and a few manufacturers drop an app's
+ * alarms along with its process. This periodic job notices a target that is
+ * long overdue, rotates it once and re-arms its alarm.
  *
- * It does nothing while the service is running, so the two never rotate the
- * same target at the same time.
+ * It deliberately does not check whether the service is alive — the bug this
+ * guards against is exactly a live service whose wake-ups never arrive. It
+ * keys off the last rotation instead, so a healthy slideshow is left alone.
  */
 class RotationWorker(context: Context, params: WorkerParameters) :
     Worker(context, params) {
 
     override fun doWork(): Result {
-        if (RotationForegroundService.isRunning) return Result.success()
-
         val state = RotationState.read(applicationContext) ?: return Result.success()
         if (RotationState.isPaused(state)) return Result.success()
 
-        var applied = false
+        var recovered = false
         for (target in RotationState.targets(state)) {
             if (!target.enabled || target.images.isEmpty()) continue
-            if (RotationState.rotate(applicationContext, target) != null) applied = true
+
+            val since = RotationState.millisSinceRotation(state, target.id)
+            val overdueAfter = target.intervalSeconds * 1000L * 2
+            // Never rotated yet, or silent for twice its delay: something ate
+            // the alarm.
+            if (since != null && since < overdueAfter) continue
+
+            Wallpapers.log(
+                applicationContext,
+                "watchdog: target ${target.id} overdue (${since ?: -1} ms)"
+            )
+            RotationState.rotate(applicationContext, target)
+            RotationAlarms.schedule(
+                applicationContext, target.id, target.intervalSeconds * 1000L
+            )
+            recovered = true
         }
 
-        return if (applied) Result.success() else Result.retry()
+        if (recovered) {
+            RotationForegroundService.refreshNotification(applicationContext)
+        }
+        return Result.success()
     }
 }

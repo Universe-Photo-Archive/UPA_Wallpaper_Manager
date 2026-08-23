@@ -110,10 +110,26 @@ object RotationState {
             val obj = array.optJSONObject(index) ?: continue
             if (obj.optInt("id", -1) == targetId) {
                 obj.put("current", path)
+                // Stamped so the WorkManager fallback can tell a healthy
+                // slideshow from one whose wake-ups stopped being delivered.
+                obj.put("lastRotationAt", System.currentTimeMillis())
                 break
             }
         }
         write(context, state)
+    }
+
+    /** Milliseconds since [targetId] last changed, or null if never. */
+    fun millisSinceRotation(state: JSONObject, targetId: Int): Long? {
+        val array = state.optJSONArray("targets") ?: return null
+        for (index in 0 until array.length()) {
+            val obj = array.optJSONObject(index) ?: continue
+            if (obj.optInt("id", -1) == targetId) {
+                val at = obj.optLong("lastRotationAt", 0L)
+                return if (at <= 0L) null else System.currentTimeMillis() - at
+            }
+        }
+        return null
     }
 
     private fun write(context: Context, state: JSONObject) {

@@ -118,6 +118,10 @@ class MainApplication : Application() {
                     result.success(true)
                 }
                 "stopForegroundRotation" -> {
+                    // Cancel the wake-ups too: the service going away does not
+                    // clear them, on purpose, so that a task killer cannot
+                    // silence the slideshow.
+                    RotationAlarms.cancelAll(this)
                     RotationForegroundService.stop(this)
                     result.success(true)
                 }

@@ -67,6 +67,11 @@
                 android:value="User-enabled wallpaper slideshow that must change the wallpaper and lock screen at the exact interval chosen by the user, including while the app is closed. The persistent notification shows the active themes and offers pause and next-image controls."/>
         </service>
 
+        <!-- Wakes the device to apply the next wallpaper (see RotationAlarms). -->
+        <receiver
+            android:name=".RotationAlarmReceiver"
+            android:exported="false"/>
+
         <!-- WorkManager declares a typeless foreground service for expedited
              work this app never requests; drop it so the only foreground
              service shipped is the one above. -->
