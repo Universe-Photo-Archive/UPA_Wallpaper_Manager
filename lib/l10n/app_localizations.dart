@@ -1100,6 +1100,132 @@ abstract class AppLocalizations {
   /// **'{count} thème(s) sélectionné(s)'**
   String galleryThemesSelected(int count);
 
+  /// No description provided for @manageThemesProviderCustom.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créer un thème personnalisé'**
+  String get manageThemesProviderCustom;
+
+  /// No description provided for @manageThemesCustomDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Permet de choisir dans un dossier les photos que vous souhaitez ajouter, vous pourrez ensuite en ajouter ou en retirer'**
+  String get manageThemesCustomDescription;
+
+  /// No description provided for @manageThemesProviderFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter un dossier entier'**
+  String get manageThemesProviderFolder;
+
+  /// No description provided for @manageThemesFolderDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Permet de choisir un dossier entier, l\'application utilisera automatiquement toutes les images présentes à l\'intérieur'**
+  String get manageThemesFolderDescription;
+
+  /// No description provided for @pickPhotosTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir des photos'**
+  String get pickPhotosTitle;
+
+  /// No description provided for @pickPhotosAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout cocher'**
+  String get pickPhotosAll;
+
+  /// No description provided for @pickPhotosNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout décocher'**
+  String get pickPhotosNone;
+
+  /// No description provided for @pickPhotosConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter {count} photo(s)'**
+  String pickPhotosConfirm(int count);
+
+  /// No description provided for @themeNameTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom du thème'**
+  String get themeNameTitle;
+
+  /// No description provided for @themeNameLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom'**
+  String get themeNameLabel;
+
+  /// No description provided for @editTheme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Éditer le thème'**
+  String get editTheme;
+
+  /// No description provided for @editThemeAdd.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter des photos'**
+  String get editThemeAdd;
+
+  /// No description provided for @editThemeAddDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir d\'autres photos dans un dossier de l\'appareil'**
+  String get editThemeAddDescription;
+
+  /// No description provided for @editThemeRemove.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer des photos'**
+  String get editThemeRemove;
+
+  /// No description provided for @editThemeRemoveDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer des photos du thème, sans les supprimer de l\'appareil'**
+  String get editThemeRemoveDescription;
+
+  /// No description provided for @editThemeRename.
+  ///
+  /// In fr, this message translates to:
+  /// **'Renommer le thème'**
+  String get editThemeRename;
+
+  /// No description provided for @editThemeFolderOnlyRename.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce thème suit un dossier entier : son contenu se met à jour tout seul.'**
+  String get editThemeFolderOnlyRename;
+
+  /// No description provided for @removePhotosTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer des photos'**
+  String get removePhotosTitle;
+
+  /// No description provided for @removePhotosConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer {count} photo(s)'**
+  String removePhotosConfirm(int count);
+
+  /// No description provided for @removePhotosDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Photos retirées du thème'**
+  String get removePhotosDone;
+
+  /// No description provided for @photosAdded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Photos ajoutées au thème'**
+  String get photosAdded;
+
   /// No description provided for @aboutCredits.
   ///
   /// In fr, this message translates to:

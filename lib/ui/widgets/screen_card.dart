@@ -6,6 +6,7 @@ import '../../models/app_config.dart';
 import '../../models/screen_info.dart';
 import '../../models/theme_category.dart';
 import '../../providers/app_providers.dart';
+import 'device_image.dart';
 import 'theme_picker.dart';
 
 class ScreenCard extends ConsumerStatefulWidget {
@@ -124,18 +125,13 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
           // resolution) that is meaningless on a single-screen device.
           final narrow = constraints.maxWidth < 520;
 
+          // The wallpaper may be a cached download or one of the user's own
+          // photos, read in place and shown through a thumbnail.
           Widget previewImage() => currentPath != null
-              ? Image.file(
-                  File(currentPath),
-                  fit: BoxFit.cover,
-                  // Keep showing the previous wallpaper while the new one
-                  // decodes, so rotations never flash a blank frame.
+              ? DeviceImageView(
+                  reference: currentPath,
+                  maxSize: narrow ? 900 : 520,
                   gaplessPlayback: true,
-                  // Decode at preview size instead of full 4K+: much faster
-                  // and lighter on memory.
-                  cacheWidth: narrow ? 900 : 520,
-                  filterQuality: FilterQuality.medium,
-                  errorBuilder: (_, __, ___) => _Placeholder(),
                 )
               : _Placeholder();
 

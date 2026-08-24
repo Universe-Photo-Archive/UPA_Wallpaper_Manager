@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/theme_category.dart';
-import '../../models/theme_source.dart';
 import '../../models/wallpaper_image.dart';
 import '../../providers/app_providers.dart';
 import '../../platform/lockscreen_channel.dart';
+import '../../platform/media_access_channel.dart';
 import '../../platform/wallpaper_channel.dart';
+import '../../models/theme_source.dart';
+import '../widgets/device_image.dart';
 import '../widgets/manage_themes_dialog.dart';
+import 'edit_local_theme_screen.dart';
 import '../widgets/theme_picker.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -25,6 +28,21 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   bool _loading = false;
   int _loadToken = 0;
   List<WallpaperImage> _images = [];
+
+  /// Set while the user picks photos to take out of a custom theme.
+  bool _removing = false;
+  final Set<String> _markedForRemoval = {};
+
+  /// The local theme being browsed, when exactly one is selected. Editing only
+  /// makes sense then: it is the theme the photos on screen belong to.
+  LocalSource? get _editableSource {
+    if (_selectedKeys.length != 1) return null;
+    final themes = ref.read(themesProvider);
+    final index =
+        themes.indexWhere((t) => t.uniqueKey == _selectedKeys.first);
+    if (index < 0) return null;
+    return localSourceFor(ref, themes[index]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +63,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     // Compact app bar on phones: no logo/title (the dropdown says it all),
     // constrained dropdown width, icon-only "Manage" button.
     final isCompact = MediaQuery.sizeOf(context).width < 640;
+
+    if (_removing) return _buildRemovalScaffold(l10n);
 
     return Scaffold(
       appBar: AppBar(
@@ -86,6 +106,15 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                 ),
               ),
             ),
+          if (_editableSource != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                onPressed: _openThemeEditor,
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                tooltip: l10n.editTheme,
+              ),
+            ),
           if (isCompact)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -106,69 +135,93 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
             ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _images.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.photo_library_outlined,
-                            size: 72,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.2)),
-                        const SizedBox(height: 20),
-                        Text(
-                          _selectedKeys.isEmpty
-                              ? l10n.gallerySelectThemeHint
-                              : l10n.galleryEmpty,
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.7),
-                                  ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossCount = constraints.maxWidth > 1200
-                        ? 5
-                        : constraints.maxWidth > 900
-                            ? 4
-                            : constraints.maxWidth > 600
-                                ? 3
-                                : 2;
-
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossCount,
-                        childAspectRatio: 16 / 10,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemCount: _images.length,
-                      itemBuilder: (context, index) {
-                        return _GalleryTile(
-                          image: _images[index],
-                          onTap: () => _showImageDetail(_images[index]),
-                        );
-                      },
-                    );
-                  },
-                ),
+      body: _buildGrid(l10n),
     );
+  }
+
+  /// Grid of the loaded images, shared by the normal and removal modes.
+  Widget _buildGrid(AppLocalizations l10n) {
+    return _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _images.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.photo_library_outlined,
+                              size: 72,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.2)),
+                          const SizedBox(height: 20),
+                          Text(
+                            _selectedKeys.isEmpty
+                                ? l10n.gallerySelectThemeHint
+                                : l10n.galleryEmpty,
+                            style:
+                                Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.7),
+                                    ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final crossCount = constraints.maxWidth > 1200
+                          ? 5
+                          : constraints.maxWidth > 900
+                              ? 4
+                              : constraints.maxWidth > 600
+                                  ? 3
+                                  : 2;
+
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossCount,
+                          childAspectRatio: 16 / 10,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
+                        itemCount: _images.length,
+                        itemBuilder: (context, index) {
+                          final image = _images[index];
+                          final reference = image.localPath;
+                          final marked = reference != null &&
+                              _markedForRemoval.contains(reference);
+                          return _GalleryTile(
+                            image: image,
+                            selectable: _removing,
+                            selected: marked,
+                            onTap: () {
+                              if (!_removing) {
+                                _showImageDetail(image);
+                                return;
+                              }
+                              if (reference == null) return;
+                              setState(() {
+                                if (marked) {
+                                  _markedForRemoval.remove(reference);
+                                } else {
+                                  _markedForRemoval.add(reference);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      );
+                    },
+                  );
   }
 
   /// Loads the images of every selected theme, in selection order.
@@ -194,16 +247,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final images = <WallpaperImage>[];
     for (final theme in selected) {
       try {
-        if (theme.sourceBaseUrl.startsWith(LocalSource.urlScheme)) {
-          final folderPath =
-              theme.sourceBaseUrl.substring(LocalSource.urlScheme.length);
+        final localSource = localSourceFor(ref, theme);
+        if (localSource != null) {
           final localSvc = ref.read(localGalleryServiceProvider);
-          images.addAll(await localSvc.getImages(LocalSource(
-            folderPath: folderPath,
-            name: theme.nameRaw,
-            id: theme.id,
-            recursive: true,
-          )));
+          images.addAll(await localSvc.getImages(localSource));
         } else {
           final api = ref.read(piwigoApiProvider);
           images.addAll(await api.getThemeImages(
@@ -223,6 +270,68 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       _images = images;
       _loading = false;
     });
+  }
+
+  /// Same grid, in "take photos out of the theme" mode.
+  Widget _buildRemovalScaffold(AppLocalizations l10n) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => setState(() {
+            _removing = false;
+            _markedForRemoval.clear();
+          }),
+        ),
+        title: Text(l10n.removePhotosTitle),
+        actions: [
+          TextButton.icon(
+            onPressed: _markedForRemoval.isEmpty ? null : _confirmRemoval,
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            label: Text(l10n.removePhotosConfirm(_markedForRemoval.length)),
+          ),
+        ],
+      ),
+      body: _buildGrid(l10n),
+    );
+  }
+
+  Future<void> _openThemeEditor() async {
+    final source = _editableSource;
+    if (source == null) return;
+
+    final action = await EditLocalThemeScreen.show(context, source: source);
+    if (!mounted) return;
+
+    if (action == EditThemeAction.removePhotos) {
+      setState(() {
+        _removing = true;
+        _markedForRemoval.clear();
+      });
+    }
+    // Adding photos or renaming changes the theme, so reload what is shown.
+    await _loadImages();
+  }
+
+  Future<void> _confirmRemoval() async {
+    final l10n = AppLocalizations.of(context)!;
+    final source = _editableSource;
+    if (source == null) return;
+
+    await ref
+        .read(themesManagerProvider)
+        .removePhotosFromTheme(source, Set.of(_markedForRemoval));
+
+    if (!mounted) return;
+    setState(() {
+      _removing = false;
+      _markedForRemoval.clear();
+    });
+    await _loadImages();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.removePhotosDone)),
+    );
   }
 
   void _showImageDetail(WallpaperImage image) {
@@ -284,10 +393,24 @@ class _GalleryTile extends StatelessWidget {
   final WallpaperImage image;
   final VoidCallback onTap;
 
-  const _GalleryTile({required this.image, required this.onTap});
+  /// True while the user is picking photos to take out of a theme.
+  final bool selectable;
+  final bool selected;
 
-  bool get _isLocal =>
-      image.localPath != null && File(image.localPath!).existsSync();
+  const _GalleryTile({
+    required this.image,
+    required this.onTap,
+    this.selectable = false,
+    this.selected = false,
+  });
+
+  /// A local image is either a cached file or one of the user's own photos,
+  /// the latter referenced in place and only renderable through a thumbnail.
+  bool get _isLocal {
+    final path = image.localPath;
+    if (path == null) return false;
+    return MediaAccessChannel.isDocumentUri(path) || File(path).existsSync();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -299,13 +422,9 @@ class _GalleryTile extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             _isLocal
-                ? Image.file(
-                    File(image.localPath!),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: Theme.of(context).colorScheme.surface,
-                      child: const Icon(Icons.broken_image_outlined),
-                    ),
+                ? DeviceImageView(
+                    reference: image.localPath!,
+                    maxSize: 500,
                   )
                 : Image.network(
                     image.mediumUrl,
@@ -352,7 +471,38 @@ class _GalleryTile extends StatelessWidget {
                 ),
               ),
             ),
-            if (image.isDownloaded)
+            if (selectable)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.35)
+                      : Colors.black.withValues(alpha: 0.15),
+                  border: selected
+                      ? Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 3,
+                        )
+                      : null,
+                ),
+              ),
+            if (selectable)
+              Positioned(
+                top: 6,
+                left: 6,
+                child: Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.circle_outlined,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.white70,
+                  size: 22,
+                ),
+              ),
+            if (image.isDownloaded && !selectable)
               Positioned(
                 top: 6,
                 right: 6,
@@ -396,8 +546,9 @@ class _ImageDetailDialog extends ConsumerWidget {
           children: [
             Flexible(
               child: _isLocal
-                  ? Image.file(
-                      File(image.localPath!),
+                  ? DeviceImageView(
+                      reference: image.localPath!,
+                      maxSize: 1600,
                       fit: BoxFit.contain,
                     )
                   : Image.network(

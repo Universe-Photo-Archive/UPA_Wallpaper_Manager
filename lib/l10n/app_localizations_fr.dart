@@ -556,6 +556,78 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get manageThemesProviderCustom => 'Créer un thème personnalisé';
+
+  @override
+  String get manageThemesCustomDescription =>
+      'Permet de choisir dans un dossier les photos que vous souhaitez ajouter, vous pourrez ensuite en ajouter ou en retirer';
+
+  @override
+  String get manageThemesProviderFolder => 'Ajouter un dossier entier';
+
+  @override
+  String get manageThemesFolderDescription =>
+      'Permet de choisir un dossier entier, l\'application utilisera automatiquement toutes les images présentes à l\'intérieur';
+
+  @override
+  String get pickPhotosTitle => 'Choisir des photos';
+
+  @override
+  String get pickPhotosAll => 'Tout cocher';
+
+  @override
+  String get pickPhotosNone => 'Tout décocher';
+
+  @override
+  String pickPhotosConfirm(int count) {
+    return 'Ajouter $count photo(s)';
+  }
+
+  @override
+  String get themeNameTitle => 'Nom du thème';
+
+  @override
+  String get themeNameLabel => 'Nom';
+
+  @override
+  String get editTheme => 'Éditer le thème';
+
+  @override
+  String get editThemeAdd => 'Ajouter des photos';
+
+  @override
+  String get editThemeAddDescription =>
+      'Choisir d\'autres photos dans un dossier de l\'appareil';
+
+  @override
+  String get editThemeRemove => 'Supprimer des photos';
+
+  @override
+  String get editThemeRemoveDescription =>
+      'Retirer des photos du thème, sans les supprimer de l\'appareil';
+
+  @override
+  String get editThemeRename => 'Renommer le thème';
+
+  @override
+  String get editThemeFolderOnlyRename =>
+      'Ce thème suit un dossier entier : son contenu se met à jour tout seul.';
+
+  @override
+  String get removePhotosTitle => 'Retirer des photos';
+
+  @override
+  String removePhotosConfirm(int count) {
+    return 'Retirer $count photo(s)';
+  }
+
+  @override
+  String get removePhotosDone => 'Photos retirées du thème';
+
+  @override
+  String get photosAdded => 'Photos ajoutées au thème';
+
+  @override
   String get aboutCredits => 'Crédits photos';
 
   @override

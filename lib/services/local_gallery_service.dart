@@ -4,13 +4,13 @@ import 'package:path/path.dart' as p;
 import '../models/theme_category.dart';
 import '../models/theme_source.dart';
 import '../models/wallpaper_image.dart';
+import '../platform/media_access_channel.dart';
 
-/// Service that turns a local folder into a wallpaper theme.
+/// Turns the user's own photos into a theme, without ever copying them.
 ///
-/// Unlike Piwigo themes (loaded over HTTP), local themes are read directly
-/// from disk. Each scanned image is exposed as a [WallpaperImage] whose
-/// `localPath` is the on-disk path — the cache layer treats it as already
-/// "downloaded" so rotation can apply it directly.
+/// Desktop works with absolute paths. Android works with document URIs backed
+/// by a lasting folder grant, which is why nothing has to be duplicated: both
+/// the app and the background slideshow read the originals in place.
 class LocalGalleryService {
   static const Set<String> _imageExtensions = {
     '.jpg',
@@ -21,91 +21,117 @@ class LocalGalleryService {
     '.gif',
     '.tif',
     '.tiff',
+    '.heic',
+    '.heif',
   };
 
   final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
 
-  /// Resolves a [LocalSource] into the [ThemeCategory] visible in the UI.
-  /// Counts how many supported image files are present so the dropdown
-  /// shows the same "(N)" decoration as Piwigo themes.
+  /// Describes [source] for the theme lists, image count included.
   Future<ThemeCategory> resolveCategory(LocalSource source) async {
-    final files = await _scanFiles(source.folderPath, source.recursive);
+    final images = await getImages(source);
     return ThemeCategory(
-      id: source.id,
+      id: source.numericId,
       name: source.name,
       nameRaw: source.name,
-      url: source.folderPath,
-      imageCount: files.length,
-      thumbnailUrl: files.isNotEmpty ? files.first.path : null,
+      url: source.roots.isEmpty ? '' : source.roots.first,
+      imageCount: images.length,
+      thumbnailUrl: images.isNotEmpty ? images.first.localPath : null,
       sourceBaseUrl: source.sourceBaseUrl,
       isUserAdded: true,
-      originalUrl: source.folderPath,
+      originalUrl: source.roots.isEmpty ? null : source.roots.first,
     );
   }
 
-  /// Reads images for a local theme. Each image is returned with
-  /// `isDownloaded = true` and `localPath` set to its absolute path.
+  /// Images belonging to [source].
+  ///
+  /// A folder theme is re-read every time, so photos added to the folder show
+  /// up and deleted ones disappear. A custom theme keeps only what the user
+  /// ticked, minus anything that has since gone missing.
   Future<List<WallpaperImage>> getImages(LocalSource source) async {
-    final files = await _scanFiles(source.folderPath, source.recursive);
-    final images = <WallpaperImage>[];
-    for (final file in files) {
-      final path = file.path;
-      images.add(WallpaperImage(
-        id: _stableId(path),
-        filename: p.basename(path),
-        pageUrl: path,
-        cachedFullSizeUrl: path,
-        isDownloaded: true,
-        localPath: path,
-        derivatives: const {},
-      ));
-    }
-    _log.i('Local gallery "${source.name}": ${images.length} image(s) '
-        'from ${source.folderPath}');
+    final references = source.isFolder
+        ? await _enumerate(source.roots)
+        : await _keepExisting(source.items);
+
+    final images = [
+      for (final reference in references)
+        WallpaperImage(
+          id: _stableId(reference),
+          filename: _displayName(reference),
+          pageUrl: reference,
+          cachedFullSizeUrl: reference,
+          isDownloaded: true,
+          localPath: reference,
+          derivatives: const {},
+        )
+    ];
+
+    _log.i('Local theme "${source.name}": ${images.length} image(s)');
     return images;
   }
 
-  /// Returns true if the folder still exists on disk.
-  bool exists(LocalSource source) {
-    return Directory(source.folderPath).existsSync();
+  /// Every image inside the granted folders.
+  Future<List<String>> _enumerate(List<String> roots) async {
+    final references = <String>[];
+    for (final root in roots) {
+      if (MediaAccessChannel.isDocumentUri(root)) {
+        references.addAll(
+          (await MediaAccessChannel.listFolderImages(root))
+              .map((image) => image.uri),
+        );
+      } else {
+        references.addAll(await _scanFolder(root));
+      }
+    }
+    return references;
   }
 
-  Future<List<File>> _scanFiles(String path, bool recursive) async {
+  /// Drops references the user has since deleted or made unreachable.
+  Future<List<String>> _keepExisting(List<String> references) async {
+    final kept = <String>[];
+    for (final reference in references) {
+      if (MediaAccessChannel.isDocumentUri(reference)) {
+        kept.add(reference);
+      } else if (await File(reference).exists()) {
+        kept.add(reference);
+      }
+    }
+    return kept;
+  }
+
+  Future<List<String>> _scanFolder(String path) async {
     final dir = Directory(path);
     if (!await dir.exists()) {
-      _log.w('Local gallery folder missing: $path');
+      _log.w('Local folder missing: $path');
       return [];
     }
 
     final files = <File>[];
     try {
-      await for (final entity
-          in dir.list(recursive: recursive, followLinks: false)) {
-        if (entity is File && _isImage(entity.path)) {
-          files.add(entity);
-        }
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File && _isImage(entity.path)) files.add(entity);
       }
     } catch (e) {
       _log.e('Failed to scan local folder $path: $e');
     }
 
-    files.sort((a, b) => p
-        .basename(a.path)
-        .toLowerCase()
-        .compareTo(p.basename(b.path).toLowerCase()));
-    return files;
+    files.sort((a, b) =>
+        p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase()));
+    return files.map((f) => f.path).toList();
   }
 
-  bool _isImage(String filePath) {
-    final ext = p.extension(filePath).toLowerCase();
-    return _imageExtensions.contains(ext);
+  bool _isImage(String filePath) =>
+      _imageExtensions.contains(p.extension(filePath).toLowerCase());
+
+  String _displayName(String reference) {
+    if (MediaAccessChannel.isDocumentUri(reference)) {
+      final decoded = Uri.decodeComponent(reference);
+      final segment = decoded.split('/').last;
+      return segment.contains(':') ? segment.split(':').last : segment;
+    }
+    return p.basename(reference);
   }
 
-  /// Stable positive int id so the same file is treated as the same image
-  /// across runs (`hashCode` is deterministic per session in Dart, but path
-  /// is the canonical identity here).
-  int _stableId(String path) {
-    // Mask to 31 bits to stay safely positive on all platforms.
-    return path.hashCode & 0x7fffffff;
-  }
+  /// Stable positive id so the same photo is the same image across runs.
+  int _stableId(String reference) => reference.hashCode & 0x7fffffff;
 }

@@ -15,7 +15,7 @@ class WallpaperChannel {
     int? screenId,
     String fitMode = 'fill',
   }) async {
-    if (!File(imagePath).existsSync()) return false;
+    if (!_exists(imagePath)) return false;
 
     try {
       final result = await _channel.invokeMethod<bool>('setWallpaper', {
@@ -82,7 +82,7 @@ class WallpaperChannel {
 
   /// Applies [imagePath] to the home wallpaper and the lock screen at once.
   static Future<bool> setBothWallpapers(String imagePath) async {
-    if (!File(imagePath).existsSync()) return false;
+    if (!_exists(imagePath)) return false;
     try {
       final result = await _channel.invokeMethod<bool>('setBothWallpapers', {
         'imagePath': imagePath,
@@ -94,6 +94,11 @@ class WallpaperChannel {
       return false;
     }
   }
+
+  /// A reference is either a file or one of the user's photos, which only
+  /// the platform can open.
+  static bool _exists(String reference) =>
+      reference.startsWith('content://') || File(reference).existsSync();
 
   /// Shortest period WorkManager accepts for a periodic job. Only relevant to
   /// the fallback that covers the foreground service being killed.

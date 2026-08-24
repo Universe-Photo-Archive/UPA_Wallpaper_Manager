@@ -237,18 +237,39 @@ class ThemesConfigService {
 
   // ---------- LOCAL SOURCES ----------
 
-  /// All local folder sources added by the user.
+  /// All local sources added by the user.
+  ///
+  /// Entries without an id come from the versions that copied photos into the
+  /// app; those copies are gone, so the entries are ignored.
   List<LocalSource> get userLocalSources {
     final list = _userConfig['localSources'] as List<dynamic>? ?? [];
     return list
         .whereType<Map<String, dynamic>>()
         .map(LocalSource.fromJson)
+        .where((s) => s.id.isNotEmpty)
         .toList();
   }
 
-  /// True when a local source with the same folder path already exists.
-  bool hasLocalSource(String folderPath) {
-    return userLocalSources.any((s) => s.folderPath == folderPath);
+  /// True when a folder theme already watches this folder.
+  bool hasLocalFolder(String root) {
+    return userLocalSources
+        .any((s) => s.isFolder && s.roots.contains(root));
+  }
+
+  LocalSource? localSourceById(String id) {
+    for (final source in userLocalSources) {
+      if (source.id == id) return source;
+    }
+    return null;
+  }
+
+  /// Replaces a local source in place, keeping its position in the list.
+  Future<void> updateLocalSource(LocalSource source) async {
+    final list = userLocalSources
+        .map((s) => (s.id == source.id ? source : s).toJson())
+        .toList();
+    _userConfig['localSources'] = list;
+    await _saveUserConfig();
   }
 
   /// Adds a local source and persists.
@@ -260,10 +281,10 @@ class ThemesConfigService {
     await _saveUserConfig();
   }
 
-  /// Removes a local source matching the given folder path.
-  Future<void> removeLocalSource(String folderPath) async {
+  /// Removes the local source with this id.
+  Future<void> removeLocalSource(String id) async {
     final list = userLocalSources
-        .where((s) => s.folderPath != folderPath)
+        .where((s) => s.id != id)
         .map((e) => e.toJson())
         .toList();
     _userConfig['localSources'] = list;

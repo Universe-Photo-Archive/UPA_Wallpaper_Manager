@@ -193,7 +193,11 @@ object RotationState {
      * failing, which looks like Android resetting the wallpaper.
      */
     fun rotate(context: Context, target: RotationTarget): String? {
-        val available = target.images.filter { File(it).exists() }
+        // A reference is either a cached file or one of the user's own photos,
+        // read in place through a lasting folder grant.
+        val available = target.images.filter {
+            Wallpapers.isContentUri(it) || File(it).exists()
+        }
         if (available.isEmpty()) {
             Wallpapers.log(context, "target ${target.id}: no image available")
             return null
@@ -204,9 +208,12 @@ object RotationState {
             .shuffled()
 
         for (candidate in pool) {
-            if (!Wallpapers.isUsable(candidate)) {
+            if (!Wallpapers.isUsable(context, candidate)) {
                 Wallpapers.log(context, "discarding unusable $candidate")
-                runCatching { File(candidate).delete() }
+                // Only ever delete our own cached copies, never a user photo.
+                if (!Wallpapers.isContentUri(candidate)) {
+                    runCatching { File(candidate).delete() }
+                }
                 continue
             }
             if (Wallpapers.apply(context, candidate, target.wallpaperFlag)) {

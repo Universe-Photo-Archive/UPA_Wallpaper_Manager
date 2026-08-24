@@ -3,9 +3,12 @@ package eu.universe_photo_archive.upa_wallpaper_manager
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import java.io.File
 import java.io.FileInputStream
+
+private fun String.toUri(): Uri = Uri.parse(this)
 
 /** Wallpaper helpers shared by the platform channel and the background worker. */
 object Wallpapers {
@@ -18,17 +21,26 @@ object Wallpapers {
      * Android resetting the wallpaper to its default. Only the image header is
      * decoded here, so the check costs nothing.
      */
-    fun isUsable(imagePath: String): Boolean {
-        val file = File(imagePath)
-        if (!file.exists() || file.length() == 0L) return false
+    fun isUsable(context: Context, imagePath: String): Boolean {
         return try {
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(imagePath, options)
+            if (isContentUri(imagePath)) {
+                context.contentResolver.openInputStream(imagePath.toUri())?.use {
+                    BitmapFactory.decodeStream(it, null, options)
+                } ?: return false
+            } else {
+                val file = File(imagePath)
+                if (!file.exists() || file.length() == 0L) return false
+                BitmapFactory.decodeFile(imagePath, options)
+            }
             options.outWidth > 0 && options.outHeight > 0
         } catch (e: Exception) {
             false
         }
     }
+
+    /** True for the user's own photos, referenced in place rather than copied. */
+    fun isContentUri(reference: String): Boolean = reference.startsWith("content://")
 
     /**
      * Applies [imagePath] as wallpaper for [flags] (system and/or lock screen).
@@ -39,14 +51,20 @@ object Wallpapers {
      */
     fun apply(context: Context, imagePath: String, flags: Int): Boolean {
         return try {
-            if (!isUsable(imagePath)) return false
+            if (!isUsable(context, imagePath)) return false
 
             val wm = WallpaperManager.getInstance(context.applicationContext)
-            FileInputStream(File(imagePath)).use { stream ->
+            val stream = if (isContentUri(imagePath)) {
+                context.contentResolver.openInputStream(imagePath.toUri())
+            } else {
+                FileInputStream(File(imagePath))
+            } ?: return false
+
+            stream.use {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    wm.setStream(stream, null, true, flags)
+                    wm.setStream(it, null, true, flags)
                 } else {
-                    wm.setStream(stream)
+                    wm.setStream(it)
                 }
             }
             true

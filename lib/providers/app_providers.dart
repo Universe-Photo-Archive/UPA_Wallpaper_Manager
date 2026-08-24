@@ -16,6 +16,7 @@ import '../services/rotation_service.dart';
 import '../services/themes_config_service.dart';
 import '../services/update_service.dart';
 import '../platform/lockscreen_channel.dart';
+import '../platform/media_access_channel.dart';
 import '../platform/wallpaper_channel.dart';
 
 // --- Singletons ---
@@ -139,6 +140,18 @@ class ThemesNotifier extends StateNotifier<List<ThemeCategory>> {
     state = state.where((t) => t.uniqueKey != theme.uniqueKey).toList();
   }
 
+  /// Swaps a theme for an updated version, keeping its position.
+  void replaceTheme(ThemeCategory theme) {
+    final index = state.indexWhere((t) => t.uniqueKey == theme.uniqueKey);
+    if (index < 0) {
+      addTheme(theme);
+      return;
+    }
+    final updated = [...state];
+    updated[index] = theme;
+    state = updated;
+  }
+
   /// Returns only user-added themes (eligible for removal in the UI).
   List<ThemeCategory> get userThemes =>
       state.where((t) => t.isUserAdded).toList();
@@ -201,27 +214,43 @@ class ThemesManager {
     return null;
   }
 
-  /// Adds a local-folder theme. Returns null on success or a localizable
-  /// error key:
-  ///   - 'invalidUrl': folder is empty/missing
-  ///   - 'alreadyExists': this folder is already a theme
-  ///   - 'addFailed': folder unreadable / no images / scan crashed
-  Future<String?> addLocalThemeFromFolder(String folderPath) async {
-    final path = folderPath.trim();
-    if (path.isEmpty) return 'invalidUrl';
-    final dir = Directory(path);
-    if (!dir.existsSync()) return 'invalidUrl';
+  /// Creates a theme following a whole folder: everything inside belongs to
+  /// it, now and later.
+  ///
+  /// Returns null on success, or a localizable error key.
+  Future<String?> addFolderTheme(String root) async {
+    if (root.trim().isEmpty) return 'invalidUrl';
 
     final cfg = _ref.read(themesConfigServiceProvider);
-    if (cfg.hasLocalSource(path)) return 'alreadyExists';
+    if (cfg.hasLocalFolder(root)) return 'alreadyExists';
 
+    return _createLocalTheme(LocalSource(
+      id: _newLocalId(),
+      kind: LocalThemeKind.folder,
+      name: LocalSource.folderDisplayName(root),
+      roots: [root],
+    ));
+  }
+
+  /// Creates a theme from photos the user hand-picked inside [root].
+  Future<String?> addCustomTheme({
+    required String name,
+    required String root,
+    required List<String> items,
+  }) async {
+    if (items.isEmpty) return 'addFailed';
+
+    return _createLocalTheme(LocalSource(
+      id: _newLocalId(),
+      kind: LocalThemeKind.custom,
+      name: name.trim().isEmpty ? LocalSource.folderDisplayName(root) : name.trim(),
+      roots: [root],
+      items: items,
+    ));
+  }
+
+  Future<String?> _createLocalTheme(LocalSource source) async {
     final localSvc = _ref.read(localGalleryServiceProvider);
-    final source = LocalSource(
-      folderPath: path,
-      name: LocalSource.fromJson({'folderPath': path, 'name': null}).name,
-      id: path.hashCode & 0x7fffffff,
-      recursive: true,
-    );
 
     final ThemeCategory theme;
     try {
@@ -231,30 +260,107 @@ class ThemesManager {
     }
     if (theme.imageCount == 0) return 'addFailed';
 
-    await cfg.addLocalSource(source);
+    await _ref.read(themesConfigServiceProvider).addLocalSource(source);
     _ref.read(themesProvider.notifier).addTheme(theme);
-
-    // Pre-populate the cache index with the local image list so rotation
-    // can pick from it without re-scanning every tick.
-    final cache = _ref.read(cacheServiceProvider);
-    final images = await localSvc.getImages(source);
-    if (images.isNotEmpty) {
-      cache.updateThemeImages(theme.displayName, images);
-    }
-
-    _syncRotationThemeNames();
+    await _refreshLocalTheme(source, theme);
     return null;
   }
+
+  /// Renames a local theme, moving the rotation settings with it.
+  Future<void> renameLocalTheme(LocalSource source, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed == source.name) return;
+
+    final previous = source.name;
+    final updated = source.copyWith(name: trimmed);
+    await _ref.read(themesConfigServiceProvider).updateLocalSource(updated);
+    await _reloadLocalTheme(updated);
+
+    // Slots pointing at the old name would silently stop rotating.
+    final config = _ref.read(configProvider);
+    if (config.screens.any((s) => s.themeNames.contains(previous))) {
+      await _ref.read(configProvider.notifier).update((c) => c.copyWith(
+            screens: c.screens
+                .map((s) => s.themeNames.contains(previous)
+                    ? s.copyWith(
+                        themeNames: s.themeNames
+                            .map((n) => n == previous ? trimmed : n)
+                            .toList())
+                    : s)
+                .toList(),
+          ));
+    }
+  }
+
+  /// Adds photos to a custom theme, granting access to their folder if new.
+  Future<void> addPhotosToTheme(
+    LocalSource source, {
+    required String root,
+    required List<String> items,
+  }) async {
+    if (items.isEmpty) return;
+    final merged = [...source.items];
+    for (final item in items) {
+      if (!merged.contains(item)) merged.add(item);
+    }
+    final roots = source.roots.contains(root)
+        ? source.roots
+        : [...source.roots, root];
+
+    final updated = source.copyWith(items: merged, roots: roots);
+    await _ref.read(themesConfigServiceProvider).updateLocalSource(updated);
+    await _reloadLocalTheme(updated);
+  }
+
+  /// Drops photos from a custom theme. Nothing is deleted from the device.
+  Future<void> removePhotosFromTheme(
+    LocalSource source,
+    Set<String> references,
+  ) async {
+    if (references.isEmpty) return;
+    final updated = source.copyWith(
+      items: source.items.where((i) => !references.contains(i)).toList(),
+    );
+    await _ref.read(themesConfigServiceProvider).updateLocalSource(updated);
+    await _reloadLocalTheme(updated);
+  }
+
+  /// Rebuilds the theme entry and its cached image list after a change.
+  Future<void> _reloadLocalTheme(LocalSource source) async {
+    final localSvc = _ref.read(localGalleryServiceProvider);
+    final theme = await localSvc.resolveCategory(source);
+    final notifier = _ref.read(themesProvider.notifier);
+    notifier.replaceTheme(theme);
+    await _refreshLocalTheme(source, theme);
+  }
+
+  Future<void> _refreshLocalTheme(
+      LocalSource source, ThemeCategory theme) async {
+    final localSvc = _ref.read(localGalleryServiceProvider);
+    final cache = _ref.read(cacheServiceProvider);
+    cache.replaceThemeImages(
+        theme.displayName, await localSvc.getImages(source));
+    _syncRotationThemeNames();
+  }
+
+  String _newLocalId() =>
+      'l${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
 
   /// Removes a user-added theme. Any screen configured to use it is
   /// reverted to "all themes" so rotation does not silently break.
   Future<void> removeUserTheme(ThemeCategory theme) async {
     if (!theme.isUserAdded) return;
     final cfg = _ref.read(themesConfigServiceProvider);
-    if (theme.sourceBaseUrl.startsWith(LocalSource.urlScheme)) {
-      final folderPath =
-          theme.sourceBaseUrl.substring(LocalSource.urlScheme.length);
-      await cfg.removeLocalSource(folderPath);
+    final localId = LocalSource.idFromSourceBaseUrl(theme.sourceBaseUrl);
+    if (localId != null) {
+      // Hand the folder grant back so the app keeps only what it still uses.
+      final source = cfg.localSourceById(localId);
+      for (final root in source?.roots ?? const <String>[]) {
+        if (MediaAccessChannel.isDocumentUri(root)) {
+          await MediaAccessChannel.releaseFolder(root);
+        }
+      }
+      await cfg.removeLocalSource(localId);
     } else {
       await cfg.removeUserSource(theme.sourceBaseUrl, theme.id);
     }
@@ -289,6 +395,16 @@ class ThemesManager {
     rotation.allThemeNames =
         _ref.read(themesProvider).map((t) => t.displayName).toList();
   }
+}
+
+/// Local source backing a theme, or null when it is not a local one.
+///
+/// A plain function rather than a family provider: keying a provider on a
+/// [ThemeCategory] would create — and keep — one instance per rebuild.
+LocalSource? localSourceFor(WidgetRef ref, ThemeCategory theme) {
+  final id = LocalSource.idFromSourceBaseUrl(theme.sourceBaseUrl);
+  if (id == null) return null;
+  return ref.read(themesConfigServiceProvider).localSourceById(id);
 }
 
 // --- Excluded images ---

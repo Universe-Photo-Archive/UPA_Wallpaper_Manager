@@ -139,6 +139,16 @@ class CacheService {
   List<WallpaperImage> getThemeImages(String themeName) =>
       _selectable(themeName);
 
+  /// Replaces a theme's image list outright.
+  ///
+  /// Local themes are re-read from the device on every change, so merging
+  /// would keep photos the user has just removed from the theme.
+  void replaceThemeImages(String themeName, List<WallpaperImage> images) {
+    _index[themeName] = images;
+    _currentCycle.putIfAbsent(themeName, () => 0);
+    _saveIndex();
+  }
+
   /// Every known image of a theme, excluded ones included.
   List<WallpaperImage> getAllThemeImages(String themeName) =>
       _index[themeName] ?? [];

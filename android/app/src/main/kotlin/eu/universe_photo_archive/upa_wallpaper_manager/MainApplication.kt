@@ -2,6 +2,7 @@ package eu.universe_photo_archive.upa_wallpaper_manager
 
 import android.app.Application
 import android.app.WallpaperManager
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -39,6 +40,18 @@ class MainApplication : Application() {
 
     /** Kept so background rotation can push updates back to the UI. */
     private var wallpaperChannel: MethodChannel? = null
+
+    /** Set by [MainActivity]; needed to open the system folder picker. */
+    var currentActivity: MainActivity? = null
+
+    private var pendingFolderPick: MethodChannel.Result? = null
+
+    /** Called by [MainActivity] once the user answered the folder picker. */
+    fun completeFolderPick(treeUri: String?) {
+        val pending = pendingFolderPick ?: return
+        pendingFolderPick = null
+        pending.success(treeUri)
+    }
 
     /**
      * Returns the shared engine, starting Dart on first use.
@@ -133,6 +146,43 @@ class MainApplication : Application() {
                 }
                 "cancelPeriodicRotation" -> {
                     WorkManager.getInstance(this).cancelUniqueWork(ROTATION_WORK)
+                    result.success(true)
+                }
+
+                // --- User photos, read in place through folder grants ---
+                "pickFolder" -> {
+                    val activity = currentActivity
+                    if (activity == null) {
+                        result.success(null)
+                    } else {
+                        pendingFolderPick?.success(null)
+                        pendingFolderPick = result
+                        activity.startFolderPicker()
+                    }
+                }
+                "listFolderImages" -> {
+                    val uri = call.argument<String>("uri")
+                    if (uri == null) {
+                        result.success(listOf<Map<String, Any>>())
+                    } else {
+                        result.success(MediaAccess.listImages(this, Uri.parse(uri)))
+                    }
+                }
+                "folderThumbnail" -> {
+                    val uri = call.argument<String>("uri") ?: ""
+                    val size = call.argument<Int>("maxSize") ?: 400
+                    result.success(
+                        if (uri.isEmpty()) null
+                        else MediaAccess.thumbnail(this, Uri.parse(uri), size)
+                    )
+                }
+                "hasFolderAccess" -> {
+                    val uri = call.argument<String>("uri") ?: ""
+                    result.success(uri.isNotEmpty() && MediaAccess.hasAccess(this, uri))
+                }
+                "releaseFolder" -> {
+                    val uri = call.argument<String>("uri")
+                    if (uri != null) MediaAccess.releaseFolderAccess(this, Uri.parse(uri))
                     result.success(true)
                 }
                 else -> result.notImplemented()

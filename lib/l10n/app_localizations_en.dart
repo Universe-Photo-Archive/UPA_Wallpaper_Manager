@@ -546,6 +546,78 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get manageThemesProviderCustom => 'Create a custom theme';
+
+  @override
+  String get manageThemesCustomDescription =>
+      'Pick the photos you want from a folder; you can add or remove some later';
+
+  @override
+  String get manageThemesProviderFolder => 'Add a whole folder';
+
+  @override
+  String get manageThemesFolderDescription =>
+      'Pick a folder and the app will use every image inside it automatically';
+
+  @override
+  String get pickPhotosTitle => 'Choose photos';
+
+  @override
+  String get pickPhotosAll => 'Select all';
+
+  @override
+  String get pickPhotosNone => 'Deselect all';
+
+  @override
+  String pickPhotosConfirm(int count) {
+    return 'Add $count photo(s)';
+  }
+
+  @override
+  String get themeNameTitle => 'Theme name';
+
+  @override
+  String get themeNameLabel => 'Name';
+
+  @override
+  String get editTheme => 'Edit theme';
+
+  @override
+  String get editThemeAdd => 'Add photos';
+
+  @override
+  String get editThemeAddDescription =>
+      'Choose more photos from a folder on the device';
+
+  @override
+  String get editThemeRemove => 'Remove photos';
+
+  @override
+  String get editThemeRemoveDescription =>
+      'Take photos out of the theme, without deleting them from the device';
+
+  @override
+  String get editThemeRename => 'Rename theme';
+
+  @override
+  String get editThemeFolderOnlyRename =>
+      'This theme follows a whole folder: its contents update on their own.';
+
+  @override
+  String get removePhotosTitle => 'Remove photos';
+
+  @override
+  String removePhotosConfirm(int count) {
+    return 'Remove $count photo(s)';
+  }
+
+  @override
+  String get removePhotosDone => 'Photos removed from the theme';
+
+  @override
+  String get photosAdded => 'Photos added to the theme';
+
+  @override
   String get aboutCredits => 'Photo credits';
 
   @override

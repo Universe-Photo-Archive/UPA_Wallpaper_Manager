@@ -1,11 +1,11 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/theme_category.dart';
+import '../../models/theme_source.dart';
+import 'folder_chooser.dart';
+import 'local_photo_picker.dart';
+import 'theme_name_dialog.dart';
 import '../../providers/app_providers.dart';
 
 /// Multi-step modal dialog to add or remove user-managed themes.
@@ -119,7 +119,8 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
         return _ChooseProviderView(
           key: const ValueKey('choose-provider'),
           l10n: l10n,
-          onPickLocal: _onPickLocalFolder,
+          onPickCustom: _onCreateCustomTheme,
+          onPickFolder: _onAddWholeFolder,
           onPickPiwigo: () => setState(() {
             _step = _Step.enterUrl;
             _errorKey = null;
@@ -144,88 +145,73 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
     }
   }
 
-  Future<void> _onPickLocalFolder() async {
-    final l10n = AppLocalizations.of(context)!;
-
-    String? folderPath;
-    if (Platform.isAndroid) {
-      // Android goes through the system document picker, which grants access
-      // to the chosen files only: no storage permission, and therefore no
-      // Play Store declaration for READ_MEDIA_IMAGES. Scanning a whole folder
-      // is not possible this way, so the images are imported instead.
-      folderPath = await _importPickedImages();
-    } else {
-      try {
-        folderPath = await FilePicker.platform.getDirectoryPath(
-          dialogTitle: l10n.manageThemesLocalPickFolder,
-        );
-      } catch (_) {
-        folderPath = null;
-      }
-    }
-
-    if (folderPath == null || !mounted) return;
+  /// Whole folder: everything inside becomes part of the theme, for good.
+  Future<void> _onAddWholeFolder() async {
+    final root = await chooseFolder(context);
+    if (root == null || !mounted) return;
 
     setState(() {
       _validating = true;
       _errorKey = null;
     });
-
-    final manager = ref.read(themesManagerProvider);
-    var errorKey = await manager.addLocalThemeFromFolder(folderPath);
-
+    final errorKey = await ref.read(themesManagerProvider).addFolderTheme(root);
     if (!mounted) return;
-
     setState(() {
       _validating = false;
       _errorKey = errorKey;
     });
+    _reportOutcome(errorKey);
+  }
 
+  /// Hand-picked photos: choose a folder, tick photos inside it, name it.
+  ///
+  /// Going through a folder rather than a plain photo picker is what lets the
+  /// app read those photos later on: a folder grant lasts, a picker grant does
+  /// not, and nothing has to be copied.
+  Future<void> _onCreateCustomTheme() async {
+    final root = await chooseFolder(context);
+    if (root == null || !mounted) return;
+
+    final picked = await LocalPhotoPicker.show(context, root: root);
+    if (picked == null || picked.isEmpty || !mounted) return;
+
+    final name = await promptThemeName(
+      context,
+      initial: LocalSource.folderDisplayName(root),
+    );
+    if (name == null || !mounted) return;
+
+    setState(() {
+      _validating = true;
+      _errorKey = null;
+    });
+    final errorKey = await ref.read(themesManagerProvider).addCustomTheme(
+          name: name,
+          root: root,
+          items: picked,
+        );
+    if (!mounted) return;
+    setState(() {
+      _validating = false;
+      _errorKey = errorKey;
+    });
+    _reportOutcome(errorKey);
+  }
+
+  void _reportOutcome(String? errorKey) {
+    final l10n = AppLocalizations.of(context)!;
     if (errorKey == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.manageThemesAdded)),
       );
       Navigator.of(context).pop();
-    } else {
-      // Inline feedback on the provider screen.
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_translateError(l10n, errorKey, local: true)),
-        ),
-      );
+      return;
     }
-  }
-
-  /// Lets the user pick image files through the system document picker and
-  /// copies them into a private folder the app can always read afterwards.
-  Future<String?> _importPickedImages() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: true,
-      withData: false,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(_translateError(l10n, errorKey, local: true))),
     );
-    if (result == null || result.files.isEmpty) return null;
-
-    final support = await getApplicationSupportDirectory();
-    final dest = Directory(p.join(
-      support.path,
-      'local_themes',
-      'import_${DateTime.now().millisecondsSinceEpoch}',
-    ));
-    await dest.create(recursive: true);
-
-    var copied = 0;
-    for (final file in result.files) {
-      final srcPath = file.path;
-      if (srcPath == null || srcPath.isEmpty) continue;
-      try {
-        await File(srcPath).copy(p.join(dest.path, file.name));
-        copied += 1;
-      } catch (_) {}
-    }
-    if (copied == 0) return null;
-    return dest.path;
   }
+
 
   Future<void> _onValidateUrl() async {
     final url = _urlController.text.trim();
@@ -356,19 +342,21 @@ class _ChooseActionView extends StatelessWidget {
 
 class _ChooseProviderView extends StatelessWidget {
   final AppLocalizations l10n;
-  final VoidCallback onPickLocal;
+  final VoidCallback onPickCustom;
+  final VoidCallback onPickFolder;
   final VoidCallback onPickPiwigo;
 
   const _ChooseProviderView({
     super.key,
     required this.l10n,
-    required this.onPickLocal,
+    required this.onPickCustom,
+    required this.onPickFolder,
     required this.onPickPiwigo,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -380,16 +368,17 @@ class _ChooseProviderView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _ProviderTile(
-            icon: Platform.isAndroid
-                ? Icons.photo_library_rounded
-                : Icons.folder_rounded,
-            title: Platform.isAndroid
-                ? l10n.manageThemesProviderDeviceImages
-                : l10n.manageThemesProviderLocal,
-            subtitle: Platform.isAndroid
-                ? l10n.manageThemesDeviceImagesDescription
-                : l10n.manageThemesLocalDescription,
-            onTap: onPickLocal,
+            icon: Icons.photo_library_rounded,
+            title: l10n.manageThemesProviderCustom,
+            subtitle: l10n.manageThemesCustomDescription,
+            onTap: onPickCustom,
+          ),
+          const SizedBox(height: 12),
+          _ProviderTile(
+            icon: Icons.folder_rounded,
+            title: l10n.manageThemesProviderFolder,
+            subtitle: l10n.manageThemesFolderDescription,
+            onTap: onPickFolder,
           ),
           const SizedBox(height: 12),
           _ProviderTile(

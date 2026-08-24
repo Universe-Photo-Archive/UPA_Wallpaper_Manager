@@ -74,64 +74,118 @@ class PiwigoSource {
   }
 }
 
-/// A local folder used as a theme source (provider = "local gallery").
-///
-/// The folder is scanned recursively (one level by default) for images;
-/// each image becomes a wallpaper of the synthetic theme. The folder path
-/// itself is the stable identity — two different folders cannot collide.
-class LocalSource {
-  /// Absolute path to the folder containing images.
-  final String folderPath;
+/// How a local theme decides which images belong to it.
+enum LocalThemeKind {
+  /// Every image inside the chosen folder, followed over time: photos added
+  /// later show up, photos deleted disappear.
+  folder,
 
-  /// Display name shown in the gallery dropdown.
+  /// A hand-picked list of images taken from one or more folders.
+  custom,
+}
+
+/// Images the user owns, exposed as a theme.
+///
+/// Nothing is ever copied. On desktop the references are absolute file paths;
+/// on Android they are `content://` document URIs, and [roots] holds the
+/// folders the user granted lasting access to — one grant covers everything
+/// inside, which is why even a hand-picked theme is built by first choosing a
+/// folder and then ticking photos within it.
+class LocalSource {
+  /// Stable identity, independent of the folder so a theme can be renamed or
+  /// draw from several folders.
+  final String id;
+
+  final LocalThemeKind kind;
+
+  /// Display name shown in the theme lists.
   final String name;
 
-  /// Stable synthetic id, derived from [folderPath] hashCode. Stored so it
-  /// survives JSON round-trips even though the platform may produce a
-  /// different `String.hashCode` across processes — we persist it once.
-  final int id;
+  /// Folders this theme may read from. Desktop stores paths, Android stores
+  /// document tree URIs whose permission has been persisted.
+  final List<String> roots;
 
-  /// If true, sub-folders are also scanned for images.
-  final bool recursive;
+  /// [LocalThemeKind.custom] only: the chosen images, as file paths or
+  /// document URIs. Ignored for folder themes, which enumerate [roots].
+  final List<String> items;
 
   const LocalSource({
-    required this.folderPath,
-    required this.name,
     required this.id,
-    this.recursive = true,
+    required this.kind,
+    required this.name,
+    this.roots = const [],
+    this.items = const [],
   });
 
   /// Marker prefix used in [ThemeCategory.sourceBaseUrl] so the rest of the
   /// app can detect "this theme is local, do not call Piwigo".
   static const String urlScheme = 'local://';
 
-  String get sourceBaseUrl => '$urlScheme$folderPath';
+  String get sourceBaseUrl => '$urlScheme$id';
+  String get uniqueKey => sourceBaseUrl;
+
+  /// Synthetic numeric id, still expected by [ThemeCategory].
+  int get numericId => id.hashCode & 0x7fffffff;
+
+  bool get isFolder => kind == LocalThemeKind.folder;
+
+  /// Extracts the theme id from a [ThemeCategory.sourceBaseUrl].
+  static String? idFromSourceBaseUrl(String sourceBaseUrl) {
+    if (!sourceBaseUrl.startsWith(urlScheme)) return null;
+    final id = sourceBaseUrl.substring(urlScheme.length);
+    return id.isEmpty ? null : id;
+  }
 
   factory LocalSource.fromJson(Map<String, dynamic> json) {
-    final path = json['folderPath'] as String? ?? '';
     return LocalSource(
-      folderPath: path,
+      id: json['id'] as String? ?? '',
+      kind: (json['kind'] as String?) == 'custom'
+          ? LocalThemeKind.custom
+          : LocalThemeKind.folder,
       name: (json['name'] as String?)?.trim().isNotEmpty == true
           ? json['name'] as String
-          : _deriveNameFromPath(path),
-      id: (json['id'] as int?) ?? path.hashCode & 0x7fffffff,
-      recursive: json['recursive'] as bool? ?? true,
+          : 'Galerie locale',
+      roots: (json['roots'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'folderPath': folderPath,
-        'name': name,
         'id': id,
-        'recursive': recursive,
+        'kind': kind == LocalThemeKind.custom ? 'custom' : 'folder',
+        'name': name,
+        'roots': roots,
+        'items': items,
       };
 
-  String get uniqueKey => '$urlScheme$folderPath';
+  LocalSource copyWith({
+    String? name,
+    List<String>? roots,
+    List<String>? items,
+  }) =>
+      LocalSource(
+        id: id,
+        kind: kind,
+        name: name ?? this.name,
+        roots: roots ?? this.roots,
+        items: items ?? this.items,
+      );
 
-  static String _deriveNameFromPath(String path) {
-    final clean = path.replaceAll('\\', '/').trimRight();
-    final parts =
-        clean.split('/').where((p) => p.trim().isNotEmpty).toList();
+  /// Last path segment of a folder reference, used to name folder themes.
+  static String folderDisplayName(String root) {
+    var clean = Uri.decodeComponent(root).replaceAll('\\', '/').trimRight();
+    // Document tree URIs end with something like ".../tree/primary:Pictures".
+    final colon = clean.lastIndexOf(':');
+    if (colon >= 0 && clean.contains('/tree/')) {
+      clean = clean.substring(colon + 1);
+    }
+    final parts = clean.split('/').where((p) => p.trim().isNotEmpty).toList();
     if (parts.isEmpty) return 'Galerie locale';
     return parts.last;
   }

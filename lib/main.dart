@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:logger/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'models/app_config.dart';
@@ -40,6 +41,21 @@ late final ProviderSubscription<AppConfig> _configSubscription;
 final _autostart = AutostartService();
 final _backgroundRotation = BackgroundRotationService();
 Timer? _backgroundStateRefresh;
+
+/// Deletes the photo copies made by the versions that could not read the
+/// user's folders in place.
+Future<void> _discardLegacyPhotoCopies() async {
+  try {
+    final support = await getApplicationSupportDirectory();
+    final legacy = Directory('${support.path}/local_themes');
+    if (await legacy.exists()) {
+      await legacy.delete(recursive: true);
+      _log.i('Removed legacy imported photo copies');
+    }
+  } catch (e) {
+    _log.w('Could not remove legacy photo copies: $e');
+  }
+}
 
 /// Reflects a wallpaper applied outside of Dart (Android slideshow service)
 /// in the app state, so the preview matches the device.
@@ -238,6 +254,10 @@ void main(List<String> args) async {
 
   final themesConfigService = ThemesConfigService();
   await themesConfigService.init();
+
+  // Earlier versions copied the user's photos into the app; those themes are
+  // gone and the copies are dead weight.
+  unawaited(_discardLegacyPhotoCopies());
 
   final rotationService = RotationService(
     cache: cacheService,
@@ -599,7 +619,7 @@ Future<void> _initializeApp(
         final theme = await localGallery.resolveCategory(src);
         allThemes.add(theme);
       } catch (e) {
-        _log.w('Failed to resolve local theme ${src.folderPath}: $e');
+        _log.w('Failed to resolve local theme ${src.name}: $e');
       }
     }
 
@@ -616,15 +636,12 @@ Future<void> _initializeApp(
             'Chargement: ${theme.displayName}...';
 
         final List<WallpaperImage> images;
-        if (theme.sourceBaseUrl.startsWith(LocalSource.urlScheme)) {
-          final folderPath =
-              theme.sourceBaseUrl.substring(LocalSource.urlScheme.length);
-          images = await localGallery.getImages(LocalSource(
-            folderPath: folderPath,
-            name: theme.nameRaw,
-            id: theme.id,
-            recursive: true,
-          ));
+        final localId = LocalSource.idFromSourceBaseUrl(theme.sourceBaseUrl);
+        final localSource = localId == null
+            ? null
+            : themesConfigService.localSourceById(localId);
+        if (localSource != null) {
+          images = await localGallery.getImages(localSource);
         } else if (isOnline) {
           // Recurse into sub-albums whenever the category's photos live in
           // its children (e.g. "Thomas Pesquet" has 0 direct images but
