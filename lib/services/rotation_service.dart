@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:logger/logger.dart';
 import '../models/wallpaper_image.dart';
+import '../platform/media_access_channel.dart';
 import 'cache_service.dart';
 
 typedef RotationCallback = void Function(int screenId, String imagePath);
@@ -291,8 +292,10 @@ class RotationService {
     }
 
     // Verify the file still exists on disk
-    if (chosen.image.localPath == null ||
-        !await File(chosen.image.localPath!).exists()) {
+    final chosenPath = chosen.image.localPath;
+    if (chosenPath == null ||
+        (!MediaAccessChannel.isDocumentUri(chosenPath) &&
+            !await File(chosenPath).exists())) {
       _log.w('File missing for ${chosen.image.filename}, trying fallback');
       chosen.image.isDownloaded = false;
       chosen.image.localPath = null;

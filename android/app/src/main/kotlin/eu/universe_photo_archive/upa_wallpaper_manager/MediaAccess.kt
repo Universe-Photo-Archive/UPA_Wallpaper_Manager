@@ -158,10 +158,11 @@ object MediaAccess {
             if (target.exists() && target.length() > 0) return target.absolutePath
 
             // Measure first so a full-resolution photo is never fully decoded.
+            // Note: decodeStream returns null in bounds mode, so the stream —
+            // not its result — is what tells us whether the photo is readable.
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, bounds)
-            } ?: return null
+            val probe = context.contentResolver.openInputStream(uri) ?: return null
+            probe.use { BitmapFactory.decodeStream(it, null, bounds) }
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
             var sample = 1
@@ -172,7 +173,8 @@ object MediaAccess {
             }
 
             val options = BitmapFactory.Options().apply { inSampleSize = sample }
-            val bitmap = context.contentResolver.openInputStream(uri)?.use {
+            val source = context.contentResolver.openInputStream(uri) ?: return null
+            val bitmap = source.use {
                 BitmapFactory.decodeStream(it, null, options)
             } ?: return null
 

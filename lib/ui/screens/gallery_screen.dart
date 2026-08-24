@@ -528,8 +528,11 @@ class _ImageDetailDialog extends ConsumerWidget {
 
   const _ImageDetailDialog({required this.image});
 
-  bool get _isLocal =>
-      image.localPath != null && File(image.localPath!).existsSync();
+  bool get _isLocal {
+    final path = image.localPath;
+    if (path == null) return false;
+    return MediaAccessChannel.isDocumentUri(path) || File(path).existsSync();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

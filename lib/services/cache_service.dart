@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/wallpaper_image.dart';
+import '../platform/media_access_channel.dart';
 
 /// Smart cache manager — mirrors the Python SmartCacheManager logic.
 /// Handles downloading, indexing, cycle tracking, and cleanup.
@@ -165,9 +166,10 @@ class CacheService {
   Future<String?> downloadImage(
       String themeName, WallpaperImage image) async {
     // Local-gallery images are already on disk — no download needed.
-    if (image.localPath != null && File(image.localPath!).existsSync()) {
+    final existing = image.localPath;
+    if (existing != null && _isUsableFile(existing)) {
       image.isDownloaded = true;
-      return image.localPath;
+      return existing;
     }
 
     final themeDir = Directory('${_cacheDir.path}/$themeName');
@@ -251,8 +253,12 @@ class CacheService {
         .toList();
   }
 
-  bool _isUsableFile(String filePath) {
-    final file = File(filePath);
+  /// A reference is usable when it is a non-empty file, or one of the user's
+  /// own photos — those live outside the app and only the platform can open
+  /// them, so their presence is checked when they are listed instead.
+  bool _isUsableFile(String reference) {
+    if (MediaAccessChannel.isDocumentUri(reference)) return true;
+    final file = File(reference);
     return file.existsSync() && file.lengthSync() > 0;
   }
 
@@ -262,7 +268,7 @@ class CacheService {
     try {
       final img = images.firstWhere((i) => i.filename == filename);
       if (img.isDownloaded && img.localPath != null) {
-        return File(img.localPath!).existsSync() ? img.localPath : null;
+        return _isUsableFile(img.localPath!) ? img.localPath : null;
       }
     } catch (_) {}
     return null;
