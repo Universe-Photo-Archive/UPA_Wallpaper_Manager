@@ -16,6 +16,8 @@ import androidx.work.WorkerParameters
  * guards against is exactly a live service whose wake-ups never arrive. It
  * keys off the last rotation instead, so a healthy slideshow is left alone.
  */
+private const val THIRTY_MINUTES = 30 * 60 * 1000L
+
 class RotationWorker(context: Context, params: WorkerParameters) :
     Worker(context, params) {
 
@@ -28,14 +30,20 @@ class RotationWorker(context: Context, params: WorkerParameters) :
             if (!target.enabled || target.images.isEmpty()) continue
 
             val since = RotationState.millisSinceRotation(state, target.id)
-            val overdueAfter = target.intervalSeconds * 1000L * 2
-            // Never rotated yet, or silent for twice its delay: something ate
-            // the alarm.
-            if (since != null && since < overdueAfter) continue
+            // Unknown means the settings were just written and no wake-up has
+            // landed yet — the alarms are in charge, so stay out of the way.
+            if (since == null) continue
+
+            // Doze throttles wake-ups to roughly one every nine minutes, so a
+            // short delay legitimately runs late. The floor keeps this a
+            // safety net instead of a second rotator racing the alarms.
+            val overdueAfter =
+                maxOf(target.intervalSeconds * 1000L * 2, THIRTY_MINUTES)
+            if (since < overdueAfter) continue
 
             Wallpapers.log(
                 applicationContext,
-                "watchdog: target ${target.id} overdue (${since ?: -1} ms)"
+                "watchdog: target ${target.id} silent for ${since / 1000}s"
             )
             RotationState.rotate(applicationContext, target)
             RotationAlarms.schedule(

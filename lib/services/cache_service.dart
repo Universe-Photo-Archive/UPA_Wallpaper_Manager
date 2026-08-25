@@ -276,6 +276,33 @@ class CacheService {
 
   // --- Display tracking ---
 
+  /// Mirrors what the background rotation displayed into the index, so the
+  /// cycle and the cleanup agree with what the user actually saw.
+  void markDisplayedReferences(Set<String> references) {
+    if (references.isEmpty) return;
+    var changed = false;
+    _index.forEach((_, images) {
+      for (final image in images) {
+        final path = image.localPath;
+        if (path != null && !image.isDisplayed && references.contains(path)) {
+          image.isDisplayed = true;
+          image.lastDisplayed ??= DateTime.now();
+          changed = true;
+        }
+      }
+    });
+    if (changed) _saveIndex();
+  }
+
+  /// Number of images of a theme that are downloaded and still unseen.
+  int countReadyUndisplayed(String themeName) => _selectable(themeName)
+      .where((i) =>
+          i.isDownloaded &&
+          i.localPath != null &&
+          _isUsableFile(i.localPath!) &&
+          !i.isDisplayed)
+      .length;
+
   void markDisplayed(String themeName, String localPath) {
     final images = _index[themeName] ?? [];
     for (final img in images) {

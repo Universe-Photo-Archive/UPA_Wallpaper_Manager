@@ -93,15 +93,26 @@ class BackgroundRotationService {
       final file = await _stateFile();
       final previous = await _read(file);
 
-      // Keep whatever the native side recorded as displayed, unless this sync
-      // provides a fresher value.
-      final previousCurrent = <int, String>{};
+      // Everything the native side owns must survive this rewrite. Losing the
+      // cycle would restart it every ten minutes, and losing the timestamp
+      // made the watchdog believe the slideshow had stalled and rotate on top
+      // of the scheduled wake-ups.
+      final kept = <int, Map<String, dynamic>>{};
       for (final target in (previous?['targets'] as List<dynamic>? ?? [])) {
         if (target is! Map) continue;
         final id = target['id'] as int?;
-        final current = target['current'] as String?;
-        if (id != null && current != null) previousCurrent[id] = current;
+        if (id == null) continue;
+        kept[id] = {
+          if (target['current'] != null) 'current': target['current'],
+          if (target['lastRotationAt'] != null)
+            'lastRotationAt': target['lastRotationAt'],
+          'shown': (target['shown'] as List<dynamic>? ?? const [])
+              .map((e) => e.toString())
+              .toList(),
+        };
       }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
 
       await file.writeAsString(json.encode({
         'paused': paused,
@@ -109,11 +120,21 @@ class BackgroundRotationService {
         if (labels.isNotEmpty) 'labels': labels,
         'targets': [
           for (final target in targets)
-            {
-              ...target.toJson(),
-              if (target.current == null && previousCurrent[target.id] != null)
-                'current': previousCurrent[target.id],
-            }
+            () {
+              final previousTarget = kept[target.id] ?? const {};
+              final images = target.images.toSet();
+              return {
+                ...target.toJson(),
+                if (target.current == null && previousTarget['current'] != null)
+                  'current': previousTarget['current'],
+                // A photo dropped from the theme must not keep a slot in the
+                // cycle, or the cycle would never complete.
+                'shown': (previousTarget['shown'] as List<String>? ?? const [])
+                    .where(images.contains)
+                    .toList(),
+                'lastRotationAt': previousTarget['lastRotationAt'] ?? now,
+              };
+            }()
         ],
       }));
 
@@ -182,6 +203,27 @@ class BackgroundRotationService {
       return result;
     } catch (_) {
       return {};
+    }
+  }
+
+  /// References the background rotation has already shown in the running
+  /// cycle, so the app can mirror them into its own cache bookkeeping.
+  Future<Set<String>> shownReferences() async {
+    if (!Platform.isAndroid) return const {};
+    try {
+      final data = await _read(await _stateFile());
+      final targets = data?['targets'];
+      if (targets is! List) return const {};
+      final references = <String>{};
+      for (final target in targets) {
+        if (target is! Map) continue;
+        for (final reference in (target['shown'] as List<dynamic>? ?? [])) {
+          references.add(reference.toString());
+        }
+      }
+      return references;
+    } catch (_) {
+      return const {};
     }
   }
 

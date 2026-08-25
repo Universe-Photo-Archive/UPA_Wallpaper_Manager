@@ -41,6 +41,10 @@ late final ProviderSubscription<AppConfig> _configSubscription;
 final _autostart = AutostartService();
 final _backgroundRotation = BackgroundRotationService();
 Timer? _backgroundStateRefresh;
+bool _toppingUp = false;
+
+/// How many unseen images each rotating theme should keep ready on disk.
+const int _minUnseenPerTheme = 25;
 
 /// Deletes the photo copies made by the versions that could not read the
 /// user's folders in place.
@@ -94,7 +98,9 @@ class _ForegroundWallpaperSync with WidgetsBindingObserver {
     });
     // Hand the service a fresh image list: cache cleanup may have removed
     // some of the files it knows about, and new ones have been downloaded.
-    _syncBackgroundRotation(container, container.read(configProvider));
+    _topUpRotationCache(container, container.read(configProvider)).then(
+      (_) => _syncBackgroundRotation(container, container.read(configProvider)),
+    );
   }
 }
 
@@ -108,6 +114,44 @@ void _stopAllSlideshows(ProviderContainer container) {
             c.screens.map((s) => s.copyWith(rotationEnabled: false)).toList(),
       ));
   _log.i('Slideshows stopped from the notification');
+}
+
+/// Downloads more images of the themes in rotation while the app is open.
+///
+/// The background slideshow only draws from what is already on disk, so a
+/// large theme would otherwise cycle through the handful fetched at startup.
+/// Topping up here is what lets it eventually go through everything.
+Future<void> _topUpRotationCache(
+  ProviderContainer container,
+  AppConfig config,
+) async {
+  if (_toppingUp || !container.read(isOnlineProvider)) return;
+  _toppingUp = true;
+  try {
+    final cache = container.read(cacheServiceProvider);
+    final allThemes =
+        container.read(themesProvider).map((t) => t.displayName).toList();
+
+    final active = <String>{};
+    for (final screen in config.screens) {
+      if (!screen.rotationEnabled) continue;
+      active.addAll(screen.resolveThemes(allThemes));
+    }
+
+    for (final theme in active) {
+      // Local themes are already on the device; nothing to fetch.
+      if (cache.getThemeImages(theme).isEmpty) continue;
+      if (cache.countReadyUndisplayed(theme) >= _minUnseenPerTheme) continue;
+      final downloaded = await cache.downloadBatch(theme, count: 10);
+      if (downloaded > 0) {
+        _log.i('Topped up "$theme" with $downloaded image(s)');
+      }
+    }
+  } catch (e) {
+    _log.w('Cache top-up failed: $e');
+  } finally {
+    _toppingUp = false;
+  }
 }
 
 /// Mirrors the current rotation settings into the Android slideshow service.
@@ -124,6 +168,10 @@ Future<void> _syncBackgroundRotation(
   final allThemes =
       container.read(themesProvider).map((t) => t.displayName).toList();
   final wallpapers = container.read(currentWallpapersProvider);
+
+  // Take note of what rotated while the app was away, so the cycle and the
+  // cache cleanup stay in step with what the user really saw.
+  cache.markDisplayedReferences(await _backgroundRotation.shownReferences());
 
   final targets = <RotationTargetState>[];
   for (final screen in config.screens) {
@@ -245,7 +293,9 @@ void main(List<String> args) async {
   }
 
   final cacheService = CacheService(
-    maxCachedImages: 100,
+    // A wide pool is what keeps the background rotation varied: it can only
+    // draw from what is already on disk, since it never touches the network.
+    maxCachedImages: 300,
     prefetchCount: 10,
   );
   await cacheService.init();
@@ -740,7 +790,11 @@ Future<void> _initializeApp(
       _backgroundStateRefresh?.cancel();
       _backgroundStateRefresh = Timer.periodic(
         const Duration(minutes: 10),
-        (_) => _syncBackgroundRotation(container, container.read(configProvider)),
+        (_) async {
+          await _topUpRotationCache(container, container.read(configProvider));
+          await _syncBackgroundRotation(
+              container, container.read(configProvider));
+        },
       );
       await _syncBackgroundRotation(container, container.read(configProvider));
     }

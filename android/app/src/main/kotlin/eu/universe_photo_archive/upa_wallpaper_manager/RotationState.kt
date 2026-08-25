@@ -23,6 +23,10 @@ data class RotationTarget(
     val intervalSeconds: Long,
     val theme: String,
     val images: List<String>,
+
+    /// Images already displayed during the current cycle.
+    val shown: List<String>,
+
     val current: String?
 ) {
     val wallpaperFlag: Int
@@ -69,6 +73,9 @@ object RotationState {
                     .coerceAtLeast(60L),
                 theme = obj.optString("theme", ""),
                 images = (0 until images.length()).mapNotNull { images.optString(it, null) },
+                shown = obj.optJSONArray("shown")?.let { array ->
+                    (0 until array.length()).mapNotNull { array.optString(it, null) }
+                } ?: emptyList(),
                 current = obj.optString("current", "").ifEmpty { null }
             )
         }
@@ -146,19 +153,39 @@ object RotationState {
         write(context, state)
     }
 
+    /**
+     * Notes that [path] is now displayed on [targetId] and belongs to the
+     * cycle in progress.
+     *
+     * [startNewCycle] empties the list of already-seen images, which happens
+     * once every image of the theme has had its turn.
+     */
     @Synchronized
-    fun setCurrent(context: Context, targetId: Int, path: String) {
+    fun recordShown(
+        context: Context,
+        targetId: Int,
+        path: String,
+        startNewCycle: Boolean
+    ) {
         val state = read(context) ?: return
         val array = state.optJSONArray("targets") ?: return
         for (index in 0 until array.length()) {
             val obj = array.optJSONObject(index) ?: continue
-            if (obj.optInt("id", -1) == targetId) {
-                obj.put("current", path)
-                // Stamped so the WorkManager fallback can tell a healthy
-                // slideshow from one whose wake-ups stopped being delivered.
-                obj.put("lastRotationAt", System.currentTimeMillis())
-                break
+            if (obj.optInt("id", -1) != targetId) continue
+
+            obj.put("current", path)
+            // Stamped so the WorkManager fallback can tell a healthy
+            // slideshow from one whose wake-ups stopped being delivered.
+            obj.put("lastRotationAt", System.currentTimeMillis())
+
+            val shown = if (startNewCycle) {
+                JSONArray()
+            } else {
+                obj.optJSONArray("shown") ?: JSONArray()
             }
+            shown.put(path)
+            obj.put("shown", shown)
+            break
         }
         write(context, state)
     }
@@ -203,9 +230,23 @@ object RotationState {
             return null
         }
 
-        val pool = (available.filterNot { it == target.current }
-            .ifEmpty { available })
-            .shuffled()
+        // Show every image of the theme once before any of them comes back.
+        // Without this the pick was purely random, so a handful of images
+        // reappeared while others were never seen.
+        var startNewCycle = false
+        var remaining = available.filterNot { target.shown.contains(it) }
+        if (remaining.isEmpty()) {
+            startNewCycle = true
+            // Avoid opening the new cycle with the image already on screen.
+            remaining = available.filterNot { it == target.current }
+                .ifEmpty { available }
+            Wallpapers.log(
+                context,
+                "target ${target.id}: cycle complete (${available.size} images), starting over"
+            )
+        }
+
+        val pool = remaining.shuffled()
 
         for (candidate in pool) {
             if (!Wallpapers.isUsable(context, candidate)) {
@@ -217,7 +258,7 @@ object RotationState {
                 continue
             }
             if (Wallpapers.apply(context, candidate, target.wallpaperFlag)) {
-                setCurrent(context, target.id, candidate)
+                recordShown(context, target.id, candidate, startNewCycle)
                 Wallpapers.log(context, "target ${target.id}: applied $candidate")
                 (context.applicationContext as? MainApplication)
                     ?.notifyWallpaperChanged(target.id, candidate)
