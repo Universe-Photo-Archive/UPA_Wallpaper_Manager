@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
+  local_notifier
   screen_retriever_windows
   system_tray
   url_launcher_windows

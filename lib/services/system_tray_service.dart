@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:local_notifier/local_notifier.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
@@ -18,8 +19,25 @@ class SystemTrayService with WindowListener {
 
   bool _isPaused = false;
 
+  /// Desktop notice shown when the window leaves for the tray, so nobody
+  /// thinks the app just vanished. The user can switch it off in Settings.
+  bool notifyOnHide = true;
+  String hideNoticeTitle = 'UPA Wallpaper Manager';
+  String hideNoticeBody = '';
+
   Future<void> init() async {
     if (!isDesktop) return;
+
+    // Windows shows toasts on behalf of a Start-menu shortcut, which the
+    // plugin creates when missing.
+    try {
+      await localNotifier.setup(
+        appName: 'UPA Wallpaper Manager',
+        shortcutPolicy: ShortcutPolicy.requireCreate,
+      );
+    } catch (_) {
+      // Without it the app simply hides without a notice.
+    }
 
     // Minimize and close both send the app to the tray (next to the clock)
     // instead of keeping a taskbar entry / quitting. Quitting is only
@@ -105,17 +123,19 @@ class SystemTrayService with WindowListener {
   /// (no entry left in the taskbar).
   @override
   void onWindowMinimize() {
-    hideWindow();
+    hideWindow(notify: true);
   }
 
   /// Close button (X) -> hide to tray instead of quitting. Requires
   /// [windowManager.setPreventClose] to be true (done in [init]).
   @override
   void onWindowClose() {
-    hideWindow();
+    hideWindow(notify: true);
   }
 
-  Future<void> hideWindow() async {
+  /// [notify] tells the user where the window went; it stays false when the
+  /// app starts up already hidden, which needs no explanation.
+  Future<void> hideWindow({bool notify = false}) async {
     if (!isDesktop) return;
     try {
       await windowManager.setSkipTaskbar(true);
@@ -123,6 +143,21 @@ class SystemTrayService with WindowListener {
       // [setSkipTaskbar] is a no-op on platforms that do not support it.
     }
     await windowManager.hide();
+    if (notify && notifyOnHide) _showHideNotice();
+  }
+
+  Future<void> _showHideNotice() async {
+    if (hideNoticeBody.isEmpty) return;
+    try {
+      final notification = LocalNotification(
+        title: hideNoticeTitle,
+        body: hideNoticeBody,
+      );
+      notification.onClick = () => onShow?.call();
+      await notification.show();
+    } catch (_) {
+      // A missing notification must never keep the window from hiding.
+    }
   }
 
   Future<void> showWindow() async {

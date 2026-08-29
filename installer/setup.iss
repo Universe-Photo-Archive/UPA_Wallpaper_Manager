@@ -14,7 +14,7 @@
 ;     elevated Scheduled Task; the installer does not create it.
 
 #define MyAppName "UPA Wallpaper Manager"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "Universe Photo Archive"
 #define MyAppURL "https://universe-photo-archive.eu"
 #define MyAppExeName "upa_wallpaper_manager.exe"
