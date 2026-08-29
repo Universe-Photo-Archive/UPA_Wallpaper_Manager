@@ -116,12 +116,15 @@ class HomeScreen extends ConsumerWidget {
                             horizontal: 12, vertical: 8),
                         itemCount: screens.length,
                         itemBuilder: (context, index) {
+                          // Matched on id, not position: the lock-screen
+                          // slot is not a monitor and its index moves.
+                          final screen = screens[index];
                           return ScreenCard(
-                            screen: screens[index],
+                            screen: screen,
                             themes: themes,
-                            screenConfig: config.screens.length > index
-                                ? config.screens[index]
-                                : null,
+                            screenConfig: config.screens
+                                .where((c) => c.screenId == screen.id)
+                                .firstOrNull,
                           );
                         },
                       ),

@@ -484,8 +484,39 @@ final screensProvider =
 class ScreensNotifier extends StateNotifier<List<ScreenInfo>> {
   ScreensNotifier() : super([]);
 
+  List<ScreenInfo> _monitors = const [];
+  bool _lockSlot = false;
+
   Future<void> detectScreens() async {
-    state = await WallpaperChannel.getScreens();
+    _monitors = await WallpaperChannel.getScreens();
+    _publish();
+  }
+
+  /// Desktop: shows a card for the lock screen, which rotates on its own.
+  ///
+  /// The slot only exists while the feature is both usable and switched on,
+  /// so an unsupported machine never sees a card it could not use.
+  void setLockScreenSlot(bool present) {
+    if (_lockSlot == present) return;
+    _lockSlot = present;
+    _publish();
+  }
+
+  void _publish() {
+    final screens = List<ScreenInfo>.from(_monitors);
+    if (_lockSlot) {
+      final reference = _monitors.isEmpty
+          ? null
+          : _monitors.firstWhere((s) => s.isPrimary,
+              orElse: () => _monitors.first);
+      screens.add(ScreenInfo(
+        id: kDesktopLockScreenId,
+        name: 'Lock screen',
+        width: reference?.width ?? 1920,
+        height: reference?.height ?? 1080,
+      ));
+    }
+    state = screens;
   }
 }
 

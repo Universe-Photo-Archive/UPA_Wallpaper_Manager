@@ -108,8 +108,14 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
     };
 
     // On Android the two "screens" are the home wallpaper and the lock
-    // screen; each gets a coloured title so the cards cannot be confused.
-    final isLockTarget = _isMobile && screen.id == 1;
+    // screen; on desktop the lock screen is an extra slot next to the
+    // monitors. Either way it gets a coloured title of its own so the cards
+    // cannot be confused.
+    final isLockTarget =
+        (_isMobile && screen.id == 1) || screen.isDesktopLockScreen;
+    // Monitor number, "Primary" badge and resolution only mean something for
+    // a real screen.
+    final isMonitor = !_isMobile && !isLockTarget;
     final targetColor = isLockTarget
         ? Theme.of(context).colorScheme.secondary
         : Theme.of(context).colorScheme.primary;
@@ -179,7 +185,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
           // the target title and its toggle (mobile).
           final header = Row(
             children: [
-              if (_isMobile) ...[
+              if (_isMobile || isLockTarget) ...[
                 Icon(
                   isLockTarget
                       ? Icons.lock_outline_rounded
@@ -204,7 +210,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                   ),
                 ),
               ],
-              if (!narrow) ...[
+              if (!narrow && isMonitor) ...[
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -268,7 +274,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
               ],
               // The coloured title already says which slot this is; on mobile
               // the switch speaks for itself.
-              if (!_isMobile)
+              if (isMonitor)
                 Flexible(
                   child: Text(l10n.screenRotationEnabled,
                       overflow: TextOverflow.ellipsis,
@@ -279,7 +285,7 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                               .onSurface
                               .withValues(alpha: 0.6))),
                 ),
-              if (narrow && !_isMobile) const Spacer(),
+              if (narrow && isMonitor) const Spacer(),
               const SizedBox(width: 6),
               Switch(
                 value: rotationEnabled,

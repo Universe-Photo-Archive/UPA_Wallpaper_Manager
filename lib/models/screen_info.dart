@@ -1,3 +1,9 @@
+/// Slot standing for the desktop lock screen, which is not a monitor.
+///
+/// Well above any monitor index so it cannot collide with one, and stable
+/// across sessions so its settings survive plugging a screen in or out.
+const int kDesktopLockScreenId = 900;
+
 class ScreenInfo {
   final int id;
   final String name;
@@ -20,6 +26,9 @@ class ScreenInfo {
   });
 
   String get resolution => '${width}x$height';
+
+  /// True for the lock-screen slot rather than a real monitor.
+  bool get isDesktopLockScreen => id == kDesktopLockScreenId;
 
   factory ScreenInfo.fromJson(Map<String, dynamic> json) {
     return ScreenInfo(

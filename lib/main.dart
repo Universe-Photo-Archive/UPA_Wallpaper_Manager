@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'models/app_config.dart';
+import 'models/screen_info.dart';
 import 'models/theme_category.dart';
 import 'models/theme_source.dart';
 import 'providers/app_providers.dart';
@@ -327,19 +328,18 @@ void main(List<String> args) async {
   // is cached in [lockscreenSupportProvider] for the UI; we keep a local copy
   // here so the rotation callback can short-circuit on unsupported systems
   // without async work on every wallpaper change.
-  bool lockscreenSupported = false;
   if (Platform.isWindows) {
     try {
-      lockscreenSupported = await LockscreenChannel.isLockscreenSupported();
-      _log.i('Lockscreen support: $lockscreenSupported');
+      _lockscreenSupported = await LockscreenChannel.isLockscreenSupported();
+      _log.i('Lockscreen support: $_lockscreenSupported');
     } catch (e) {
       _log.w('Failed to probe lockscreen support: $e');
     }
   } else if (Platform.isAndroid) {
     try {
       // Supported since Android 7.0 (FLAG_LOCK) — no admin requirement.
-      lockscreenSupported = await LockscreenChannel.isSupported();
-      _log.i('Lockscreen support (Android): $lockscreenSupported');
+      _lockscreenSupported = await LockscreenChannel.isSupported();
+      _log.i('Lockscreen support (Android): $_lockscreenSupported');
     } catch (e) {
       _log.w('Failed to probe lockscreen support: $e');
     }
@@ -381,6 +381,15 @@ void main(List<String> args) async {
     }
 
     try {
+      // The desktop lock screen is a slot of its own, with its own themes and
+      // delay: it no longer copies whatever screen 1 happens to show.
+      if (!Platform.isAndroid && screenId == kDesktopLockScreenId) {
+        final ok = await LockscreenChannel.setLockscreen(imagePath);
+        logService.debug(
+            'Lockscreen update for $imagePath -> ${ok ? "OK" : "FAILED"}');
+        return;
+      }
+
       // On Android screen 1 *is* the lock screen, and the native side maps it
       // to FLAG_LOCK — no separate lock-screen call is needed there.
       final success = await WallpaperChannel.setWallpaper(
@@ -390,16 +399,6 @@ void main(List<String> args) async {
       _log.d('setWallpaper result: $success');
       logService.debug(
           'Native setWallpaper(screen=$screenId) -> $success');
-
-      if (success &&
-          !Platform.isAndroid &&
-          configService.config.lockscreenEnabled &&
-          screenId == 0 &&
-          lockscreenSupported) {
-        final ok = await LockscreenChannel.setLockscreen(imagePath);
-        logService.debug(
-            'Lockscreen update for $imagePath -> ${ok ? "OK" : "FAILED"}');
-      }
     } catch (e) {
       _log.e('setWallpaper error: $e');
       logService.error('setWallpaper failed for screen $screenId', e);
@@ -422,7 +421,32 @@ void main(List<String> args) async {
       _syncLaunchOnStartup(next.launchOnStartup);
     }
 
+    if (SystemTrayService.isDesktop &&
+        (prev?.language != next.language ||
+            prev?.notifyOnMinimize != next.notifyOnMinimize)) {
+      _applyTrayNotice(trayService, next);
+    }
+
+    // Show or hide the lock-screen card, and make sure it has settings of its
+    // own the first time it appears.
+    if (!Platform.isAndroid && prev?.lockscreenEnabled != next.lockscreenEnabled) {
+      final active = next.lockscreenEnabled && _lockscreenSupported;
+      container.read(screensProvider.notifier).setLockScreenSlot(active);
+      if (active) {
+        _ensureScreenConfigs(container, container.read(screensProvider));
+      } else {
+        // The card is gone; its slideshow must not keep running behind it.
+        rotationService.setScreenConfig(ScreenRotationConfig(
+          screenId: kDesktopLockScreenId,
+          themeNames: [],
+          enabled: false,
+          delaySeconds: 900,
+        ));
+      }
+    }
+
     var delayOrEnabledChanged = false;
+    final present = container.read(screensProvider).map((s) => s.id).toSet();
     for (final sc in next.screens) {
       final prevSc = prev?.screens
           .where((p) => p.screenId == sc.screenId)
@@ -431,7 +455,7 @@ void main(List<String> args) async {
       rotationService.setScreenConfig(ScreenRotationConfig(
         screenId: sc.screenId,
         themeNames: sc.themeNames,
-        enabled: sc.rotationEnabled,
+        enabled: sc.rotationEnabled && present.contains(sc.screenId),
         delaySeconds: sc.rotationDelaySeconds,
       ));
 
@@ -500,6 +524,50 @@ void main(List<String> args) async {
   });
 }
 
+/// Wording and on/off state of the "hidden in the tray" notice.
+void _applyTrayNotice(SystemTrayService tray, AppConfig config) {
+  final l10n = lookupAppLocalizations(Locale(config.language));
+  tray.notifyOnHide = config.notifyOnMinimize;
+  tray.hideNoticeTitle = l10n.trayNoticeTitle;
+  tray.hideNoticeBody = l10n.trayNoticeBody;
+}
+
+/// Whether this machine can drive the lock screen at all.
+///
+/// On Windows that needs both elevation and a Pro-or-above edition; probed
+/// once at start-up and kept here so the rotation callback stays synchronous.
+bool _lockscreenSupported = false;
+
+/// Gives every slot on screen a settings entry, keyed by id.
+///
+/// Ids are not positions: the lock screen sits at [kDesktopLockScreenId] and
+/// monitors come and go as cables are plugged in.
+Future<void> _ensureScreenConfigs(
+  ProviderContainer container,
+  List<ScreenInfo> screens,
+) async {
+  final config = container.read(configProvider);
+  final missing = screens
+      .where((s) => !config.screens.any((c) => c.screenId == s.id))
+      .toList();
+  if (missing.isEmpty) return;
+
+  final updated = List<ScreenConfig>.from(config.screens);
+  for (final screen in missing) {
+    // Lock screens start off: someone who only wants the desktop wallpaper to
+    // rotate should not find their lock screen changing too.
+    final isLock = screen.isDesktopLockScreen ||
+        (Platform.isAndroid && screen.id == 1);
+    updated.add(ScreenConfig(
+      screenId: screen.id,
+      rotationEnabled: !isLock,
+    ));
+  }
+  await container
+      .read(configProvider.notifier)
+      .update((c) => c.copyWith(screens: updated));
+}
+
 Future<void> _initializeApp(
   ProviderContainer container,
   RotationService rotationService,
@@ -508,6 +576,14 @@ Future<void> _initializeApp(
   try {
     _log.i('Starting initialization...');
 
+    // Desktop: the lock screen is one more slot, shown only when the feature
+    // is switched on and the machine can actually drive it.
+    if (!Platform.isAndroid) {
+      container.read(screensProvider.notifier).setLockScreenSlot(
+            container.read(configProvider).lockscreenEnabled &&
+                _lockscreenSupported,
+          );
+    }
     await container.read(screensProvider.notifier).detectScreens();
     final screens = container.read(screensProvider);
     _log.i('Detected ${screens.length} screen(s)');
@@ -542,22 +618,7 @@ Future<void> _initializeApp(
       }
     }
 
-    // Ensure config has entries for all detected screens. On Android the
-    // second "screen" is the lock screen, which starts disabled so nothing
-    // changes for users who only want the home wallpaper to rotate.
-    final config = container.read(configProvider);
-    if (config.screens.length < screens.length) {
-      final updatedScreens = List<ScreenConfig>.from(config.screens);
-      for (int i = updatedScreens.length; i < screens.length; i++) {
-        updatedScreens.add(ScreenConfig(
-          screenId: i,
-          rotationEnabled: !(Platform.isAndroid && i == 1),
-        ));
-      }
-      await container
-          .read(configProvider.notifier)
-          .update((c) => c.copyWith(screens: updatedScreens));
-    }
+    await _ensureScreenConfigs(container, screens);
 
     // Seed the preview map with each screen's *current* OS wallpaper so that
     // screens with rotation disabled (which never get a callback from the
@@ -606,6 +667,7 @@ Future<void> _initializeApp(
             .read(configProvider.notifier)
             .update((c) => c.copyWith(slideshowPaused: paused));
       };
+      _applyTrayNotice(trayService, container.read(configProvider));
       await trayService.init();
       _log.i('System tray initialized');
     }
@@ -750,13 +812,16 @@ Future<void> _initializeApp(
       container.read(statusMessageProvider.notifier).state = '';
     }
 
-    // Configure rotation for each screen
+    // Configure rotation for each screen. Settings outlive the slot they
+    // describe — an unplugged monitor, or the lock screen while its feature
+    // is off — and those must not keep a slideshow running invisibly.
     final finalConfig = container.read(configProvider);
+    final present = container.read(screensProvider).map((s) => s.id).toSet();
     for (final sc in finalConfig.screens) {
       rotationService.setScreenConfig(ScreenRotationConfig(
         screenId: sc.screenId,
         themeNames: sc.themeNames,
-        enabled: sc.rotationEnabled,
+        enabled: sc.rotationEnabled && present.contains(sc.screenId),
         delaySeconds: sc.rotationDelaySeconds,
       ));
     }
