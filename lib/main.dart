@@ -638,6 +638,9 @@ Future<void> _initializeApp(
     }
 
     for (final s in screens) {
+      // Windows cannot report the image behind the lock screen; that preview
+      // fills in on the first rotation.
+      if (s.isDesktopLockScreen) continue;
       final path = await WallpaperChannel.getWallpaper(screenId: s.id);
       if (path != null) {
         initialWallpapers[s.id] = path;

@@ -613,27 +613,46 @@ class _ImageDetailDialog extends ConsumerWidget {
                         ],
                       )
                     else
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          ...screens.map((screen) => ElevatedButton.icon(
-                                onPressed: () =>
-                                    _setAsWallpaper(ref, context, screen.id),
-                                icon: const Icon(Icons.monitor, size: 16),
-                                label: Text(
-                                    '${l10n.screenName(screen.id + 1)}${screen.isPrimary ? " (${l10n.screenPrimary})" : ""}'),
-                              )),
-                          if (screens.length > 1)
-                            OutlinedButton.icon(
-                              onPressed: () => _setAsWallpaperAll(
-                                  ref, context, screens.length),
-                              icon: const Icon(Icons.desktop_windows, size: 16),
-                              label: Text(l10n.galleryAllScreens),
-                            ),
-                        ],
-                      ),
+                      Builder(builder: (context) {
+                        // The lock screen sits among the slots but is not a
+                        // monitor: it takes a button of its own, and stays out
+                        // of "every screen".
+                        final monitors = screens
+                            .where((s) => !s.isDesktopLockScreen)
+                            .toList();
+                        final hasLockScreen =
+                            screens.length != monitors.length;
+
+                        return Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            ...monitors.map((screen) => ElevatedButton.icon(
+                                  onPressed: () =>
+                                      _setAsWallpaper(ref, context, screen.id),
+                                  icon: const Icon(Icons.monitor, size: 16),
+                                  label: Text(
+                                      '${l10n.screenName(screen.id + 1)}${screen.isPrimary ? " (${l10n.screenPrimary})" : ""}'),
+                                )),
+                            if (monitors.length > 1)
+                              OutlinedButton.icon(
+                                onPressed: () => _setAsWallpaperAll(
+                                    ref, context, monitors.length),
+                                icon:
+                                    const Icon(Icons.desktop_windows, size: 16),
+                                label: Text(l10n.galleryAllScreens),
+                              ),
+                            if (hasLockScreen)
+                              OutlinedButton.icon(
+                                onPressed: () => _setAsLockscreen(ref, context),
+                                icon: const Icon(Icons.lock_outline_rounded,
+                                    size: 16),
+                                label: Text(l10n.galleryTargetLockscreen),
+                              ),
+                          ],
+                        );
+                      }),
                   ],
                   if (Platform.isIOS)
                     ElevatedButton.icon(
