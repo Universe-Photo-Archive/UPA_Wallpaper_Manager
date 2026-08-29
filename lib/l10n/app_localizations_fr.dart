@@ -181,6 +181,33 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsLaunchStartup => 'Lancer au démarrage du système';
 
   @override
+  String get settingsUiScale => 'Taille de l\'interface :';
+
+  @override
+  String get settingsUiScaleNormal => 'Normale';
+
+  @override
+  String get settingsUiScaleLarge => 'Grande';
+
+  @override
+  String get settingsUiScaleHuge => 'Très grande';
+
+  @override
+  String get settingsTrayNotice =>
+      'Prévenir lors de la réduction dans la zone de notification';
+
+  @override
+  String get settingsTrayNoticeSubtitle =>
+      'Un message rappelle où est passée la fenêtre quand vous la réduisez ou la fermez.';
+
+  @override
+  String get trayNoticeTitle => 'UPA Wallpaper Manager continue de tourner';
+
+  @override
+  String get trayNoticeBody =>
+      'La fenêtre est réduite dans la zone de notification, à côté de l\'horloge. Cliquez sur l\'icône pour la rouvrir, ou faites un clic droit pour quitter.';
+
+  @override
   String get settingsUiTheme => 'Thème de l\'interface :';
 
   @override

@@ -178,6 +178,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLaunchStartup => 'Launch at system startup';
 
   @override
+  String get settingsUiScale => 'Interface size:';
+
+  @override
+  String get settingsUiScaleNormal => 'Normal';
+
+  @override
+  String get settingsUiScaleLarge => 'Large';
+
+  @override
+  String get settingsUiScaleHuge => 'Very large';
+
+  @override
+  String get settingsTrayNotice =>
+      'Notify when hidden in the notification area';
+
+  @override
+  String get settingsTrayNoticeSubtitle =>
+      'A message confirms where the window went when you minimise or close it.';
+
+  @override
+  String get trayNoticeTitle => 'UPA Wallpaper Manager is still running';
+
+  @override
+  String get trayNoticeBody =>
+      'The window is hidden in the notification area, next to the clock. Click the icon to reopen it, or right-click it to quit.';
+
+  @override
   String get settingsUiTheme => 'Interface theme:';
 
   @override

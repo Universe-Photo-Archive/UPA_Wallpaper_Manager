@@ -142,6 +142,18 @@ class _GeneralSettings extends ConsumerWidget {
                 },
               ),
               const Divider(height: 1),
+              SwitchListTile(
+                title: Text(l10n.settingsTrayNotice),
+                subtitle: Text(l10n.settingsTrayNoticeSubtitle),
+                secondary: const Icon(Icons.notifications_active_outlined),
+                value: config.notifyOnMinimize,
+                onChanged: (val) {
+                  ref
+                      .read(configProvider.notifier)
+                      .update((c) => c.copyWith(notifyOnMinimize: val));
+                },
+              ),
+              const Divider(height: 1),
             ],
             SwitchListTile(
               title: Text(l10n.settingsRandomMode),
@@ -358,6 +370,31 @@ class _DisplaySettings extends ConsumerWidget {
                 },
               ),
             ),
+            // Touch targets are already generous on a phone; this is meant for
+            // large desktop monitors, where everything reads small.
+            if (!Platform.isAndroid) ...[
+              const Divider(height: 1),
+              _ResponsiveControlTile(
+                leading: const Icon(Icons.format_size_rounded),
+                title: l10n.settingsUiScale,
+                control: SegmentedButton<double>(
+                  segments: [
+                    ButtonSegment(
+                        value: 1.0, label: Text(l10n.settingsUiScaleNormal)),
+                    ButtonSegment(
+                        value: 1.15, label: Text(l10n.settingsUiScaleLarge)),
+                    ButtonSegment(
+                        value: 1.3, label: Text(l10n.settingsUiScaleHuge)),
+                  ],
+                  selected: {config.uiScale},
+                  onSelectionChanged: (sel) {
+                    ref
+                        .read(configProvider.notifier)
+                        .update((c) => c.copyWith(uiScale: sel.first));
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),

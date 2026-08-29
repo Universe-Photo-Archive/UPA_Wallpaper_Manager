@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/app_providers.dart';
 import '../../l10n/app_localizations.dart';
 
 /// Adaptive shell: sidebar on desktop, bottom nav on mobile.
-class ShellScreen extends StatelessWidget {
+class ShellScreen extends ConsumerWidget {
   final Widget child;
   const ShellScreen({super.key, required this.child});
 
@@ -26,10 +28,11 @@ class ShellScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final index = _currentIndex(context);
     final isWide = MediaQuery.sizeOf(context).width >= 900;
+    final scale = ref.watch(configProvider).uiScale;
 
     final destinations = [
       _NavItem(Icons.home_rounded, l10n.navHome),
@@ -46,19 +49,20 @@ class ShellScreen extends StatelessWidget {
               selectedIndex: index,
               onDestinationSelected: (i) => _onTap(context, i),
               labelType: NavigationRailLabelType.all,
+              minWidth: 72 * scale,
               leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.symmetric(vertical: 16 * scale),
                 child: Image.asset(
                   'assets/icons/app_icon.png',
-                  width: 32,
-                  height: 32,
+                  width: 32 * scale,
+                  height: 32 * scale,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               destinations: destinations
                   .map((d) => NavigationRailDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.icon),
+                        icon: Icon(d.icon, size: 24 * scale),
+                        selectedIcon: Icon(d.icon, size: 24 * scale),
                         label: Text(d.label),
                       ))
                   .toList(),

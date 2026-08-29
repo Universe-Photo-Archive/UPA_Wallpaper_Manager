@@ -180,6 +180,13 @@ class AppConfig {
 
   int timeoutSeconds;
 
+  /// Multiplies text and control sizes on desktop, where the window can be
+  /// large enough to make the default sizing feel cramped.
+  double uiScale;
+
+  /// Desktop: warn that the window went to the notification area.
+  bool notifyOnMinimize;
+
   /// Window during which the slideshow pauses itself.
   QuietHours quietHours;
 
@@ -200,6 +207,8 @@ class AppConfig {
     this.slideshowPaused = false,
     this.cacheMaxSizeMb = 500,
     this.timeoutSeconds = 10,
+    this.uiScale = 1.0,
+    this.notifyOnMinimize = true,
     this.quietHours = const QuietHours(),
     this.excludedImages = const [],
     this.skipUpdateCheck = false,
@@ -219,6 +228,8 @@ class AppConfig {
       slideshowPaused: json['slideshowPaused'] as bool? ?? false,
       cacheMaxSizeMb: json['cacheMaxSizeMb'] as int? ?? 500,
       timeoutSeconds: json['timeoutSeconds'] as int? ?? 10,
+      uiScale: (json['uiScale'] as num?)?.toDouble() ?? 1.0,
+      notifyOnMinimize: json['notifyOnMinimize'] as bool? ?? true,
       quietHours: json['quietHours'] is Map<String, dynamic>
           ? QuietHours.fromJson(json['quietHours'] as Map<String, dynamic>)
           : const QuietHours(),
@@ -244,6 +255,8 @@ class AppConfig {
         'slideshowPaused': slideshowPaused,
         'cacheMaxSizeMb': cacheMaxSizeMb,
         'timeoutSeconds': timeoutSeconds,
+        'uiScale': uiScale,
+        'notifyOnMinimize': notifyOnMinimize,
         'quietHours': quietHours.toJson(),
         'excludedImages': excludedImages.map((e) => e.toJson()).toList(),
         'skipUpdateCheck': skipUpdateCheck,
@@ -260,6 +273,8 @@ class AppConfig {
     bool? slideshowPaused,
     int? cacheMaxSizeMb,
     int? timeoutSeconds,
+    double? uiScale,
+    bool? notifyOnMinimize,
     QuietHours? quietHours,
     List<ExcludedImage>? excludedImages,
     bool? skipUpdateCheck,
@@ -275,6 +290,8 @@ class AppConfig {
       slideshowPaused: slideshowPaused ?? this.slideshowPaused,
       cacheMaxSizeMb: cacheMaxSizeMb ?? this.cacheMaxSizeMb,
       timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
+      uiScale: uiScale ?? this.uiScale,
+      notifyOnMinimize: notifyOnMinimize ?? this.notifyOnMinimize,
       quietHours: quietHours ?? this.quietHours,
       excludedImages: excludedImages ?? this.excludedImages,
       skipUpdateCheck: skipUpdateCheck ?? this.skipUpdateCheck,

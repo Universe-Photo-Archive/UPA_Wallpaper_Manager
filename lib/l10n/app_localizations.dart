@@ -404,6 +404,54 @@ abstract class AppLocalizations {
   /// **'Lancer au démarrage du système'**
   String get settingsLaunchStartup;
 
+  /// No description provided for @settingsUiScale.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taille de l\'interface :'**
+  String get settingsUiScale;
+
+  /// No description provided for @settingsUiScaleNormal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Normale'**
+  String get settingsUiScaleNormal;
+
+  /// No description provided for @settingsUiScaleLarge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Grande'**
+  String get settingsUiScaleLarge;
+
+  /// No description provided for @settingsUiScaleHuge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Très grande'**
+  String get settingsUiScaleHuge;
+
+  /// No description provided for @settingsTrayNotice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Prévenir lors de la réduction dans la zone de notification'**
+  String get settingsTrayNotice;
+
+  /// No description provided for @settingsTrayNoticeSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un message rappelle où est passée la fenêtre quand vous la réduisez ou la fermez.'**
+  String get settingsTrayNoticeSubtitle;
+
+  /// No description provided for @trayNoticeTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'UPA Wallpaper Manager continue de tourner'**
+  String get trayNoticeTitle;
+
+  /// No description provided for @trayNoticeBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'La fenêtre est réduite dans la zone de notification, à côté de l\'horloge. Cliquez sur l\'icône pour la rouvrir, ou faites un clic droit pour quitter.'**
+  String get trayNoticeBody;
+
   /// No description provided for @settingsUiTheme.
   ///
   /// In fr, this message translates to:

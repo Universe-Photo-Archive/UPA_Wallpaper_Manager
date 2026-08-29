@@ -56,11 +56,31 @@ class UpaWallpaperApp extends ConsumerWidget {
 
     final locale = Locale(config.language);
 
+    // Icons carry no textScaler, so the scale is pushed through the theme as
+    // well; widgets that hard-code a size keep it, which is intended for the
+    // small decorations.
+    final scale = config.uiScale;
+    ThemeData scaled(ThemeData base) => base.copyWith(
+          iconTheme: base.iconTheme.copyWith(size: 24 * scale),
+        );
+
     return MaterialApp.router(
       title: 'UPA Wallpaper Manager',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: media.textScaler.clamp(
+              minScaleFactor: scale,
+              maxScaleFactor: scale,
+            ),
+          ),
+          child: child!,
+        );
+      },
+      theme: scaled(AppTheme.lightTheme),
+      darkTheme: scaled(AppTheme.darkTheme),
       themeMode: themeMode,
       locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,
