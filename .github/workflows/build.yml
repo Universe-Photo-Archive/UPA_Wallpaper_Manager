@@ -3,12 +3,20 @@ name: Build
 # One codebase, both platforms: every push builds the Windows installer and
 # the Android APK so a change can be checked on each target without needing
 # a local Windows machine or Android SDK.
+#
+# The three files are then published as a GitHub release, because build
+# artifacts are zipped, expire, and can only be downloaded by someone signed
+# in — useless for handing a build to a tester. A tag makes the real release
+# the in-app updater looks for; anything else refreshes a pre-release holding
+# the latest test build, which the updater ignores by design.
 on:
   workflow_dispatch:
   push:
     branches:
       - main
       - 'cursor/**'
+    tags:
+      - 'v*'
 
 jobs:
   windows:
@@ -93,10 +101,12 @@ jobs:
 
       # Gradle occasionally fails to reach the plugin portal on the runners;
       # a couple of retries turns that into a slow build instead of a red one.
-      - name: Build debug APK
+      # Release, not debug: this APK is what testers install by hand, and a
+      # debug build is three times heavier and slower for no benefit.
+      - name: Build release APK
         run: |
           for attempt in 1 2 3; do
-            flutter build apk --debug && exit 0
+            flutter build apk --release && exit 0
             echo "::warning::APK build attempt $attempt failed, retrying"
             sleep 20
           done
@@ -114,7 +124,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
@@ -122,3 +132,54 @@ jobs:
           name: android-aab
           path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+
+  publish:
+    name: Publish the three files
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Name the files after the version
+        id: files
+        run: |
+          version=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d+ -f1)
+          mkdir -p dist
+          cp artifacts/windows-installer/*.exe \
+             "dist/UPA_Wallpaper_Manager_Setup_${version}.exe"
+          cp artifacts/android-apk/app-release.apk \
+             "dist/UPA_Wallpaper_Manager_${version}.apk"
+          cp artifacts/android-aab/app-release.aab \
+             "dist/UPA_Wallpaper_Manager_${version}.aab"
+          ls -lh dist
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.files.outputs.version }}
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+            title="UPA Wallpaper Manager ${VERSION}"
+            flags=""
+          else
+            # One rolling pre-release, replaced on every build, so the page
+            # does not fill up with dead entries. Pre-release keeps it out of
+            # the in-app updater, which only follows the latest full release.
+            tag="test-build"
+            title="Dernier build de test — ${VERSION} (${GITHUB_REF_NAME})"
+            flags="--prerelease"
+            gh release delete "$tag" --cleanup-tag --yes || true
+          fi
+          gh release create "$tag" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "$title" \
+            --notes "Version ${VERSION}, construite depuis \`${GITHUB_REF_NAME}\` (${GITHUB_SHA})." \
+            $flags
