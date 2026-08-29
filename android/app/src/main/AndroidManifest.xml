@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <!-- The service's own notification, which also controls the slideshow. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Re-arm the slideshow after the device restarts. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <!-- Images added as a local theme go through the system document picker,
          which grants access to the chosen files only. No storage permission
@@ -71,6 +73,16 @@
         <receiver
             android:name=".RotationAlarmReceiver"
             android:exported="false"/>
+
+        <!-- Re-arms the slideshow after a restart, alarms and notification. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
 
         <!-- WorkManager declares a typeless foreground service for expedited
              work this app never requests; drop it so the only foreground

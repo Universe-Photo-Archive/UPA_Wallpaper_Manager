@@ -25,6 +25,14 @@ class RotationWorker(context: Context, params: WorkerParameters) :
         val state = RotationState.read(applicationContext) ?: return Result.success()
         if (RotationState.isPaused(state)) return Result.success()
 
+        // The quiet window legitimately leaves every slot silent for hours,
+        // which used to look like a stall: the watchdog then "repaired" the
+        // slideshow all night long, changing wallpapers the user had asked to
+        // leave alone.
+        if (RotationState.minutesUntilQuietEnds(state) != null) {
+            return Result.success()
+        }
+
         var recovered = false
         for (target in RotationState.targets(state)) {
             if (!target.enabled || target.images.isEmpty()) continue
@@ -46,8 +54,8 @@ class RotationWorker(context: Context, params: WorkerParameters) :
                 "watchdog: target ${target.id} silent for ${since / 1000}s"
             )
             RotationState.rotate(applicationContext, target)
-            RotationAlarms.schedule(
-                applicationContext, target.id, target.intervalSeconds * 1000L
+            RotationAlarms.scheduleAligned(
+                applicationContext, target.id, target.intervalSeconds
             )
             recovered = true
         }

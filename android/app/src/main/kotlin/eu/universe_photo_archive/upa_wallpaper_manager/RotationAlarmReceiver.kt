@@ -35,7 +35,7 @@ class RotationAlarmReceiver : BroadcastReceiver() {
                 val quietLeft = RotationState.minutesUntilQuietEnds(state)
                 if (quietLeft != null) {
                     Wallpapers.log(appContext, "quiet hours: $quietLeft min left")
-                    RotationAlarms.schedule(
+                    RotationAlarms.scheduleIn(
                         appContext, targetId, quietLeft * 60_000L
                     )
                     RotationForegroundService.refreshNotification(appContext)
@@ -45,8 +45,8 @@ class RotationAlarmReceiver : BroadcastReceiver() {
                 RotationState.rotate(appContext, target)
                 // Re-read the delay every time so a settings change takes
                 // effect without restarting anything.
-                RotationAlarms.schedule(
-                    appContext, targetId, target.intervalSeconds * 1000L
+                RotationAlarms.scheduleAligned(
+                    appContext, targetId, target.intervalSeconds
                 )
                 RotationForegroundService.refreshNotification(appContext)
             } catch (e: Exception) {
