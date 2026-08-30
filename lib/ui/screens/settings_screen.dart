@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -893,6 +894,11 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
 class _AboutSection extends StatelessWidget {
   const _AboutSection();
 
+  /// Read from the running build rather than written by hand, which is how
+  /// this card came to claim 2.0.0 long after the app had moved on.
+  static final Future<String> _version =
+      PackageInfo.fromPlatform().then((info) => info.version);
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -916,8 +922,13 @@ class _AboutSection extends StatelessWidget {
                             .textTheme
                             .titleLarge
                             ?.copyWith(fontWeight: FontWeight.bold)),
-                    Text(l10n.appVersion('2.0.0'),
-                        style: Theme.of(context).textTheme.bodySmall),
+                    FutureBuilder<String>(
+                      future: _version,
+                      builder: (context, snapshot) => Text(
+                        l10n.appVersion(snapshot.data ?? '…'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
                   ],
                 ),
               ],

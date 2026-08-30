@@ -181,11 +181,41 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
             ],
           );
 
-          // Header: screen name + badges + rotation toggle (desktop), or
-          // the target title and its toggle (mobile).
+          // Rounded label naming the slot: "Screen 1", "Lock screen".
+          Widget chip(IconData icon, String text, Color color) => Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 16, color: color),
+                    const SizedBox(width: 6),
+                    Text(
+                      text,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+          // Header: what this slot is on the left, the switch on the right.
+          //
+          // Exactly one child may absorb the leftover width. Two of them share
+          // it evenly instead of one pushing the rest to the edge, which is
+          // what stranded the switch in the middle of the monitor cards.
           final header = Row(
             children: [
-              if (_isMobile || isLockTarget) ...[
+              // Mobile spells the toggle out in full: the small screen has no
+              // room for a label beside the switch.
+              if (_isMobile) ...[
                 Icon(
                   isLockTarget
                       ? Icons.lock_outline_rounded
@@ -194,8 +224,6 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                   color: targetColor,
                 ),
                 const SizedBox(width: 8),
-                // The label states what the switch next to it does; it wraps
-                // rather than running under the switch.
                 Expanded(
                   child: Text(
                     isLockTarget ? l10n.targetLockscreen : l10n.targetWallpaper,
@@ -210,35 +238,14 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                   ),
                 ),
               ],
+              if (!_isMobile && isLockTarget) ...[
+                chip(Icons.lock_outline_rounded, l10n.galleryTargetLockscreen,
+                    targetColor),
+                const Spacer(),
+              ],
               if (!narrow && isMonitor) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.monitor,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        l10n.screenName(screen.id + 1),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                chip(Icons.monitor, l10n.screenName(screen.id + 1),
+                    Theme.of(context).colorScheme.primary),
                 if (screen.isPrimary) ...[
                   const SizedBox(width: 8),
                   Container(
@@ -260,7 +267,9 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                   ),
                 ],
                 const SizedBox(width: 10),
-                Flexible(
+                // Takes the leftover width, so everything after it sits
+                // against the right edge of the card.
+                Expanded(
                   child: Text(screen.resolution,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -270,22 +279,16 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                               .onSurface
                               .withValues(alpha: 0.4))),
                 ),
-                const Spacer(),
               ],
-              // The coloured title already says which slot this is; on mobile
-              // the switch speaks for itself.
-              if (isMonitor)
-                Flexible(
-                  child: Text(l10n.screenRotationEnabled,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6))),
-                ),
               if (narrow && isMonitor) const Spacer(),
+              if (!_isMobile)
+                Text(l10n.screenRotationEnabled,
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.6))),
               const SizedBox(width: 6),
               Switch(
                 value: rotationEnabled,
