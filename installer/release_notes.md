@@ -1,20 +1,20 @@
-## UPA Wallpaper Manager 2.0.0
+## UPA Wallpaper Manager 2.1.0
 
-Réécriture complète en Flutter / Complete Flutter rewrite.
+Android rejoint Windows dans le même code source / Android joins Windows in one codebase.
 
 ### Nouveautés / What's new
 
-- **Multi-écrans** : thème et délai de rotation par moniteur / per-monitor theme & rotation delay
-- **Thèmes** : galerie Universe Photo Archive (Fonds d'écran, Thomas Pesquet, Sophie Adenot, ...), albums Piwigo personnalisés par URL, dossiers locaux / UPA gallery themes, custom Piwigo albums by URL, local folders
-- **Cache intelligent** : téléchargement à la demande, cycle complet sans répétition, nettoyage automatique / on-demand downloads, full-cycle rotation, automatic cleanup
-- **Écran de verrouillage Windows** : le fond d'écran s'applique aussi à l'écran de verrouillage (droits admin requis, Windows Pro/Entreprise/Éducation) / Windows lock-screen wallpaper support
-- **Zone de notification** : réduire ou fermer envoie l'app à côté de l'horloge ; quitter via clic droit > Quitter / minimize & close go to tray, quit via right-click
-- **Démarrage automatique** : tâche planifiée élevée, sans invite UAC à l'ouverture de session / elevated Scheduled Task autostart, no UAC prompt at logon
-- **Mises à jour automatiques** depuis les releases GitHub / automatic update check from GitHub releases
-- Interface FR/EN, thèmes clair & sombre / FR-EN UI, light & dark themes
+- **Android** : diaporama en arrière-plan, thèmes et délai par écran (fond d'écran et écran de verrouillage) / background slideshow, per-slot themes & delay (home and lock screen)
+- **Rotation à l'heure ronde** : un délai de 15 minutes change le fond d'écran à h:00, h:15, h:30 et h:45, sans dérive / clock-aligned rotation, no drift
+- **Plage horaire silencieuse** : pause automatique du diaporama entre deux heures, format 12 h ou 24 h selon l'appareil / quiet hours, 12- or 24-hour format
+- **Écran de verrouillage Windows indépendant** : son propre cadre, ses thèmes et son délai, au lieu d'une copie de l'écran 1 (droits admin requis, Windows Pro/Entreprise/Éducation) / independent Windows lock screen
+- **Exclusion d'images** : bannir la photo affichée d'un clic, la liste se gère dans les paramètres / exclude the photo on screen, managed from Settings
+- **Sélection multiple de thèmes** : cocher plusieurs thèmes par écran et dans la galerie / multi-theme selection per slot and in the gallery
+- **Taille de l'interface** (Windows) : normale, grande ou très grande / interface size on desktop
+- **Zone de notification** (Windows) : un message rappelle où est passée la fenêtre, désactivable dans les paramètres / a notice says where the window went
 
 ### Installation
 
-Téléchargez et exécutez / download and run: `UPA_Wallpaper_Manager_Setup_2.0.0.exe`
+Téléchargez et exécutez / download and run: `UPA_Wallpaper_Manager_Setup_2.1.0.exe`
 
 L'application requiert les droits administrateur (fonction écran de verrouillage) / the app requires administrator privileges (lock-screen feature).
