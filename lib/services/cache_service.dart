@@ -29,6 +29,12 @@ class CacheService {
   final Map<String, List<WallpaperImage>> _index = {};
   final Map<String, int> _currentCycle = {};
 
+  /// When each theme was last listed from its gallery.
+  ///
+  /// Listing costs the gallery a query per page; doing it at every app start
+  /// for every theme is the kind of load a small server notices.
+  final Map<String, DateTime> _listedAt = {};
+
   /// Wallpaper currently applied on each screen. These files are protected
   /// from [cleanupIfNeeded] so the home-screen preview (and the OS wallpaper
   /// reference) never points to a deleted file.
@@ -118,6 +124,9 @@ class CacheService {
             [];
         _index[themeName] = images;
         _currentCycle[themeName] = td['currentCycle'] as int? ?? 0;
+        final listed = td['listedAt'] as String?;
+        final parsed = listed == null ? null : DateTime.tryParse(listed);
+        if (parsed != null) _listedAt[themeName] = parsed;
       });
       _log.i('Cache index loaded: ${_index.length} themes');
     } catch (e) {
@@ -132,6 +141,7 @@ class CacheService {
         themes[themeName] = {
           'images': images.map((i) => i.toJson()).toList(),
           'currentCycle': _currentCycle[themeName] ?? 0,
+          'listedAt': _listedAt[themeName]?.toIso8601String(),
         };
       });
       await _indexFile.writeAsString(json.encode({'themes': themes}));
@@ -158,8 +168,14 @@ class CacheService {
     }
     _index[themeName] = existing;
     _currentCycle.putIfAbsent(themeName, () => 0);
+    // An empty answer usually means the gallery was unreachable, and must
+    // not pass for a listing that can be trusted for hours.
+    if (apiImages.isNotEmpty) _listedAt[themeName] = DateTime.now();
     _saveIndex();
   }
+
+  /// When this theme last came back from its gallery, null if never.
+  DateTime? lastListed(String themeName) => _listedAt[themeName];
 
   /// Images of a theme that may be shown — excluded ones are filtered out.
   List<WallpaperImage> getThemeImages(String themeName) =>
@@ -172,6 +188,7 @@ class CacheService {
   void replaceThemeImages(String themeName, List<WallpaperImage> images) {
     _index[themeName] = images;
     _currentCycle.putIfAbsent(themeName, () => 0);
+    _listedAt[themeName] = DateTime.now();
     _saveIndex();
   }
 

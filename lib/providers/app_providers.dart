@@ -201,10 +201,26 @@ class ThemesManager {
     }
 
     final api = _ref.read(piwigoApiProvider);
+    // The user is asking for this one, so give the gallery a fresh chance
+    // even if it has been failing.
+    api.forgetFailures(parsed.baseUrl);
     final theme = await api.resolveCategory(parsed);
     if (theme == null) {
       if (await api.isApiBlocked(parsed.baseUrl)) return 'apiBlocked';
       return 'addFailed';
+    }
+
+    // A category this size is the gallery itself, not a theme. Listing it
+    // would have the server page through hundreds of thousands of photos on
+    // every app start, which is enough to bring a small gallery down.
+    if (theme.imageCount > PiwigoApiService.refuseAlbumThreshold) {
+      _ref
+          .read(logServiceProvider)
+          .warning(
+            'Album refusé (${theme.imageCount} photos) : '
+            'catégorie ${theme.id} sur ${parsed.baseUrl}',
+          );
+      return 'tooLarge';
     }
 
     await cfg.addUserSource(

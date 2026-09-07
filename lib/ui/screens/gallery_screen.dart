@@ -245,6 +245,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final token = ++_loadToken;
     setState(() => _loading = true);
 
+    final cache = ref.read(cacheServiceProvider);
     final images = <WallpaperImage>[];
     for (final theme in selected) {
       try {
@@ -252,16 +253,25 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
         if (localSource != null) {
           final localSvc = ref.read(localGalleryServiceProvider);
           images.addAll(await localSvc.getImages(localSource));
-        } else {
-          final api = ref.read(piwigoApiProvider);
-          images.addAll(
-            await api.getThemeImages(
-              theme.id,
-              baseUrl: theme.sourceBaseUrl,
-              recursive: theme.needsRecursiveFetch,
-            ),
-          );
+          continue;
         }
+
+        // Browsing themes should not mean querying the gallery again each
+        // time one is ticked: the app already listed them on start-up.
+        final known = cache.getAllThemeImages(theme.displayName);
+        if (cache.lastListed(theme.displayName) != null && known.isNotEmpty) {
+          images.addAll(known);
+          continue;
+        }
+
+        final api = ref.read(piwigoApiProvider);
+        images.addAll(
+          await api.getThemeImages(
+            theme.id,
+            baseUrl: theme.sourceBaseUrl,
+            recursive: theme.needsRecursiveFetch,
+          ),
+        );
       } catch (_) {
         // Keep the gallery usable even if one theme fails to load.
       }

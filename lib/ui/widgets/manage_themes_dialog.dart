@@ -56,6 +56,8 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
         return l10n.manageThemesAlreadyExists;
       case 'apiBlocked':
         return l10n.manageThemesApiBlocked;
+      case 'tooLarge':
+        return l10n.manageThemesTooLarge;
       case 'addFailed':
       default:
         return local

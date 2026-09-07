@@ -65,18 +65,32 @@ class WallpaperImage {
     return raw;
   }
 
+  /// Picks the first available size, preferring one the gallery has already
+  /// produced.
+  ///
+  /// Piwigo hands back a plain `_data/...` path when the resized file exists
+  /// and an `i.php?...` one when asking for it would make the server resize
+  /// the photo on the spot. Same picture either way, but the second costs the
+  /// gallery a full image conversion — and a slideshow asks for a lot of
+  /// pictures.
+  String? _pick(List<String> keys) {
+    String? onDemand;
+    for (final key in keys) {
+      final url = derivatives[key]?.url;
+      if (url == null) continue;
+      if (!url.contains('i.php')) return url;
+      onDemand ??= url;
+    }
+    return onDemand;
+  }
+
   /// Best URL for full-size wallpaper download.
   /// Prefers live derivatives, falls back to persisted URL from previous session.
   String get fullSizeUrl {
-    for (final key in ['xxlarge', 'xlarge', 'large', 'medium', 'small']) {
-      if (derivatives.containsKey(key)) {
-        final url = derivatives[key]!.url;
-        _cachedFullSizeUrl = url;
-        return url;
-      }
-    }
-    if (derivatives.values.isNotEmpty) {
-      final url = derivatives.values.last.url;
+    final url =
+        _pick(['xxlarge', 'xlarge', 'large', 'medium', 'small']) ??
+        (derivatives.isNotEmpty ? derivatives.values.last.url : null);
+    if (url != null) {
       _cachedFullSizeUrl = url;
       return url;
     }
@@ -85,24 +99,13 @@ class WallpaperImage {
 
   /// URL for thumbnail/preview
   String get thumbnailUrl {
-    for (final key in ['square', 'thumb', 'xsmall', '2small', 'small']) {
-      if (derivatives.containsKey(key)) {
-        return derivatives[key]!.url;
-      }
-    }
-    return derivatives.values.isNotEmpty
-        ? derivatives.values.first.url
-        : pageUrl;
+    return _pick(['square', 'thumb', 'xsmall', '2small', 'small']) ??
+        (derivatives.isNotEmpty ? derivatives.values.first.url : pageUrl);
   }
 
   /// URL for medium preview (gallery grid)
   String get mediumUrl {
-    for (final key in ['medium', 'small', 'large']) {
-      if (derivatives.containsKey(key)) {
-        return derivatives[key]!.url;
-      }
-    }
-    return thumbnailUrl;
+    return _pick(['medium', 'small', 'large']) ?? thumbnailUrl;
   }
 
   factory WallpaperImage.fromPiwigoJson(Map<String, dynamic> json) {

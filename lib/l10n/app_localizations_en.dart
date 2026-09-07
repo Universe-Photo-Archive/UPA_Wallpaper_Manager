@@ -524,6 +524,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This gallery blocks access to its Piwigo API: its albums cannot be imported.';
 
   @override
+  String get manageThemesTooLarge =>
+      'This album holds too many photos to be a theme. Pick one of its albums instead.';
+
+  @override
   String get manageThemesInvalidUrl => 'Invalid Piwigo URL';
 
   @override

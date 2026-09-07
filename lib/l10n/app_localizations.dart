@@ -1046,6 +1046,12 @@ abstract class AppLocalizations {
   /// **'Cette galerie bloque l\'accès à son API Piwigo : impossible d\'importer ses albums.'**
   String get manageThemesApiBlocked;
 
+  /// No description provided for @manageThemesTooLarge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cet album contient trop de photos pour servir de thème. Choisissez plutôt un de ses albums.'**
+  String get manageThemesTooLarge;
+
   /// No description provided for @manageThemesInvalidUrl.
   ///
   /// In fr, this message translates to:

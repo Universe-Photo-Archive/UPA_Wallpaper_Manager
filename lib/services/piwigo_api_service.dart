@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
@@ -23,6 +24,17 @@ class PiwigoApiService {
   /// Tag marking the photos the gallery does not want on a phone.
   static const String noMobileTag = 'NoMobile';
 
+  /// Appended to the browser user-agent so a gallery owner reading their
+  /// access log can tell the app apart from a real browser — and tell which
+  /// build is talking to them. Set once at start-up.
+  static String appIdentifier = 'UPA-Wallpaper-Manager';
+
+  /// Some third-party Piwigo hosts (university, institutional galleries)
+  /// answer 403 to anything that does not look like a browser.
+  static const String _browserUserAgent =
+      'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+
   final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
   late final Dio _dio;
 
@@ -35,6 +47,38 @@ class PiwigoApiService {
   /// True for the galleries hosted by Universe Photo Archive.
   static bool isUpaGallery(String baseUrl) => isUpaGalleryUrl(baseUrl);
 
+  /// Deepest the app will page into one album.
+  ///
+  /// Paging is what costs the gallery: every page makes the server count
+  /// again from the first photo of the album, so page 40 of a large album is
+  /// far more expensive than page 1. Ten pages is already five thousand
+  /// photos, more variety than a slideshow can use.
+  static const int maxPagesPerTheme = 10;
+
+  /// Beyond this many photos an album is not a theme but a whole gallery.
+  /// One page is taken from it and the rest is left alone, because deep
+  /// paging over such an album can keep a database busy for minutes.
+  static const int hugeAlbumThreshold = 20000;
+
+  /// An album this big can only be the root of a gallery; refusing it when
+  /// the user adds it is kinder than letting them break their own server.
+  static const int refuseAlbumThreshold = 200000;
+
+  /// Shortest gap between two requests leaving the app.
+  ///
+  /// A dozen phones each firing a burst of listings at the same shared
+  /// gallery is what turns a slow query into an outage.
+  static const Duration _minRequestGap = Duration(milliseconds: 400);
+
+  /// Consecutive failures after which a gallery is left alone for a while.
+  static const int _failuresBeforeBackingOff = 2;
+  static const Duration _firstBackOff = Duration(minutes: 5);
+  static const Duration _maxBackOff = Duration(minutes: 60);
+
+  Future<void> _gate = Future<void>.value();
+  DateTime _lastRequestAt = DateTime.fromMillisecondsSinceEpoch(0);
+  final Map<String, _HostHealth> _health = {};
+
   PiwigoApiService({double rateLimitSeconds = 1.0, int timeoutSeconds = 30}) {
     _dio = Dio(
       BaseOptions(
@@ -43,16 +87,98 @@ class PiwigoApiService {
         responseType: ResponseType.plain,
         followRedirects: true,
         headers: {
-          // Some third-party Piwigo hosts (university / institutional
-          // galleries) reject unknown user-agents with HTTP 403. A regular
-          // browser UA lets the public API through.
-          'User-Agent':
-              'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
-              '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+          'User-Agent': _browserUserAgent,
           'Accept': 'application/json,text/plain,*/*',
         },
       ),
     );
+
+    // Everything the app asks of a gallery goes through here: spacing the
+    // requests out, and standing back when the gallery is in trouble.
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          options.headers['User-Agent'] = '$_browserUserAgent $appIdentifier';
+          final host = options.uri.host;
+          final until = _health[host]?.silentUntil;
+          if (until != null && DateTime.now().isBefore(until)) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.cancel,
+                message:
+                    'Gallery $host is unwell; not asking again before '
+                    '${until.toIso8601String()}',
+              ),
+            );
+            return;
+          }
+          await _spaceOutRequest();
+          handler.next(options);
+        },
+        onResponse: (response, handler) {
+          _health.remove(response.requestOptions.uri.host);
+          handler.next(response);
+        },
+        onError: (error, handler) {
+          // A rejection of our own making must not count against the host.
+          if (error.type != DioExceptionType.cancel) {
+            _noteFailure(error.requestOptions.uri.host);
+          }
+          handler.next(error);
+        },
+      ),
+    );
+  }
+
+  /// Holds each request back until at least [_minRequestGap] has passed since
+  /// the previous one left.
+  Future<void> _spaceOutRequest() {
+    final previous = _gate;
+    final mine = Completer<void>();
+    _gate = mine.future;
+
+    return previous.then((_) async {
+      try {
+        final since = DateTime.now().difference(_lastRequestAt);
+        final wait = _minRequestGap - since;
+        if (wait > Duration.zero) await Future<void>.delayed(wait);
+        _lastRequestAt = DateTime.now();
+      } finally {
+        // Whatever happens, the next request must not wait forever.
+        mine.complete();
+      }
+    });
+  }
+
+  void _noteFailure(String host) {
+    final health = _health.putIfAbsent(host, _HostHealth.new);
+    health.failures += 1;
+    if (health.failures < _failuresBeforeBackingOff) return;
+
+    health.backOff = health.silentUntil == null
+        ? _firstBackOff
+        : Duration(
+            seconds: (health.backOff.inSeconds * 2).clamp(
+              0,
+              _maxBackOff.inSeconds,
+            ),
+          );
+    health.silentUntil = DateTime.now().add(health.backOff);
+    _log.w(
+      'Gallery $host failed ${health.failures} times in a row — leaving it '
+      'alone for ${health.backOff.inMinutes} min',
+    );
+  }
+
+  /// Forgets a gallery's failures, for when the user asks for something
+  /// themselves and deserves a real attempt rather than a stale refusal.
+  void forgetFailures([String? baseUrl]) {
+    if (baseUrl == null) {
+      _health.clear();
+      return;
+    }
+    _health.remove(Uri.tryParse(baseUrl)?.host ?? baseUrl);
   }
 
   Map<String, dynamic> _parseJson(Response response) {
@@ -190,7 +316,7 @@ class PiwigoApiService {
     String baseUrl = defaultUpaBaseUrl,
     int perPage = 500,
     bool recursive = false,
-    int maxPages = 50,
+    int maxPages = maxPagesPerTheme,
   }) async {
     final wallpapers = <WallpaperImage>[];
     int page = 0;
@@ -258,6 +384,17 @@ class PiwigoApiService {
           totalPages = page + 2;
         }
 
+        // An album of this size is somebody's whole gallery. Walking into it
+        // would have the server count past hundreds of thousands of photos
+        // on every page, over and over; one page is plenty to rotate on.
+        if ((totalCount ?? 0) > hugeAlbumThreshold) {
+          _log.w(
+            'Category $categoryId at $baseUrl holds $totalCount photos — '
+            'keeping the first $perPage and going no further',
+          );
+          break;
+        }
+
         if (images.isEmpty) break;
         page += 1;
       } catch (e, stack) {
@@ -267,6 +404,13 @@ class PiwigoApiService {
         );
         break;
       }
+    }
+
+    if (page >= maxPages) {
+      _log.w(
+        'Stopped at $maxPages pages for category $categoryId at $baseUrl; '
+        'the rest of the album is left unread',
+      );
     }
 
     _log.i(
@@ -452,6 +596,13 @@ class PiwigoApiService {
       _dio.options.receiveTimeout = Duration(seconds: timeoutSeconds);
     }
   }
+}
+
+/// How a gallery has been behaving lately.
+class _HostHealth {
+  int failures = 0;
+  DateTime? silentUntil;
+  Duration backOff = Duration.zero;
 }
 
 /// Helper: tolerates Piwigo instances that serialize numeric fields as String.

@@ -279,6 +279,16 @@ void main(List<String> args) async {
   final configService = ConfigService();
   await configService.init();
 
+  // Say who we are in the galleries' access logs, so their owners can see
+  // what the app asks of them and from which build.
+  try {
+    final info = await PackageInfo.fromPlatform();
+    PiwigoApiService.appIdentifier =
+        'UPA-Wallpaper-Manager/${info.version} (${Platform.operatingSystem})';
+  } catch (_) {
+    // Keep the plain name.
+  }
+
   final logService = LogService(debugMode: configService.config.debugMode);
   await logService.init();
   logService.info('=== UPA Wallpaper Manager starting ===');
@@ -648,6 +658,12 @@ void _applyTrayNotice(SystemTrayService tray, AppConfig config) {
   tray.hideNoticeBody = l10n.trayNoticeBody;
 }
 
+/// How long a theme's photo list is trusted before asking the gallery again.
+///
+/// The app is opened many times a day and each listing is a database query
+/// per page for the gallery; albums do not change nearly that fast.
+const Duration _themeListingMaxAge = Duration(hours: 12);
+
 /// Whether this machine can drive the lock screen at all.
 ///
 /// On Windows that needs both elevation and a Pro-or-above edition; probed
@@ -816,7 +832,7 @@ Future<void> _initializeApp(
     if (Platform.isAndroid &&
         container.read(configProvider).hideNoMobilePhotos) {
       api.hiddenImageIds = hiddenPhotos.ids;
-      if (isOnline) {
+      if (isOnline && hiddenPhotos.isStale) {
         final added = await hiddenPhotos.refresh(api);
         if (added != null) {
           api.hiddenImageIds = hiddenPhotos.ids;
@@ -897,6 +913,35 @@ Future<void> _initializeApp(
         final localSource = localId == null
             ? null
             : themesConfigService.localSourceById(localId);
+
+        // A gallery is somebody's server: listing every theme again at every
+        // start, on every device, adds up. Photos are added to an album far
+        // more slowly than the app is opened, so a recent listing will do.
+        final listedAt = cache.lastListed(theme.displayName);
+        final knownImages = cache.getAllThemeImages(theme.displayName);
+        final stillFresh =
+            localSource == null &&
+            listedAt != null &&
+            knownImages.isNotEmpty &&
+            DateTime.now().difference(listedAt) < _themeListingMaxAge;
+
+        if (stillFresh) {
+          _log.i(
+            '  ${theme.displayName}: listing still fresh '
+            '(${knownImages.length} images)',
+          );
+          container
+              .read(themesProvider.notifier)
+              .setUsableCount(theme.uniqueKey, knownImages.length);
+          if (isOnline) {
+            final cached = cache.getCachedPaths(theme.displayName).length;
+            if (cached < 5) {
+              await cache.downloadBatch(theme.displayName, count: 5);
+            }
+          }
+          continue;
+        }
+
         if (localSource != null) {
           images = await localGallery.getImages(localSource);
         } else if (isOnline) {

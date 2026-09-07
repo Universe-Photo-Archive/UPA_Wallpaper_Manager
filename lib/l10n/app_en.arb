@@ -170,6 +170,7 @@
   "manageThemesAdded": "Theme added successfully",
   "manageThemesAddFailed": "Could not add this theme. Check the URL.",
   "manageThemesApiBlocked": "This gallery blocks access to its Piwigo API: its albums cannot be imported.",
+  "manageThemesTooLarge": "This album holds too many photos to be a theme. Pick one of its albums instead.",
   "manageThemesInvalidUrl": "Invalid Piwigo URL",
   "manageThemesAlreadyExists": "This theme already exists",
   "manageThemesNoUserThemes": "No manually added themes",

@@ -12,11 +12,21 @@ import 'piwigo_api_service.dart';
 class HiddenPhotosService {
   final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
 
+  /// How long the list of tagged photos is trusted before asking again.
+  static const Duration maxAge = Duration(hours: 12);
+
   Set<int> _ids = const {};
+  DateTime? _fetchedAt;
   late File _file;
   bool _ready = false;
 
   Set<int> get ids => _ids;
+
+  /// True when the gallery should be asked for the list again.
+  bool get isStale {
+    final fetched = _fetchedAt;
+    return fetched == null || DateTime.now().difference(fetched) > maxAge;
+  }
 
   Future<void> init() async {
     final dir = await getApplicationSupportDirectory();
@@ -25,8 +35,10 @@ class HiddenPhotosService {
     try {
       if (await _file.exists()) {
         final data = json.decode(await _file.readAsString());
-        final list = (data as Map<String, dynamic>)['ids'] as List<dynamic>?;
+        final map = data as Map<String, dynamic>;
+        final list = map['ids'] as List<dynamic>?;
         _ids = {...?list?.whereType<int>()};
+        _fetchedAt = DateTime.tryParse(map['fetchedAt'] as String? ?? '');
         _log.i('Hidden photos: ${_ids.length} known from a previous run');
       }
     } catch (e) {
@@ -48,6 +60,7 @@ class HiddenPhotosService {
 
     final added = fetched.difference(_ids);
     _ids = fetched;
+    _fetchedAt = DateTime.now();
     await _save();
     if (added.isNotEmpty) {
       _log.i('Hidden photos: ${added.length} newly tagged');
@@ -58,7 +71,12 @@ class HiddenPhotosService {
   Future<void> _save() async {
     if (!_ready) return;
     try {
-      await _file.writeAsString(json.encode({'ids': _ids.toList()}));
+      await _file.writeAsString(
+        json.encode({
+          'ids': _ids.toList(),
+          'fetchedAt': _fetchedAt?.toIso8601String(),
+        }),
+      );
     } catch (e) {
       _log.w('Could not save the hidden photo list: $e');
     }

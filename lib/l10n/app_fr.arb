@@ -177,6 +177,7 @@
   "manageThemesAdded": "Thème ajouté avec succès",
   "manageThemesAddFailed": "Impossible d'ajouter ce thème. Vérifiez l'URL.",
   "manageThemesApiBlocked": "Cette galerie bloque l'accès à son API Piwigo : impossible d'importer ses albums.",
+  "manageThemesTooLarge": "Cet album contient trop de photos pour servir de thème. Choisissez plutôt un de ses albums.",
   "manageThemesInvalidUrl": "URL Piwigo invalide",
   "manageThemesAlreadyExists": "Ce thème existe déjà",
   "manageThemesNoUserThemes": "Aucun thème ajouté manuellement",
