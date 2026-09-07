@@ -60,13 +60,20 @@ class ExcludedImagesScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(12),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossCount,
-                    childAspectRatio: 16 / 10,
+                    // The extra height is the caption under each photo.
+                    childAspectRatio: 16 / 12,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
                   ),
                   itemCount: excluded.length,
                   itemBuilder: (context, index) => _ExcludedTile(
                     image: excluded[index],
+                    title: ref
+                        .read(cacheServiceProvider)
+                        .titleFor(
+                          excluded[index].theme,
+                          excluded[index].filename,
+                        ),
                     onRestore: () => _restore(context, ref, excluded[index]),
                   ),
                 );
@@ -129,9 +136,16 @@ class ExcludedImagesScreen extends ConsumerWidget {
 
 class _ExcludedTile extends StatelessWidget {
   final ExcludedImage image;
+
+  /// Piwigo title, when the photo is still known to the cache.
+  final String? title;
   final VoidCallback onRestore;
 
-  const _ExcludedTile({required this.image, required this.onRestore});
+  const _ExcludedTile({
+    required this.image,
+    required this.title,
+    required this.onRestore,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -139,66 +153,67 @@ class _ExcludedTile extends StatelessWidget {
     final path = image.localPath;
     final available = path != null && File(path).existsSync();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (available)
-            Image.file(
-              File(path),
-              fit: BoxFit.cover,
-              cacheWidth: 500,
-              errorBuilder: (_, __, ___) => _Missing(),
-            )
-          else
-            _Missing(),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(8, 12, 4, 4),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.75),
-                  ],
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      image.filename,
-                      style: const TextStyle(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (available)
+                  Image.file(
+                    File(path),
+                    fit: BoxFit.cover,
+                    cacheWidth: 500,
+                    errorBuilder: (_, __, ___) => _Missing(),
+                  )
+                else
+                  _Missing(),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      tooltip: l10n.excludedRestore,
+                      icon: const Icon(
+                        Icons.restore_rounded,
+                        size: 18,
                         color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      onPressed: onRestore,
                     ),
                   ),
-                  IconButton(
-                    tooltip: l10n.excludedRestore,
-                    icon: const Icon(
-                      Icons.restore_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    onPressed: onRestore,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title ?? _withoutExtension(image.filename),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
     );
+  }
+
+  /// The banned photos keep their file name; the extension is noise.
+  String _withoutExtension(String name) {
+    final dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
   }
 }
 

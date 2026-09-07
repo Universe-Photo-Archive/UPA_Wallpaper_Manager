@@ -75,6 +75,14 @@ class CacheService {
     return null;
   }
 
+  /// Title of a photo the index still knows about, excluded ones included.
+  String? titleFor(String themeName, String filename) {
+    for (final image in _index[themeName] ?? const <WallpaperImage>[]) {
+      if (image.filename == filename) return image.displayTitle;
+    }
+    return null;
+  }
+
   List<WallpaperImage> _selectable(String themeName) {
     final images = _index[themeName] ?? [];
     if (_excludedKeys.isEmpty) return images;
