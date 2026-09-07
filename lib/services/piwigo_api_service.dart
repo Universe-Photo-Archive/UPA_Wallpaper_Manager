@@ -56,13 +56,12 @@ class PiwigoApiService {
   static const int maxPagesPerTheme = 10;
 
   /// Beyond this many photos an album is not a theme but a whole gallery.
-  /// One page is taken from it and the rest is left alone, because deep
-  /// paging over such an album can keep a database busy for minutes.
+  ///
+  /// Adding such an album is refused, and one that is already there is read
+  /// a single page deep: paging into it would have the server count past
+  /// tens of thousands of photos on every page, which can keep a database
+  /// busy for minutes.
   static const int hugeAlbumThreshold = 20000;
-
-  /// An album this big can only be the root of a gallery; refusing it when
-  /// the user adds it is kinder than letting them break their own server.
-  static const int refuseAlbumThreshold = 200000;
 
   /// Shortest gap between two requests leaving the app.
   ///

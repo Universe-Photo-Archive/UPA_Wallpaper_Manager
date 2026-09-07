@@ -1049,8 +1049,8 @@ abstract class AppLocalizations {
   /// No description provided for @manageThemesTooLarge.
   ///
   /// In fr, this message translates to:
-  /// **'Cet album contient trop de photos pour servir de thème. Choisissez plutôt un de ses albums.'**
-  String get manageThemesTooLarge;
+  /// **'Cet album dépasse {limit} photos, le maximum pour un thème. Choisissez plutôt un de ses albums.'**
+  String manageThemesTooLarge(int limit);
 
   /// No description provided for @manageThemesInvalidUrl.
   ///

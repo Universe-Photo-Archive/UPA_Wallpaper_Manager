@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/theme_category.dart';
 import '../../models/theme_source.dart';
+import '../../services/piwigo_api_service.dart';
 import 'folder_chooser.dart';
 import 'local_photo_picker.dart';
 import 'theme_name_dialog.dart';
@@ -57,7 +58,7 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
       case 'apiBlocked':
         return l10n.manageThemesApiBlocked;
       case 'tooLarge':
-        return l10n.manageThemesTooLarge;
+        return l10n.manageThemesTooLarge(PiwigoApiService.hugeAlbumThreshold);
       case 'addFailed':
       default:
         return local

@@ -213,7 +213,7 @@ class ThemesManager {
     // A category this size is the gallery itself, not a theme. Listing it
     // would have the server page through hundreds of thousands of photos on
     // every app start, which is enough to bring a small gallery down.
-    if (theme.imageCount > PiwigoApiService.refuseAlbumThreshold) {
+    if (theme.imageCount > PiwigoApiService.hugeAlbumThreshold) {
       _ref
           .read(logServiceProvider)
           .warning(
