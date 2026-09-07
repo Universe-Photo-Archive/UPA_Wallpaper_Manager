@@ -75,11 +75,12 @@ class LogService {
     required String imagePath,
     DateTime? at,
   }) {
-    final filename = imagePath
-        .replaceAll('\\', '/')
-        .split('/')
-        .where((p) => p.isNotEmpty)
-        .lastOrNull ??
+    final filename =
+        imagePath
+            .replaceAll('\\', '/')
+            .split('/')
+            .where((p) => p.isNotEmpty)
+            .lastOrNull ??
         imagePath;
     final ts = at ?? DateTime.now();
     final msg =
@@ -124,8 +125,12 @@ class LogService {
     if (!_initialized || !await _file.exists()) return false;
     try {
       if (Platform.isWindows) {
-        await Process.start('cmd', ['/c', 'start', '', _file.path],
-            runInShell: true);
+        await Process.start('cmd', [
+          '/c',
+          'start',
+          '',
+          _file.path,
+        ], runInShell: true);
       } else if (Platform.isMacOS) {
         await Process.start('open', [_file.path]);
       } else if (Platform.isLinux) {

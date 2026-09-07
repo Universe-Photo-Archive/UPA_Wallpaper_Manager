@@ -67,6 +67,8 @@
   "trayNoticeBody": "The window is hidden in the notification area, next to the clock. Click the icon to reopen it, or right-click it to quit.",
   "settingsUiTheme": "Interface theme:",
   "settingsLanguage": "Language:",
+  "settingsHideNoMobile": "Hide photos not intended for phones",
+  "settingsHideNoMobileSubtitle": "Photos the gallery tags \"NoMobile\" are left out everywhere: gallery, slideshow and lock screen.",
   "settingsRandomMode": "Random mode for slideshow",
   "settingsThemeDark": "Dark",
   "settingsThemeLight": "Light",

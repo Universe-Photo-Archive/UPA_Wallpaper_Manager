@@ -44,15 +44,15 @@ class ScreenInfo {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'width': width,
-        'height': height,
-        'left': left,
-        'top': top,
-        'isPrimary': isPrimary,
-        'devicePath': devicePath,
-      };
+    'id': id,
+    'name': name,
+    'width': width,
+    'height': height,
+    'left': left,
+    'top': top,
+    'isPrimary': isPrimary,
+    'devicePath': devicePath,
+  };
 
   @override
   bool operator ==(Object other) =>

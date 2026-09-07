@@ -19,7 +19,8 @@ class ConfigService {
     if (jsonStr != null) {
       try {
         _config = AppConfig.fromJson(
-            json.decode(jsonStr) as Map<String, dynamic>);
+          json.decode(jsonStr) as Map<String, dynamic>,
+        );
       } catch (_) {
         _config = AppConfig();
       }

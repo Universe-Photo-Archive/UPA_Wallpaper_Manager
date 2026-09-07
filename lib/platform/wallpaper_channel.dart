@@ -115,12 +115,11 @@ class WallpaperChannel {
   /// Schedules the fallback job used when the service is not running.
   static Future<void> schedulePeriodicRotation({
     required int intervalMinutes,
-  }) =>
-      _invokeVoid('schedulePeriodicRotation', {
-        'intervalMinutes': intervalMinutes < minBackgroundIntervalMinutes
-            ? minBackgroundIntervalMinutes
-            : intervalMinutes,
-      });
+  }) => _invokeVoid('schedulePeriodicRotation', {
+    'intervalMinutes': intervalMinutes < minBackgroundIntervalMinutes
+        ? minBackgroundIntervalMinutes
+        : intervalMinutes,
+  });
 
   /// Cancels the fallback job.
   static Future<void> cancelPeriodicRotation() =>
@@ -149,8 +148,10 @@ class WallpaperChannel {
     });
   }
 
-  static Future<void> _invokeVoid(String method,
-      [Map<String, dynamic>? args]) async {
+  static Future<void> _invokeVoid(
+    String method, [
+    Map<String, dynamic>? args,
+  ]) async {
     if (!Platform.isAndroid) return;
     try {
       await _channel.invokeMethod(method, args);

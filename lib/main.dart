@@ -21,6 +21,8 @@ import 'services/background_rotation_service.dart'
     show BackgroundRotationService, QuietHoursState, RotationTargetState;
 import 'services/cache_service.dart';
 import 'services/config_service.dart';
+import 'services/hidden_photos_service.dart';
+import 'services/piwigo_api_service.dart';
 import 'services/log_service.dart';
 import 'services/rotation_service.dart';
 import 'services/system_tray_service.dart';
@@ -65,10 +67,14 @@ Future<void> _discardLegacyPhotoCopies() async {
 /// Reflects a wallpaper applied outside of Dart (Android slideshow service)
 /// in the app state, so the preview matches the device.
 void _applyExternalWallpaper(
-    ProviderContainer container, int screenId, String path) {
+  ProviderContainer container,
+  int screenId,
+  String path,
+) {
   if (!File(path).existsSync()) return;
   final current = Map<int, String>.from(
-      container.read(currentWallpapersProvider));
+    container.read(currentWallpapersProvider),
+  );
   if (current[screenId] == path) return;
   current[screenId] = path;
   container.read(currentWallpapersProvider.notifier).state = current;
@@ -92,7 +98,10 @@ class _ForegroundWallpaperSync with WidgetsBindingObserver {
     // The notification's stop button may have been used while away.
     _backgroundRotation.allTargetsDisabled().then((stopped) {
       if (!stopped) return;
-      if (!container.read(configProvider).screens.any((s) => s.rotationEnabled)) {
+      if (!container
+          .read(configProvider)
+          .screens
+          .any((s) => s.rotationEnabled)) {
         return;
       }
       _stopAllSlideshows(container);
@@ -109,11 +118,16 @@ class _ForegroundWallpaperSync with WidgetsBindingObserver {
 void _stopAllSlideshows(ProviderContainer container) {
   final config = container.read(configProvider);
   if (!config.screens.any((s) => s.rotationEnabled)) return;
-  container.read(configProvider.notifier).update((c) => c.copyWith(
-        slideshowPaused: false,
-        screens:
-            c.screens.map((s) => s.copyWith(rotationEnabled: false)).toList(),
-      ));
+  container
+      .read(configProvider.notifier)
+      .update(
+        (c) => c.copyWith(
+          slideshowPaused: false,
+          screens: c.screens
+              .map((s) => s.copyWith(rotationEnabled: false))
+              .toList(),
+        ),
+      );
   _log.i('Slideshows stopped from the notification');
 }
 
@@ -130,8 +144,10 @@ Future<void> _topUpRotationCache(
   _toppingUp = true;
   try {
     final cache = container.read(cacheServiceProvider);
-    final allThemes =
-        container.read(themesProvider).map((t) => t.displayName).toList();
+    final allThemes = container
+        .read(themesProvider)
+        .map((t) => t.displayName)
+        .toList();
 
     final active = <String>{};
     for (final screen in config.screens) {
@@ -166,8 +182,10 @@ Future<void> _syncBackgroundRotation(
   if (!Platform.isAndroid) return;
 
   final cache = container.read(cacheServiceProvider);
-  final allThemes =
-      container.read(themesProvider).map((t) => t.displayName).toList();
+  final allThemes = container
+      .read(themesProvider)
+      .map((t) => t.displayName)
+      .toList();
   final wallpapers = container.read(currentWallpapersProvider);
 
   // Take note of what rotated while the app was away, so the cycle and the
@@ -181,16 +199,18 @@ Future<void> _syncBackgroundRotation(
     for (final theme in themes) {
       images.addAll(cache.getCachedPaths(theme));
     }
-    targets.add(RotationTargetState(
-      id: screen.screenId,
-      enabled: screen.rotationEnabled,
-      intervalSeconds: screen.rotationDelaySeconds,
-      // Empty tells the notification to say "all themes"; a single name is
-      // shown as is, several are joined.
-      theme: screen.usesAllThemes ? '' : screen.themeNames.join(', '),
-      images: images,
-      current: wallpapers[screen.screenId],
-    ));
+    targets.add(
+      RotationTargetState(
+        id: screen.screenId,
+        enabled: screen.rotationEnabled,
+        intervalSeconds: screen.rotationDelaySeconds,
+        // Empty tells the notification to say "all themes"; a single name is
+        // shown as is, several are joined.
+        theme: screen.usesAllThemes ? '' : screen.themeNames.join(', '),
+        images: images,
+        current: wallpapers[screen.screenId],
+      ),
+    );
   }
 
   await _backgroundRotation.sync(
@@ -300,11 +320,17 @@ void main(List<String> args) async {
     prefetchCount: 10,
   );
   await cacheService.init();
-  cacheService.excludedKeys =
-      configService.config.excludedImages.map((e) => e.key).toSet();
+  cacheService.excludedKeys = configService.config.excludedImages
+      .map((e) => e.key)
+      .toSet();
 
   final themesConfigService = ThemesConfigService();
   await themesConfigService.init();
+
+  // Photos the gallery tags as unwanted on a phone. Read from disk before any
+  // listing so a start without network still leaves them out.
+  final hiddenPhotos = HiddenPhotosService();
+  if (Platform.isAndroid) await hiddenPhotos.init();
 
   // Earlier versions copied the user's photos into the app; those themes are
   // gone and the copies are dead weight.
@@ -318,8 +344,9 @@ void main(List<String> args) async {
   // timers, which Dart drives itself.
   rotationService.shouldRotateNow = () {
     final now = DateTime.now();
-    return !configService.config.quietHours
-        .containsMinutes(now.hour * 60 + now.minute);
+    return !configService.config.quietHours.containsMinutes(
+      now.hour * 60 + now.minute,
+    );
   };
 
   final trayService = SystemTrayService();
@@ -345,20 +372,23 @@ void main(List<String> args) async {
     }
   }
 
-  final container = ProviderContainer(overrides: [
-    configServiceProvider.overrideWithValue(configService),
-    cacheServiceProvider.overrideWithValue(cacheService),
-    logServiceProvider.overrideWithValue(logService),
-    rotationServiceProvider.overrideWithValue(rotationService),
-    themesConfigServiceProvider.overrideWithValue(themesConfigService),
-  ]);
+  final container = ProviderContainer(
+    overrides: [
+      configServiceProvider.overrideWithValue(configService),
+      cacheServiceProvider.overrideWithValue(cacheService),
+      logServiceProvider.overrideWithValue(logService),
+      rotationServiceProvider.overrideWithValue(rotationService),
+      themesConfigServiceProvider.overrideWithValue(themesConfigService),
+    ],
+  );
 
   // Rotation callback: always update preview, then try to set native wallpaper
   rotationService.onRotation = (screenId, imagePath) async {
     _log.d('onRotation: screen=$screenId path=$imagePath');
 
     // Resolve which theme this image belongs to (best-effort).
-    final themeName = rotationService.currentThemes[screenId] ??
+    final themeName =
+        rotationService.currentThemes[screenId] ??
         rotationService.themeNameForScreen(screenId) ??
         'unknown';
 
@@ -369,8 +399,9 @@ void main(List<String> args) async {
     );
 
     // Always update preview regardless of platform success
-    final current =
-        Map<int, String>.from(container.read(currentWallpapersProvider));
+    final current = Map<int, String>.from(
+      container.read(currentWallpapersProvider),
+    );
     current[screenId] = imagePath;
     container.read(currentWallpapersProvider.notifier).state = current;
 
@@ -386,7 +417,8 @@ void main(List<String> args) async {
       if (!Platform.isAndroid && screenId == kDesktopLockScreenId) {
         final ok = await LockscreenChannel.setLockscreen(imagePath);
         logService.debug(
-            'Lockscreen update for $imagePath -> ${ok ? "OK" : "FAILED"}');
+          'Lockscreen update for $imagePath -> ${ok ? "OK" : "FAILED"}',
+        );
         return;
       }
 
@@ -397,8 +429,7 @@ void main(List<String> args) async {
         screenId: screenId,
       );
       _log.d('setWallpaper result: $success');
-      logService.debug(
-          'Native setWallpaper(screen=$screenId) -> $success');
+      logService.debug('Native setWallpaper(screen=$screenId) -> $success');
     } catch (e) {
       _log.e('setWallpaper error: $e');
       logService.error('setWallpaper failed for screen $screenId', e);
@@ -407,14 +438,15 @@ void main(List<String> args) async {
 
   // Listen to config changes and sync RotationService in real-time
   // Store the subscription to prevent garbage collection
-  _configSubscription =
-      container.listen<AppConfig>(configProvider, (prev, next) {
+  _configSubscription = container.listen<AppConfig>(configProvider, (
+    prev,
+    next,
+  ) {
     _log.d('Config changed, syncing RotationService...');
 
     logService.debugMode = next.debugMode;
     rotationService.randomMode = next.randomMode;
-    cacheService.excludedKeys =
-        next.excludedImages.map((e) => e.key).toSet();
+    cacheService.excludedKeys = next.excludedImages.map((e) => e.key).toSet();
 
     // Sync auto-start with the OS whenever the user toggles the setting.
     if (prev?.launchOnStartup != next.launchOnStartup) {
@@ -427,21 +459,31 @@ void main(List<String> args) async {
       _applyTrayNotice(trayService, next);
     }
 
+    if (Platform.isAndroid &&
+        prev?.hideNoMobilePhotos != next.hideNoMobilePhotos) {
+      unawaited(
+        _applyHiddenPhotos(container, hiddenPhotos, next.hideNoMobilePhotos),
+      );
+    }
+
     // Show or hide the lock-screen card, and make sure it has settings of its
     // own the first time it appears.
-    if (!Platform.isAndroid && prev?.lockscreenEnabled != next.lockscreenEnabled) {
+    if (!Platform.isAndroid &&
+        prev?.lockscreenEnabled != next.lockscreenEnabled) {
       final active = next.lockscreenEnabled && _lockscreenSupported;
       container.read(screensProvider.notifier).setLockScreenSlot(active);
       if (active) {
         _ensureScreenConfigs(container, container.read(screensProvider));
       } else {
         // The card is gone; its slideshow must not keep running behind it.
-        rotationService.setScreenConfig(ScreenRotationConfig(
-          screenId: kDesktopLockScreenId,
-          themeNames: [],
-          enabled: false,
-          delaySeconds: 900,
-        ));
+        rotationService.setScreenConfig(
+          ScreenRotationConfig(
+            screenId: kDesktopLockScreenId,
+            themeNames: [],
+            enabled: false,
+            delaySeconds: 900,
+          ),
+        );
       }
     }
 
@@ -452,18 +494,22 @@ void main(List<String> args) async {
           .where((p) => p.screenId == sc.screenId)
           .firstOrNull;
 
-      rotationService.setScreenConfig(ScreenRotationConfig(
-        screenId: sc.screenId,
-        themeNames: sc.themeNames,
-        enabled: sc.rotationEnabled && present.contains(sc.screenId),
-        delaySeconds: sc.rotationDelaySeconds,
-      ));
+      rotationService.setScreenConfig(
+        ScreenRotationConfig(
+          screenId: sc.screenId,
+          themeNames: sc.themeNames,
+          enabled: sc.rotationEnabled && present.contains(sc.screenId),
+          delaySeconds: sc.rotationDelaySeconds,
+        ),
+      );
 
       // If the theme selection changed for this screen, rotate now.
       final prevThemes = prevSc?.themeNames.join('|');
       if (prevSc != null && prevThemes != sc.themeNames.join('|')) {
-        _log.i('Themes changed on screen ${sc.screenId}: '
-            '$prevThemes -> ${sc.themeNames.join("|")}');
+        _log.i(
+          'Themes changed on screen ${sc.screenId}: '
+          '$prevThemes -> ${sc.themeNames.join("|")}',
+        );
         rotationService.rotateScreen(sc.screenId);
       }
 
@@ -507,9 +553,7 @@ void main(List<String> args) async {
     );
     // Also re-read the state file when the app comes back to the foreground,
     // covering rotations that happened while it was closed.
-    WidgetsBinding.instance.addObserver(
-      _ForegroundWallpaperSync(container),
-    );
+    WidgetsBinding.instance.addObserver(_ForegroundWallpaperSync(container));
   }
 
   runApp(
@@ -520,8 +564,75 @@ void main(List<String> args) async {
   );
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    _initializeApp(container, rotationService, trayService);
+    _initializeApp(container, rotationService, trayService, hiddenPhotos);
   });
+}
+
+/// Clears photos that just became hidden out of the cache, and puts a fresh
+/// wallpaper on any slot that was showing one.
+Future<void> _dropHiddenPhotos(
+  ProviderContainer container,
+  Set<int> ids,
+) async {
+  if (ids.isEmpty) return;
+  final cache = container.read(cacheServiceProvider);
+  final removed = await cache.removeImages(ids);
+  if (removed.isEmpty) return;
+
+  final rotation = container.read(rotationServiceProvider);
+  final shown = container.read(currentWallpapersProvider);
+  for (final entry in shown.entries) {
+    if (removed.contains(entry.value.replaceAll('\\', '/'))) {
+      await rotation.rotateScreen(entry.key);
+    }
+  }
+}
+
+/// Turns the "NoMobile" filter on or off, and makes the change visible at
+/// once: hidden photos leave the cache, previously hidden ones come back.
+Future<void> _applyHiddenPhotos(
+  ProviderContainer container,
+  HiddenPhotosService hiddenPhotos,
+  bool enabled,
+) async {
+  final api = container.read(piwigoApiProvider);
+  if (!enabled) {
+    api.hiddenImageIds = const {};
+    await _refreshThemeListings(container);
+    return;
+  }
+
+  api.hiddenImageIds = hiddenPhotos.ids;
+  if (container.read(isOnlineProvider)) {
+    await hiddenPhotos.refresh(api);
+    api.hiddenImageIds = hiddenPhotos.ids;
+  }
+  await _dropHiddenPhotos(container, hiddenPhotos.ids);
+  await _refreshThemeListings(container);
+}
+
+/// Lists every Piwigo theme again so the cache matches the current filter.
+Future<void> _refreshThemeListings(ProviderContainer container) async {
+  if (!container.read(isOnlineProvider)) return;
+  final api = container.read(piwigoApiProvider);
+  final cache = container.read(cacheServiceProvider);
+
+  for (final theme in container.read(themesProvider)) {
+    if (theme.sourceBaseUrl.startsWith(LocalSource.urlScheme)) continue;
+    try {
+      final images = await api.getThemeImages(
+        theme.id,
+        baseUrl: theme.sourceBaseUrl,
+        recursive: theme.needsRecursiveFetch,
+      );
+      cache.replaceThemeImages(theme.displayName, images);
+      container
+          .read(themesProvider.notifier)
+          .setUsableCount(theme.uniqueKey, images.length);
+    } catch (e) {
+      _log.w('Could not refresh "${theme.displayName}": $e');
+    }
+  }
 }
 
 /// Wording and on/off state of the "hidden in the tray" notice.
@@ -556,12 +667,9 @@ Future<void> _ensureScreenConfigs(
   for (final screen in missing) {
     // Lock screens start off: someone who only wants the desktop wallpaper to
     // rotate should not find their lock screen changing too.
-    final isLock = screen.isDesktopLockScreen ||
-        (Platform.isAndroid && screen.id == 1);
-    updated.add(ScreenConfig(
-      screenId: screen.id,
-      rotationEnabled: !isLock,
-    ));
+    final isLock =
+        screen.isDesktopLockScreen || (Platform.isAndroid && screen.id == 1);
+    updated.add(ScreenConfig(screenId: screen.id, rotationEnabled: !isLock));
   }
   await container
       .read(configProvider.notifier)
@@ -572,6 +680,7 @@ Future<void> _initializeApp(
   ProviderContainer container,
   RotationService rotationService,
   SystemTrayService trayService,
+  HiddenPhotosService hiddenPhotos,
 ) async {
   try {
     _log.i('Starting initialization...');
@@ -579,7 +688,9 @@ Future<void> _initializeApp(
     // Desktop: the lock screen is one more slot, shown only when the feature
     // is switched on and the machine can actually drive it.
     if (!Platform.isAndroid) {
-      container.read(screensProvider.notifier).setLockScreenSlot(
+      container
+          .read(screensProvider.notifier)
+          .setLockScreenSlot(
             container.read(configProvider).lockscreenEnabled &&
                 _lockscreenSupported,
           );
@@ -604,13 +715,16 @@ Future<void> _initializeApp(
       if (current.screens.any((s) => s.rotationDelayUnit == 'seconds')) {
         await container.read(configProvider.notifier).update((c) {
           final screens = c.screens
-              .map((s) => s.rotationDelayUnit == 'seconds'
-                  ? s.copyWith(
-                      rotationDelayUnit: 'minutes',
-                      rotationDelay:
-                          s.rotationDelay < 60 ? 1 : s.rotationDelay ~/ 60,
-                    )
-                  : s)
+              .map(
+                (s) => s.rotationDelayUnit == 'seconds'
+                    ? s.copyWith(
+                        rotationDelayUnit: 'minutes',
+                        rotationDelay: s.rotationDelay < 60
+                            ? 1
+                            : s.rotationDelay ~/ 60,
+                      )
+                    : s,
+              )
               .toList();
           return c.copyWith(screens: screens);
         });
@@ -692,6 +806,24 @@ Future<void> _initializeApp(
     container.read(isOnlineProvider.notifier).state = isOnline;
     _log.i('Piwigo connection: ${isOnline ? "OK" : "FAILED"}');
 
+    // Ask the gallery which photos carry the tag, before anything is listed:
+    // filtering afterwards would let one slip onto the screen first.
+    if (Platform.isAndroid &&
+        container.read(configProvider).hideNoMobilePhotos) {
+      api.hiddenImageIds = hiddenPhotos.ids;
+      if (isOnline) {
+        final added = await hiddenPhotos.refresh(api);
+        if (added != null) {
+          api.hiddenImageIds = hiddenPhotos.ids;
+          await _dropHiddenPhotos(container, added);
+        }
+      }
+      container.read(logServiceProvider).info(
+            'Photos masquées (${PiwigoApiService.noMobileTag}) : '
+            '${hiddenPhotos.ids.length}',
+          );
+    }
+
     final allThemes = <ThemeCategory>[];
 
     final localGallery = container.read(localGalleryServiceProvider);
@@ -713,17 +845,19 @@ Future<void> _initializeApp(
           allThemes.addAll(themes);
         } else if (src.cachedName != null) {
           // Offline / unreachable: build a placeholder theme from cached meta.
-          allThemes.add(ThemeCategory(
-            id: src.rootCategoryId,
-            name: src.cachedName!,
-            nameRaw: src.cachedName!,
-            url: src.originalUrl ?? '',
-            imageCount: src.cachedImageCount ?? 0,
-            thumbnailUrl: src.cachedThumbnailUrl,
-            sourceBaseUrl: src.baseUrl,
-            isUserAdded: true,
-            originalUrl: src.originalUrl,
-          ));
+          allThemes.add(
+            ThemeCategory(
+              id: src.rootCategoryId,
+              name: src.cachedName!,
+              nameRaw: src.cachedName!,
+              url: src.originalUrl ?? '',
+              imageCount: src.cachedImageCount ?? 0,
+              thumbnailUrl: src.cachedThumbnailUrl,
+              sourceBaseUrl: src.baseUrl,
+              isUserAdded: true,
+              originalUrl: src.originalUrl,
+            ),
+          );
         }
       }
     }
@@ -741,8 +875,9 @@ Future<void> _initializeApp(
     _log.i('Loaded ${allThemes.length} theme(s) total');
     container.read(themesProvider.notifier).setThemes(allThemes);
 
-    rotationService.allThemeNames =
-        allThemes.map((t) => t.displayName).toList();
+    rotationService.allThemeNames = allThemes
+        .map((t) => t.displayName)
+        .toList();
 
     if (allThemes.isNotEmpty) {
       final cache = container.read(cacheServiceProvider);
@@ -773,9 +908,15 @@ Future<void> _initializeApp(
 
         _log.i('  ${theme.displayName}: ${images.length} images');
         cache.updateThemeImages(theme.displayName, images);
+        if (localSource != null || isOnline) {
+          container
+              .read(themesProvider.notifier)
+              .setUsableCount(theme.uniqueKey, images.length);
+        }
 
         // Local images are already on-disk; no need to pre-download.
-        if (!theme.sourceBaseUrl.startsWith(LocalSource.urlScheme) && isOnline) {
+        if (!theme.sourceBaseUrl.startsWith(LocalSource.urlScheme) &&
+            isOnline) {
           final cached = cache.getCachedPaths(theme.displayName).length;
           if (cached < 5) {
             final dl = await cache.downloadBatch(theme.displayName, count: 5);
@@ -790,25 +931,29 @@ Future<void> _initializeApp(
       // the dropdown is not completely empty (alongside local themes).
       for (final src in themesConfigService.userPiwigoSources) {
         if (src.cachedName == null) continue;
-        if (allThemes.any((t) =>
-            t.sourceBaseUrl == src.baseUrl && t.id == src.rootCategoryId)) {
+        if (allThemes.any(
+          (t) => t.sourceBaseUrl == src.baseUrl && t.id == src.rootCategoryId,
+        )) {
           continue;
         }
-        allThemes.add(ThemeCategory(
-          id: src.rootCategoryId,
-          name: src.cachedName!,
-          nameRaw: src.cachedName!,
-          url: src.originalUrl ?? '',
-          imageCount: src.cachedImageCount ?? 0,
-          thumbnailUrl: src.cachedThumbnailUrl,
-          sourceBaseUrl: src.baseUrl,
-          isUserAdded: true,
-          originalUrl: src.originalUrl,
-        ));
+        allThemes.add(
+          ThemeCategory(
+            id: src.rootCategoryId,
+            name: src.cachedName!,
+            nameRaw: src.cachedName!,
+            url: src.originalUrl ?? '',
+            imageCount: src.cachedImageCount ?? 0,
+            thumbnailUrl: src.cachedThumbnailUrl,
+            sourceBaseUrl: src.baseUrl,
+            isUserAdded: true,
+            originalUrl: src.originalUrl,
+          ),
+        );
       }
       container.read(themesProvider.notifier).setThemes(allThemes);
-      rotationService.allThemeNames =
-          allThemes.map((t) => t.displayName).toList();
+      rotationService.allThemeNames = allThemes
+          .map((t) => t.displayName)
+          .toList();
       container.read(statusMessageProvider.notifier).state =
           'Impossible de se connecter à Piwigo';
     } else {
@@ -821,12 +966,14 @@ Future<void> _initializeApp(
     final finalConfig = container.read(configProvider);
     final present = container.read(screensProvider).map((s) => s.id).toSet();
     for (final sc in finalConfig.screens) {
-      rotationService.setScreenConfig(ScreenRotationConfig(
-        screenId: sc.screenId,
-        themeNames: sc.themeNames,
-        enabled: sc.rotationEnabled && present.contains(sc.screenId),
-        delaySeconds: sc.rotationDelaySeconds,
-      ));
+      rotationService.setScreenConfig(
+        ScreenRotationConfig(
+          screenId: sc.screenId,
+          themeNames: sc.themeNames,
+          enabled: sc.rotationEnabled && present.contains(sc.screenId),
+          delaySeconds: sc.rotationDelaySeconds,
+        ),
+      );
     }
 
     // On Android the periodic rotation belongs to the native slideshow
@@ -856,14 +1003,15 @@ Future<void> _initializeApp(
       // cleanup deletes old files and prefetch adds new ones. Refreshing it
       // regularly is what keeps the background rotation alive over days.
       _backgroundStateRefresh?.cancel();
-      _backgroundStateRefresh = Timer.periodic(
-        const Duration(minutes: 10),
-        (_) async {
-          await _topUpRotationCache(container, container.read(configProvider));
-          await _syncBackgroundRotation(
-              container, container.read(configProvider));
-        },
-      );
+      _backgroundStateRefresh = Timer.periodic(const Duration(minutes: 10), (
+        _,
+      ) async {
+        await _topUpRotationCache(container, container.read(configProvider));
+        await _syncBackgroundRotation(
+          container,
+          container.read(configProvider),
+        );
+      });
       await _syncBackgroundRotation(container, container.read(configProvider));
     }
 

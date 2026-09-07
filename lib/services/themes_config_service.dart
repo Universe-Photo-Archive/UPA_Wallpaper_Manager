@@ -28,11 +28,13 @@ class ThemesConfigService {
       'https://raw.githubusercontent.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/main/config/themes_default.json';
 
   final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 15),
-    headers: {'User-Agent': 'UPA-Wallpaper-Manager'},
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: {'User-Agent': 'UPA-Wallpaper-Manager'},
+    ),
+  );
 
   late Directory _configDir;
   Map<String, dynamic> _defaultConfig = {};
@@ -62,8 +64,9 @@ class ThemesConfigService {
     Map<String, dynamic>? diskConfig;
     if (await _defaultFile.exists()) {
       try {
-        diskConfig = json.decode(await _defaultFile.readAsString())
-            as Map<String, dynamic>;
+        diskConfig =
+            json.decode(await _defaultFile.readAsString())
+                as Map<String, dynamic>;
       } catch (e) {
         _log.w('Failed to read on-disk default config: $e — using bundle');
       }
@@ -94,10 +97,12 @@ class ThemesConfigService {
       } catch (e) {
         _log.w('Failed to persist bundled default config: $e');
       }
-      _log.i(diskConfig == null
-          ? 'Default themes config copied from bundle'
-          : 'Default themes config updated from newer bundle '
-              '(version ${bundleConfig['version']})');
+      _log.i(
+        diskConfig == null
+            ? 'Default themes config copied from bundle'
+            : 'Default themes config updated from newer bundle '
+                  '(version ${bundleConfig['version']})',
+      );
       return;
     }
 
@@ -119,18 +124,14 @@ class ThemesConfigService {
   Future<void> _loadUserConfig() async {
     if (await _userFile.exists()) {
       try {
-        _userConfig = json.decode(await _userFile.readAsString())
-            as Map<String, dynamic>;
+        _userConfig =
+            json.decode(await _userFile.readAsString()) as Map<String, dynamic>;
         return;
       } catch (e) {
         _log.w('Failed to read user themes config: $e — resetting');
       }
     }
-    _userConfig = {
-      'version': 1,
-      'piwigoSources': [],
-      'localSources': [],
-    };
+    _userConfig = {'version': 1, 'piwigoSources': [], 'localSources': []};
     await _saveUserConfig();
   }
 
@@ -179,8 +180,10 @@ class ThemesConfigService {
 
       _defaultConfig = remote;
       await _defaultFile.writeAsString(json.encode(remote));
-      _log.i('Default themes config updated from GitHub '
-          '(version $remoteVersion, lastUpdated $remoteUpdated)');
+      _log.i(
+        'Default themes config updated from GitHub '
+        '(version $remoteVersion, lastUpdated $remoteUpdated)',
+      );
       return true;
     } catch (e) {
       _log.w('Could not refresh default themes config from GitHub: $e');
@@ -211,15 +214,18 @@ class ThemesConfigService {
   /// True when a user source with the same baseUrl + categoryId already exists.
   bool hasUserSource(String baseUrl, int categoryId) {
     final normalized = PiwigoSource(
-        baseUrl: baseUrl, rootCategoryId: categoryId, recursive: false);
+      baseUrl: baseUrl,
+      rootCategoryId: categoryId,
+      recursive: false,
+    );
     return userPiwigoSources.any((s) => s.uniqueKey == normalized.uniqueKey);
   }
 
   /// Adds a user source and persists.
   Future<void> addUserSource(PiwigoSource source) async {
-    final list =
-        List<Map<String, dynamic>>.from(userPiwigoSources.map((e) => e.toJson()))
-          ..add(source.toJson());
+    final list = List<Map<String, dynamic>>.from(
+      userPiwigoSources.map((e) => e.toJson()),
+    )..add(source.toJson());
     _userConfig['piwigoSources'] = list;
     await _saveUserConfig();
   }
@@ -227,8 +233,7 @@ class ThemesConfigService {
   /// Removes a user source matching the given baseUrl + categoryId.
   Future<void> removeUserSource(String baseUrl, int categoryId) async {
     final list = userPiwigoSources
-        .where((s) =>
-            !(s.baseUrl == baseUrl && s.rootCategoryId == categoryId))
+        .where((s) => !(s.baseUrl == baseUrl && s.rootCategoryId == categoryId))
         .map((e) => e.toJson())
         .toList();
     _userConfig['piwigoSources'] = list;
@@ -252,8 +257,7 @@ class ThemesConfigService {
 
   /// True when a folder theme already watches this folder.
   bool hasLocalFolder(String root) {
-    return userLocalSources
-        .any((s) => s.isFolder && s.roots.contains(root));
+    return userLocalSources.any((s) => s.isFolder && s.roots.contains(root));
   }
 
   LocalSource? localSourceById(String id) {
@@ -274,9 +278,9 @@ class ThemesConfigService {
 
   /// Adds a local source and persists.
   Future<void> addLocalSource(LocalSource source) async {
-    final list =
-        List<Map<String, dynamic>>.from(userLocalSources.map((e) => e.toJson()))
-          ..add(source.toJson());
+    final list = List<Map<String, dynamic>>.from(
+      userLocalSources.map((e) => e.toJson()),
+    )..add(source.toJson());
     _userConfig['localSources'] = list;
     await _saveUserConfig();
   }
@@ -302,15 +306,17 @@ class ThemesConfigService {
     final updated = <Map<String, dynamic>>[];
     for (final s in userPiwigoSources) {
       if (s.baseUrl == baseUrl && s.rootCategoryId == categoryId) {
-        updated.add(PiwigoSource(
-          baseUrl: s.baseUrl,
-          rootCategoryId: s.rootCategoryId,
-          recursive: s.recursive,
-          originalUrl: s.originalUrl,
-          cachedName: cachedName ?? s.cachedName,
-          cachedImageCount: cachedImageCount ?? s.cachedImageCount,
-          cachedThumbnailUrl: cachedThumbnailUrl ?? s.cachedThumbnailUrl,
-        ).toJson());
+        updated.add(
+          PiwigoSource(
+            baseUrl: s.baseUrl,
+            rootCategoryId: s.rootCategoryId,
+            recursive: s.recursive,
+            originalUrl: s.originalUrl,
+            cachedName: cachedName ?? s.cachedName,
+            cachedImageCount: cachedImageCount ?? s.cachedImageCount,
+            cachedThumbnailUrl: cachedThumbnailUrl ?? s.cachedThumbnailUrl,
+          ).toJson(),
+        );
       } else {
         updated.add(s.toJson());
       }

@@ -464,6 +464,18 @@ abstract class AppLocalizations {
   /// **'Langue :'**
   String get settingsLanguage;
 
+  /// No description provided for @settingsHideNoMobile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer les photos non destinées au mobile'**
+  String get settingsHideNoMobile;
+
+  /// No description provided for @settingsHideNoMobileSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les photos taguées « NoMobile » dans la galerie sont écartées partout : galerie, diaporama et écran de verrouillage.'**
+  String get settingsHideNoMobileSubtitle;
+
   /// No description provided for @settingsRandomMode.
   ///
   /// In fr, this message translates to:

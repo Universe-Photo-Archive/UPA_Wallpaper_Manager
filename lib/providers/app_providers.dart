@@ -34,10 +34,7 @@ final logServiceProvider = Provider<LogService>((ref) {
 });
 
 final piwigoApiProvider = Provider<PiwigoApiService>((ref) {
-  return PiwigoApiService(
-    rateLimitSeconds: 1.0,
-    timeoutSeconds: 30,
-  );
+  return PiwigoApiService(rateLimitSeconds: 1.0, timeoutSeconds: 30);
 });
 
 final rotationServiceProvider = Provider<RotationService>((ref) {
@@ -92,14 +89,17 @@ class LockscreenSupport {
 
   bool get isSupported => isAdmin && isEditionSupported;
 
-  static const LockscreenSupport unknown =
-      LockscreenSupport(isAdmin: false, isEditionSupported: false);
+  static const LockscreenSupport unknown = LockscreenSupport(
+    isAdmin: false,
+    isEditionSupported: false,
+  );
 }
 
 /// Async one-shot probe of the platform lockscreen capabilities. Computed
 /// once at startup and reused everywhere via [lockscreenSupportProvider].
-final lockscreenSupportProvider =
-    FutureProvider<LockscreenSupport>((ref) async {
+final lockscreenSupportProvider = FutureProvider<LockscreenSupport>((
+  ref,
+) async {
   if (Platform.isAndroid) {
     // Android supports FLAG_LOCK wallpapers since Nougat; there is no
     // elevation / edition requirement like on Windows.
@@ -113,23 +113,46 @@ final lockscreenSupportProvider =
     LockscreenChannel.isAdmin(),
     LockscreenChannel.isWindowsEditionSupported(),
   ]);
-  return LockscreenSupport(
-    isAdmin: results[0],
-    isEditionSupported: results[1],
-  );
+  return LockscreenSupport(isAdmin: results[0], isEditionSupported: results[1]);
 });
 
 // --- Themes ---
 
+/// Themes worth offering: the ones the app's own galleries have emptied are
+/// left out, since picking them could only lead to a blank slideshow.
+final visibleThemesProvider = Provider<List<ThemeCategory>>((ref) {
+  return ref
+      .watch(themesProvider)
+      .where((t) => !t.isEmptyForPickers)
+      .toList();
+});
+
 final themesProvider =
     StateNotifierProvider<ThemesNotifier, List<ThemeCategory>>((ref) {
-  return ThemesNotifier();
-});
+      return ThemesNotifier();
+    });
 
 class ThemesNotifier extends StateNotifier<List<ThemeCategory>> {
   ThemesNotifier() : super([]);
 
   void setThemes(List<ThemeCategory> themes) => state = themes;
+
+  /// Records how many photos a theme really yielded, which is what decides
+  /// whether it still deserves a place in the pickers.
+  void setUsableCount(String uniqueKey, int count) {
+    var changed = false;
+    final updated = [
+      for (final theme in state)
+        if (theme.uniqueKey == uniqueKey && theme.usableImageCount != count)
+          () {
+            changed = true;
+            return theme.copyWith(usableImageCount: count);
+          }()
+        else
+          theme,
+    ];
+    if (changed) state = updated;
+  }
 
   void addTheme(ThemeCategory theme) {
     if (state.any((t) => t.uniqueKey == theme.uniqueKey)) return;
@@ -187,15 +210,17 @@ class ThemesManager {
       return 'addFailed';
     }
 
-    await cfg.addUserSource(PiwigoSource(
-      baseUrl: parsed.baseUrl,
-      rootCategoryId: parsed.categoryId,
-      recursive: false,
-      originalUrl: theme.originalUrl,
-      cachedName: theme.nameRaw,
-      cachedImageCount: theme.imageCount,
-      cachedThumbnailUrl: theme.thumbnailUrl,
-    ));
+    await cfg.addUserSource(
+      PiwigoSource(
+        baseUrl: parsed.baseUrl,
+        rootCategoryId: parsed.categoryId,
+        recursive: false,
+        originalUrl: theme.originalUrl,
+        cachedName: theme.nameRaw,
+        cachedImageCount: theme.imageCount,
+        cachedThumbnailUrl: theme.thumbnailUrl,
+      ),
+    );
 
     _ref.read(themesProvider.notifier).addTheme(theme);
 
@@ -224,12 +249,14 @@ class ThemesManager {
     final cfg = _ref.read(themesConfigServiceProvider);
     if (cfg.hasLocalFolder(root)) return 'alreadyExists';
 
-    return _createLocalTheme(LocalSource(
-      id: _newLocalId(),
-      kind: LocalThemeKind.folder,
-      name: LocalSource.folderDisplayName(root),
-      roots: [root],
-    ));
+    return _createLocalTheme(
+      LocalSource(
+        id: _newLocalId(),
+        kind: LocalThemeKind.folder,
+        name: LocalSource.folderDisplayName(root),
+        roots: [root],
+      ),
+    );
   }
 
   /// Creates a theme from photos the user hand-picked inside [root].
@@ -240,13 +267,17 @@ class ThemesManager {
   }) async {
     if (items.isEmpty) return 'addFailed';
 
-    return _createLocalTheme(LocalSource(
-      id: _newLocalId(),
-      kind: LocalThemeKind.custom,
-      name: name.trim().isEmpty ? LocalSource.folderDisplayName(root) : name.trim(),
-      roots: [root],
-      items: items,
-    ));
+    return _createLocalTheme(
+      LocalSource(
+        id: _newLocalId(),
+        kind: LocalThemeKind.custom,
+        name: name.trim().isEmpty
+            ? LocalSource.folderDisplayName(root)
+            : name.trim(),
+        roots: [root],
+        items: items,
+      ),
+    );
   }
 
   Future<String?> _createLocalTheme(LocalSource source) async {
@@ -279,16 +310,23 @@ class ThemesManager {
     // Slots pointing at the old name would silently stop rotating.
     final config = _ref.read(configProvider);
     if (config.screens.any((s) => s.themeNames.contains(previous))) {
-      await _ref.read(configProvider.notifier).update((c) => c.copyWith(
-            screens: c.screens
-                .map((s) => s.themeNames.contains(previous)
-                    ? s.copyWith(
-                        themeNames: s.themeNames
-                            .map((n) => n == previous ? trimmed : n)
-                            .toList())
-                    : s)
-                .toList(),
-          ));
+      await _ref
+          .read(configProvider.notifier)
+          .update(
+            (c) => c.copyWith(
+              screens: c.screens
+                  .map(
+                    (s) => s.themeNames.contains(previous)
+                        ? s.copyWith(
+                            themeNames: s.themeNames
+                                .map((n) => n == previous ? trimmed : n)
+                                .toList(),
+                          )
+                        : s,
+                  )
+                  .toList(),
+            ),
+          );
     }
   }
 
@@ -335,11 +373,15 @@ class ThemesManager {
   }
 
   Future<void> _refreshLocalTheme(
-      LocalSource source, ThemeCategory theme) async {
+    LocalSource source,
+    ThemeCategory theme,
+  ) async {
     final localSvc = _ref.read(localGalleryServiceProvider);
     final cache = _ref.read(cacheServiceProvider);
     cache.replaceThemeImages(
-        theme.displayName, await localSvc.getImages(source));
+      theme.displayName,
+      await localSvc.getImages(source),
+    );
     _syncRotationThemeNames();
   }
 
@@ -368,15 +410,15 @@ class ThemesManager {
 
     final removedName = theme.displayName;
     final config = _ref.read(configProvider);
-    final hasReferences =
-        config.screens.any((s) => s.themeNames.contains(removedName));
+    final hasReferences = config.screens.any(
+      (s) => s.themeNames.contains(removedName),
+    );
     if (hasReferences) {
       await _ref.read(configProvider.notifier).update((c) {
         final updated = c.screens.map((s) {
           if (s.themeNames.contains(removedName)) {
             return s.copyWith(
-              themeNames:
-                  s.themeNames.where((n) => n != removedName).toList(),
+              themeNames: s.themeNames.where((n) => n != removedName).toList(),
             );
           }
           return s;
@@ -392,8 +434,10 @@ class ThemesManager {
   /// rotation in "all themes" mode picks from every currently-known theme.
   void _syncRotationThemeNames() {
     final rotation = _ref.read(rotationServiceProvider);
-    rotation.allThemeNames =
-        _ref.read(themesProvider).map((t) => t.displayName).toList();
+    rotation.allThemeNames = _ref
+        .read(themesProvider)
+        .map((t) => t.displayName)
+        .toList();
   }
 }
 
@@ -433,25 +477,35 @@ class ExclusionsManager {
     if (theme == null) return false;
 
     final filename = p.basename(path);
-    final entry =
-        ExcludedImage(theme: theme, filename: filename, localPath: path);
+    final entry = ExcludedImage(
+      theme: theme,
+      filename: filename,
+      localPath: path,
+    );
 
     final config = _ref.read(configProvider);
     if (config.excludedImages.any((e) => e.key == entry.key)) return false;
 
-    await _ref.read(configProvider.notifier).update((c) => c.copyWith(
-          excludedImages: [...c.excludedImages, entry],
-        ));
+    await _ref
+        .read(configProvider.notifier)
+        .update(
+          (c) => c.copyWith(excludedImages: [...c.excludedImages, entry]),
+        );
 
     await _ref.read(rotationServiceProvider).rotateScreen(screenId);
     return true;
   }
 
   Future<void> restore(ExcludedImage image) async {
-    await _ref.read(configProvider.notifier).update((c) => c.copyWith(
-          excludedImages:
-              c.excludedImages.where((e) => e.key != image.key).toList(),
-        ));
+    await _ref
+        .read(configProvider.notifier)
+        .update(
+          (c) => c.copyWith(
+            excludedImages: c.excludedImages
+                .where((e) => e.key != image.key)
+                .toList(),
+          ),
+        );
   }
 
   Future<void> clear() async {
@@ -463,10 +517,14 @@ class ExclusionsManager {
 
 // --- Theme images (per category) ---
 
-final themeImagesProvider = StateNotifierProvider.family<ThemeImagesNotifier,
-    List<WallpaperImage>, int>((ref, categoryId) {
-  return ThemeImagesNotifier();
-});
+final themeImagesProvider =
+    StateNotifierProvider.family<
+      ThemeImagesNotifier,
+      List<WallpaperImage>,
+      int
+    >((ref, categoryId) {
+      return ThemeImagesNotifier();
+    });
 
 class ThemeImagesNotifier extends StateNotifier<List<WallpaperImage>> {
   ThemeImagesNotifier() : super([]);
@@ -478,8 +536,8 @@ class ThemeImagesNotifier extends StateNotifier<List<WallpaperImage>> {
 
 final screensProvider =
     StateNotifierProvider<ScreensNotifier, List<ScreenInfo>>((ref) {
-  return ScreensNotifier();
-});
+      return ScreensNotifier();
+    });
 
 class ScreensNotifier extends StateNotifier<List<ScreenInfo>> {
   ScreensNotifier() : super([]);
@@ -507,14 +565,18 @@ class ScreensNotifier extends StateNotifier<List<ScreenInfo>> {
     if (_lockSlot) {
       final reference = _monitors.isEmpty
           ? null
-          : _monitors.firstWhere((s) => s.isPrimary,
-              orElse: () => _monitors.first);
-      screens.add(ScreenInfo(
-        id: kDesktopLockScreenId,
-        name: 'Lock screen',
-        width: reference?.width ?? 1920,
-        height: reference?.height ?? 1080,
-      ));
+          : _monitors.firstWhere(
+              (s) => s.isPrimary,
+              orElse: () => _monitors.first,
+            );
+      screens.add(
+        ScreenInfo(
+          id: kDesktopLockScreenId,
+          name: 'Lock screen',
+          width: reference?.width ?? 1920,
+          height: reference?.height ?? 1080,
+        ),
+      );
     }
     state = screens;
   }

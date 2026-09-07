@@ -20,25 +20,39 @@ class PiwigoApiService {
   /// configure a source.
   static const int defaultUpaRootCategoryId = 717;
 
+  /// Tag marking the photos the gallery does not want on a phone.
+  static const String noMobileTag = 'NoMobile';
+
   final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
   late final Dio _dio;
 
+  /// Ids kept out of every listing, set by the app when the "NoMobile"
+  /// option is on. Only ever applied to the UPA gallery: someone else's
+  /// Piwigo has no reason to know about our tag, and an id collision there
+  /// would hide an innocent photo.
+  Set<int> hiddenImageIds = const {};
+
+  /// True for the galleries hosted by Universe Photo Archive.
+  static bool isUpaGallery(String baseUrl) => isUpaGalleryUrl(baseUrl);
+
   PiwigoApiService({double rateLimitSeconds = 1.0, int timeoutSeconds = 30}) {
-    _dio = Dio(BaseOptions(
-      connectTimeout: Duration(seconds: timeoutSeconds),
-      receiveTimeout: Duration(seconds: timeoutSeconds),
-      responseType: ResponseType.plain,
-      followRedirects: true,
-      headers: {
-        // Some third-party Piwigo hosts (university / institutional
-        // galleries) reject unknown user-agents with HTTP 403. A regular
-        // browser UA lets the public API through.
-        'User-Agent':
-            'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
-            '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
-        'Accept': 'application/json,text/plain,*/*',
-      },
-    ));
+    _dio = Dio(
+      BaseOptions(
+        connectTimeout: Duration(seconds: timeoutSeconds),
+        receiveTimeout: Duration(seconds: timeoutSeconds),
+        responseType: ResponseType.plain,
+        followRedirects: true,
+        headers: {
+          // Some third-party Piwigo hosts (university / institutional
+          // galleries) reject unknown user-agents with HTTP 403. A regular
+          // browser UA lets the public API through.
+          'User-Agent':
+              'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
+              '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+          'Accept': 'application/json,text/plain,*/*',
+        },
+      ),
+    );
   }
 
   Map<String, dynamic> _parseJson(Response response) {
@@ -61,10 +75,7 @@ class PiwigoApiService {
     try {
       final response = await _dio.get(
         _wsUrl(baseUrl),
-        queryParameters: {
-          'format': 'json',
-          'method': 'pwg.getVersion',
-        },
+        queryParameters: {'format': 'json', 'method': 'pwg.getVersion'},
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -79,13 +90,8 @@ class PiwigoApiService {
     try {
       final response = await _dio.get(
         _wsUrl(baseUrl),
-        queryParameters: {
-          'format': 'json',
-          'method': 'pwg.getVersion',
-        },
-        options: Options(
-          validateStatus: (code) => code != null && code < 500,
-        ),
+        queryParameters: {'format': 'json', 'method': 'pwg.getVersion'},
+        options: Options(validateStatus: (code) => code != null && code < 500),
       );
       return response.statusCode == 401 || response.statusCode == 403;
     } on DioException catch (e) {
@@ -100,8 +106,10 @@ class PiwigoApiService {
   /// is true the [rootCategoryId] is treated as a parent and all
   /// sub-categories are returned (excluding the parent itself). When false,
   /// only [rootCategoryId] is returned (one theme).
-  Future<List<ThemeCategory>> getThemesFromSource(PiwigoSource source,
-      {bool isUserAdded = false}) async {
+  Future<List<ThemeCategory>> getThemesFromSource(
+    PiwigoSource source, {
+    bool isUserAdded = false,
+  }) async {
     try {
       final response = await _dio.get(
         _wsUrl(source.baseUrl),
@@ -116,8 +124,10 @@ class PiwigoApiService {
       final jsonData = _parseJson(response);
 
       if (jsonData['stat'] != 'ok') {
-        _log.e('Piwigo API error: ${jsonData['stat']} - '
-            '${jsonData['message'] ?? ""}');
+        _log.e(
+          'Piwigo API error: ${jsonData['stat']} - '
+          '${jsonData['message'] ?? ""}',
+        );
         return [];
       }
 
@@ -139,20 +149,25 @@ class PiwigoApiService {
           if (intId != source.rootCategoryId) continue;
         }
 
-        themes.add(ThemeCategory.fromPiwigoJson(
-          c,
-          sourceBaseUrl: source.baseUrl,
-          isUserAdded: isUserAdded,
-          originalUrl: source.originalUrl,
-        ));
+        themes.add(
+          ThemeCategory.fromPiwigoJson(
+            c,
+            sourceBaseUrl: source.baseUrl,
+            isUserAdded: isUserAdded,
+            originalUrl: source.originalUrl,
+          ),
+        );
       }
 
       _log.i(
-          'Loaded ${themes.length} theme(s) from ${source.baseUrl} (cat=${source.rootCategoryId}, recursive=${source.recursive})');
+        'Loaded ${themes.length} theme(s) from ${source.baseUrl} (cat=${source.rootCategoryId}, recursive=${source.recursive})',
+      );
       return themes;
     } catch (e, stack) {
-      _log.e('Failed to fetch themes for ${source.baseUrl}'
-          ' (cat=${source.rootCategoryId}): $e\n$stack');
+      _log.e(
+        'Failed to fetch themes for ${source.baseUrl}'
+        ' (cat=${source.rootCategoryId}): $e\n$stack',
+      );
       return [];
     }
   }
@@ -198,26 +213,31 @@ class PiwigoApiService {
         final jsonData = _parseJson(response);
 
         if (jsonData['stat'] != 'ok') {
-          _log.e('Piwigo API error fetching images (page $page): '
-              '${jsonData['stat']}');
+          _log.e(
+            'Piwigo API error fetching images (page $page): '
+            '${jsonData['stat']}',
+          );
           break;
         }
 
-        final paging =
-            jsonData['result']?['paging'] as Map<String, dynamic>?;
-        final images =
-            jsonData['result']?['images'] as List<dynamic>? ?? [];
+        final paging = jsonData['result']?['paging'] as Map<String, dynamic>?;
+        final images = jsonData['result']?['images'] as List<dynamic>? ?? [];
 
         // Parse each image independently so a single malformed entry does
         // not break the whole batch. Some third-party Piwigo instances emit
         // non-canonical types (e.g. width as String) for a few images.
+        final filtering = hiddenImageIds.isNotEmpty && isUpaGallery(baseUrl);
         for (final img in images) {
           if (img is! Map<String, dynamic>) continue;
           try {
-            wallpapers.add(WallpaperImage.fromPiwigoJson(img));
+            final parsed = WallpaperImage.fromPiwigoJson(img);
+            if (filtering && hiddenImageIds.contains(parsed.id)) continue;
+            wallpapers.add(parsed);
           } catch (e) {
-            _log.w('Skipping image due to parse error at $baseUrl '
-                '(category $categoryId, id=${img['id']}): $e');
+            _log.w(
+              'Skipping image due to parse error at $baseUrl '
+              '(category $categoryId, id=${img['id']}): $e',
+            );
           }
         }
 
@@ -241,18 +261,96 @@ class PiwigoApiService {
         if (images.isEmpty) break;
         page += 1;
       } catch (e, stack) {
-        _log.e('Failed to fetch images page $page for category '
-            '$categoryId at $baseUrl: $e\n$stack');
+        _log.e(
+          'Failed to fetch images page $page for category '
+          '$categoryId at $baseUrl: $e\n$stack',
+        );
         break;
       }
     }
 
-    _log.i('Loaded ${wallpapers.length} images for category $categoryId'
-        ' at $baseUrl'
-        '${recursive ? " (recursive)" : ""}'
-        ' across $page page(s)');
+    _log.i(
+      'Loaded ${wallpapers.length} images for category $categoryId'
+      ' at $baseUrl'
+      '${recursive ? " (recursive)" : ""}'
+      ' across $page page(s)',
+    );
 
     return wallpapers;
+  }
+
+  /// Ids of every photo carrying [tagName].
+  ///
+  /// Returns null — meaning "do not filter anything" — when the gallery has
+  /// no such tag or will not answer. `pwg.categories.getImages` does not
+  /// report tags, hence this separate lookup rather than filtering inline.
+  Future<Set<int>?> getTaggedImageIds(
+    String tagName, {
+    String baseUrl = defaultUpaBaseUrl,
+    int perPage = 500,
+    int maxPages = 100,
+  }) async {
+    final tagId = await _findTagId(tagName, baseUrl);
+    if (tagId == null) return null;
+
+    final ids = <int>{};
+    var page = 0;
+    while (page < maxPages) {
+      try {
+        final response = await _dio.get(
+          _wsUrl(baseUrl),
+          queryParameters: {
+            'format': 'json',
+            'method': 'pwg.tags.getImages',
+            'tag_id': tagId.toString(),
+            'per_page': perPage.toString(),
+            'page': page.toString(),
+          },
+        );
+        final jsonData = _parseJson(response);
+        if (jsonData['stat'] != 'ok') return page == 0 ? null : ids;
+
+        final images = jsonData['result']?['images'] as List<dynamic>? ?? [];
+        for (final img in images) {
+          if (img is! Map<String, dynamic>) continue;
+          final id = _asInt(img['id']);
+          if (id != null) ids.add(id);
+        }
+        if (images.length < perPage) break;
+        page += 1;
+      } catch (e) {
+        _log.w('Tag "$tagName" page $page failed at $baseUrl: $e');
+        return page == 0 ? null : ids;
+      }
+    }
+
+    _log.i('Tag "$tagName" covers ${ids.length} photo(s) at $baseUrl');
+    return ids;
+  }
+
+  Future<int?> _findTagId(String tagName, String baseUrl) async {
+    try {
+      final response = await _dio.get(
+        _wsUrl(baseUrl),
+        queryParameters: {'format': 'json', 'method': 'pwg.tags.getList'},
+      );
+      final jsonData = _parseJson(response);
+      if (jsonData['stat'] != 'ok') return null;
+
+      final tags = jsonData['result']?['tags'] as List<dynamic>? ?? [];
+      final wanted = tagName.toLowerCase();
+      for (final tag in tags) {
+        if (tag is! Map<String, dynamic>) continue;
+        final name = (tag['name'] as String? ?? '').toLowerCase();
+        final urlName = (tag['url_name'] as String? ?? '').toLowerCase();
+        if (name == wanted || urlName == wanted) return _asInt(tag['id']);
+      }
+      _log.i('No "$tagName" tag at $baseUrl — nothing to hide');
+      return null;
+    } catch (e) {
+      _log.w('Could not list tags at $baseUrl: $e');
+      return null;
+    }
   }
 
   /// Validates a parsed Piwigo URL by querying the gallery for that exact
@@ -314,16 +412,15 @@ class PiwigoApiService {
       if (jsonData['stat'] != 'ok') return null;
 
       final paging = jsonData['result']?['paging'] as Map<String, dynamic>?;
-      final count = _asInt(paging?['count']) ??
-          _asInt(paging?['total_count']) ??
-          0;
+      final count =
+          _asInt(paging?['count']) ?? _asInt(paging?['total_count']) ?? 0;
 
       final fallbackName = url.slug != null
           ? url.slug!
-              .split(RegExp(r'[-_]'))
-              .where((s) => s.isNotEmpty)
-              .map((s) => s[0].toUpperCase() + s.substring(1))
-              .join(' ')
+                .split(RegExp(r'[-_]'))
+                .where((s) => s.isNotEmpty)
+                .map((s) => s[0].toUpperCase() + s.substring(1))
+                .join(' ')
           : 'Album ${url.categoryId}';
 
       return ThemeCategory(

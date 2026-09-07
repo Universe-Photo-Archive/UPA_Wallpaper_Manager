@@ -13,7 +13,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final screens = ref.watch(screensProvider);
-    final themes = ref.watch(themesProvider);
+    final themes = ref.watch(visibleThemesProvider);
     final config = ref.watch(configProvider);
     final isLoading = ref.watch(isLoadingProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -31,7 +31,8 @@ class HomeScreen extends ConsumerWidget {
               color: Theme.of(context).colorScheme.surface,
               border: Border(
                 bottom: BorderSide(
-                  color: Theme.of(context).dividerTheme.color ??
+                  color:
+                      Theme.of(context).dividerTheme.color ??
                       Colors.transparent,
                 ),
               ),
@@ -50,13 +51,14 @@ class HomeScreen extends ConsumerWidget {
                 if (!isCompact) ...[
                   const SizedBox(width: 12),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -96,38 +98,41 @@ class HomeScreen extends ConsumerWidget {
             child: isLoading && screens.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : screens.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.monitor,
-                                size: 48,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.3)),
-                            const SizedBox(height: 12),
-                            Text(l10n.statusLoading),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.monitor,
+                          size: 48,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.3),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        itemCount: screens.length,
-                        itemBuilder: (context, index) {
-                          // Matched on id, not position: the lock-screen
-                          // slot is not a monitor and its index moves.
-                          final screen = screens[index];
-                          return ScreenCard(
-                            screen: screen,
-                            themes: themes,
-                            screenConfig: config.screens
-                                .where((c) => c.screenId == screen.id)
-                                .firstOrNull,
-                          );
-                        },
-                      ),
+                        const SizedBox(height: 12),
+                        Text(l10n.statusLoading),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    itemCount: screens.length,
+                    itemBuilder: (context, index) {
+                      // Matched on id, not position: the lock-screen
+                      // slot is not a monitor and its index moves.
+                      final screen = screens[index];
+                      return ScreenCard(
+                        screen: screen,
+                        themes: themes,
+                        screenConfig: config.screens
+                            .where((c) => c.screenId == screen.id)
+                            .firstOrNull,
+                      );
+                    },
+                  ),
           ),
           const StatusBar(),
         ],
@@ -149,15 +154,13 @@ class _LockscreenToggle extends ConsumerWidget {
     final config = ref.watch(configProvider);
     final supportAsync = ref.watch(lockscreenSupportProvider);
 
-    final support =
-        supportAsync.valueOrNull ?? LockscreenSupport.unknown;
+    final support = supportAsync.valueOrNull ?? LockscreenSupport.unknown;
     final probing = supportAsync.isLoading;
     final supported = support.isSupported;
 
     final theme = Theme.of(context);
     final disabledColor = theme.colorScheme.onSurface.withValues(alpha: 0.38);
-    final iconColor =
-        supported ? theme.colorScheme.secondary : disabledColor;
+    final iconColor = supported ? theme.colorScheme.secondary : disabledColor;
     final textColor = supported ? null : disabledColor;
 
     final tooltip = supported
@@ -169,26 +172,21 @@ class _LockscreenToggle extends ConsumerWidget {
       children: [
         Icon(Icons.lock_outline_rounded, size: 14, color: iconColor),
         const SizedBox(width: 4),
-        Text(
-          l10n.lockscreen,
-          style: TextStyle(fontSize: 12, color: textColor),
-        ),
+        Text(l10n.lockscreen, style: TextStyle(fontSize: 12, color: textColor)),
         Switch(
           value: supported && config.lockscreenEnabled,
           onChanged: supported
               ? (val) {
-                  ref.read(configProvider.notifier).update(
-                        (c) => c.copyWith(lockscreenEnabled: val),
-                      );
+                  ref
+                      .read(configProvider.notifier)
+                      .update((c) => c.copyWith(lockscreenEnabled: val));
                 }
               : null,
         ),
         Tooltip(
           message: tooltip,
           child: Icon(
-            supported
-                ? Icons.help_outline_rounded
-                : Icons.info_outline_rounded,
+            supported ? Icons.help_outline_rounded : Icons.info_outline_rounded,
             size: 14,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
           ),
@@ -231,10 +229,13 @@ class _PauseResumeButton extends ConsumerWidget {
             .update((c) => c.copyWith(slideshowPaused: paused));
       },
       icon: Icon(
-          isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-          size: 16),
-      label: Text(isPaused ? l10n.resume : l10n.pause,
-          style: const TextStyle(fontSize: 12)),
+        isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+        size: 16,
+      ),
+      label: Text(
+        isPaused ? l10n.resume : l10n.pause,
+        style: const TextStyle(fontSize: 12),
+      ),
     );
   }
 }

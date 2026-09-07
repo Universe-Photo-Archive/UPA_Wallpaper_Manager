@@ -26,50 +26,52 @@ class ExcludedImagesScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.block_outlined,
-                        size: 72,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.2)),
+                    Icon(
+                      Icons.block_outlined,
+                      size: 72,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.2),
+                    ),
                     const SizedBox(height: 20),
                     Text(
                       l10n.excludedEmpty,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.7),
-                          ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
                     ),
                   ],
                 ),
               ),
             )
-          : LayoutBuilder(builder: (context, constraints) {
-              final crossCount = constraints.maxWidth > 1200
-                  ? 5
-                  : constraints.maxWidth > 900
-                      ? 4
-                      : constraints.maxWidth > 600
-                          ? 3
-                          : 2;
-              return GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossCount,
-                  childAspectRatio: 16 / 10,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: excluded.length,
-                itemBuilder: (context, index) => _ExcludedTile(
-                  image: excluded[index],
-                  onRestore: () => _restore(context, ref, excluded[index]),
-                ),
-              );
-            }),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final crossCount = constraints.maxWidth > 1200
+                    ? 5
+                    : constraints.maxWidth > 900
+                    ? 4
+                    : constraints.maxWidth > 600
+                    ? 3
+                    : 2;
+                return GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossCount,
+                    childAspectRatio: 16 / 10,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: excluded.length,
+                  itemBuilder: (context, index) => _ExcludedTile(
+                    image: excluded[index],
+                    onRestore: () => _restore(context, ref, excluded[index]),
+                  ),
+                );
+              },
+            ),
       bottomNavigationBar: excluded.isEmpty
           ? null
           : SafeArea(
@@ -92,9 +94,9 @@ class ExcludedImagesScreen extends ConsumerWidget {
   void _restore(BuildContext context, WidgetRef ref, ExcludedImage image) {
     final l10n = AppLocalizations.of(context)!;
     ref.read(exclusionsProvider).restore(image);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.excludedRestored)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.excludedRestored)));
   }
 
   Future<void> _clearAll(BuildContext context, WidgetRef ref) async {
@@ -183,8 +185,11 @@ class _ExcludedTile extends StatelessWidget {
                   ),
                   IconButton(
                     tooltip: l10n.excludedRestore,
-                    icon: const Icon(Icons.restore_rounded,
-                        size: 18, color: Colors.white),
+                    icon: const Icon(
+                      Icons.restore_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                     onPressed: onRestore,
                   ),
                 ],

@@ -55,8 +55,9 @@ class _LocalPhotoPickerState extends State<LocalPhotoPicker> {
     final references = <String>[];
     if (MediaAccessChannel.isDocumentUri(widget.root)) {
       references.addAll(
-        (await MediaAccessChannel.listFolderImages(widget.root))
-            .map((image) => image.uri),
+        (await MediaAccessChannel.listFolderImages(
+          widget.root,
+        )).map((image) => image.uri),
       );
     } else {
       references.addAll(await _scanDesktopFolder(widget.root));
@@ -65,29 +66,44 @@ class _LocalPhotoPickerState extends State<LocalPhotoPicker> {
     if (!mounted) return;
     setState(() {
       // Photos already in the theme are listed but cannot be ticked twice.
-      _references =
-          references.where((r) => !widget.alreadyIn.contains(r)).toList();
+      _references = references
+          .where((r) => !widget.alreadyIn.contains(r))
+          .toList();
       _loading = false;
     });
   }
 
   Future<List<String>> _scanDesktopFolder(String path) async {
     const extensions = {
-      '.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif', '.tif', '.tiff'
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.webp',
+      '.bmp',
+      '.gif',
+      '.tif',
+      '.tiff',
     };
     final dir = Directory(path);
     if (!await dir.exists()) return [];
     final files = <File>[];
     try {
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File &&
             extensions.contains(p.extension(entity.path).toLowerCase())) {
           files.add(entity);
         }
       }
     } catch (_) {}
-    files.sort((a, b) =>
-        p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase()));
+    files.sort(
+      (a, b) => p
+          .basename(a.path)
+          .toLowerCase()
+          .compareTo(p.basename(b.path).toLowerCase()),
+    );
     return files.map((f) => f.path).toList();
   }
 
@@ -110,95 +126,98 @@ class _LocalPhotoPickerState extends State<LocalPhotoPicker> {
                     ..addAll(_references);
                 }
               }),
-              child: Text(_selected.length == _references.length
-                  ? l10n.pickPhotosNone
-                  : l10n.pickPhotosAll),
+              child: Text(
+                _selected.length == _references.length
+                    ? l10n.pickPhotosNone
+                    : l10n.pickPhotosAll,
+              ),
             ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _references.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Text(
-                      l10n.manageThemesNoImagesInFolder,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  l10n.manageThemesNoImagesInFolder,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final crossCount = constraints.maxWidth > 1200
+                    ? 6
+                    : constraints.maxWidth > 900
+                    ? 5
+                    : constraints.maxWidth > 600
+                    ? 4
+                    : 3;
+                return GridView.builder(
+                  padding: const EdgeInsets.all(8),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossCount,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
                   ),
-                )
-              : LayoutBuilder(builder: (context, constraints) {
-                  final crossCount = constraints.maxWidth > 1200
-                      ? 6
-                      : constraints.maxWidth > 900
-                          ? 5
-                          : constraints.maxWidth > 600
-                              ? 4
-                              : 3;
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(8),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossCount,
-                      crossAxisSpacing: 6,
-                      mainAxisSpacing: 6,
-                    ),
-                    itemCount: _references.length,
-                    itemBuilder: (context, index) {
-                      final reference = _references[index];
-                      final selected = _selected.contains(reference);
-                      return GestureDetector(
-                        onTap: () => setState(() {
-                          if (selected) {
-                            _selected.remove(reference);
-                          } else {
-                            _selected.add(reference);
-                          }
-                        }),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: DeviceImageView(
-                                reference: reference,
-                                maxSize: 300,
-                              ),
+                  itemCount: _references.length,
+                  itemBuilder: (context, index) {
+                    final reference = _references[index];
+                    final selected = _selected.contains(reference);
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        if (selected) {
+                          _selected.remove(reference);
+                        } else {
+                          _selected.add(reference);
+                        }
+                      }),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: DeviceImageView(
+                              reference: reference,
+                              maxSize: 300,
                             ),
-                            if (selected)
-                              DecoratedBox(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                      .withValues(alpha: 0.35),
-                                  border: Border.all(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    width: 3,
-                                  ),
+                          ),
+                          if (selected)
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.35),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 3,
                                 ),
                               ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: Icon(
-                                selected
-                                    ? Icons.check_circle_rounded
-                                    : Icons.circle_outlined,
-                                color: selected
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.white70,
-                                size: 22,
-                              ),
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                }),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Icon(
+                              selected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.circle_outlined,
+                              color: selected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.white70,
+                              size: 22,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
       bottomNavigationBar: _references.isEmpty
           ? null
           : SafeArea(

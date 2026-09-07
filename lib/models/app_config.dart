@@ -40,7 +40,8 @@ class ScreenConfig {
     // Configs written before multi-selection carried a single themeName,
     // with the literal 'all' standing for every theme.
     final legacy = json['themeName'] as String?;
-    final names = (json['themeNames'] as List<dynamic>?)
+    final names =
+        (json['themeNames'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
         ((legacy == null || legacy == 'all') ? const <String>[] : [legacy]);
@@ -56,13 +57,13 @@ class ScreenConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'screenId': screenId,
-        'themeNames': themeNames,
-        'rotationEnabled': rotationEnabled,
-        'rotationDelay': rotationDelay,
-        'rotationDelayUnit': rotationDelayUnit,
-        'currentWallpaperPath': currentWallpaperPath,
-      };
+    'screenId': screenId,
+    'themeNames': themeNames,
+    'rotationEnabled': rotationEnabled,
+    'rotationDelay': rotationDelay,
+    'rotationDelayUnit': rotationDelayUnit,
+    'currentWallpaperPath': currentWallpaperPath,
+  };
 
   /// Immutable-style update. Callers must NOT mutate a [ScreenConfig] that
   /// is already part of the app state: the previous and next configs would
@@ -86,7 +87,6 @@ class ScreenConfig {
   }
 }
 
-
 /// An image the user never wants to see again, on any slot.
 ///
 /// Identified by theme + file name rather than by absolute path: the file is
@@ -109,16 +109,16 @@ class ExcludedImage {
   String get key => '$theme/$filename';
 
   factory ExcludedImage.fromJson(Map<String, dynamic> json) => ExcludedImage(
-        theme: json['theme'] as String? ?? '',
-        filename: json['filename'] as String? ?? '',
-        localPath: json['localPath'] as String?,
-      );
+    theme: json['theme'] as String? ?? '',
+    filename: json['filename'] as String? ?? '',
+    localPath: json['localPath'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        'theme': theme,
-        'filename': filename,
-        if (localPath != null) 'localPath': localPath,
-      };
+    'theme': theme,
+    'filename': filename,
+    if (localPath != null) 'localPath': localPath,
+  };
 }
 
 /// Window during which the slideshow stops on its own, typically overnight.
@@ -149,16 +149,16 @@ class QuietHours {
   }
 
   factory QuietHours.fromJson(Map<String, dynamic> json) => QuietHours(
-        enabled: json['enabled'] as bool? ?? false,
-        startMinutes: json['startMinutes'] as int? ?? 0,
-        endMinutes: json['endMinutes'] as int? ?? 7 * 60,
-      );
+    enabled: json['enabled'] as bool? ?? false,
+    startMinutes: json['startMinutes'] as int? ?? 0,
+    endMinutes: json['endMinutes'] as int? ?? 7 * 60,
+  );
 
   Map<String, dynamic> toJson() => {
-        'enabled': enabled,
-        'startMinutes': startMinutes,
-        'endMinutes': endMinutes,
-      };
+    'enabled': enabled,
+    'startMinutes': startMinutes,
+    'endMinutes': endMinutes,
+  };
 
   QuietHours copyWith({bool? enabled, int? startMinutes, int? endMinutes}) =>
       QuietHours(
@@ -187,6 +187,9 @@ class AppConfig {
   /// Desktop: warn that the window went to the notification area.
   bool notifyOnMinimize;
 
+  /// Mobile: leave out the photos the gallery tagged as unwanted on a phone.
+  bool hideNoMobilePhotos;
+
   /// Window during which the slideshow pauses itself.
   QuietHours quietHours;
 
@@ -209,6 +212,7 @@ class AppConfig {
     this.timeoutSeconds = 10,
     this.uiScale = 1.0,
     this.notifyOnMinimize = true,
+    this.hideNoMobilePhotos = true,
     this.quietHours = const QuietHours(),
     this.excludedImages = const [],
     this.skipUpdateCheck = false,
@@ -230,16 +234,19 @@ class AppConfig {
       timeoutSeconds: json['timeoutSeconds'] as int? ?? 10,
       uiScale: (json['uiScale'] as num?)?.toDouble() ?? 1.0,
       notifyOnMinimize: json['notifyOnMinimize'] as bool? ?? true,
+      hideNoMobilePhotos: json['hideNoMobilePhotos'] as bool? ?? true,
       quietHours: json['quietHours'] is Map<String, dynamic>
           ? QuietHours.fromJson(json['quietHours'] as Map<String, dynamic>)
           : const QuietHours(),
-      excludedImages: (json['excludedImages'] as List<dynamic>?)
+      excludedImages:
+          (json['excludedImages'] as List<dynamic>?)
               ?.map((e) => ExcludedImage.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
       skipUpdateCheck: json['skipUpdateCheck'] as bool? ?? false,
       debugMode: json['debugMode'] as bool? ?? false,
-      screens: (json['screens'] as List<dynamic>?)
+      screens:
+          (json['screens'] as List<dynamic>?)
               ?.map((s) => ScreenConfig.fromJson(s as Map<String, dynamic>))
               .toList() ??
           [],
@@ -247,22 +254,23 @@ class AppConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'uiThemeMode': uiThemeMode,
-        'language': language,
-        'launchOnStartup': launchOnStartup,
-        'randomMode': randomMode,
-        'lockscreenEnabled': lockscreenEnabled,
-        'slideshowPaused': slideshowPaused,
-        'cacheMaxSizeMb': cacheMaxSizeMb,
-        'timeoutSeconds': timeoutSeconds,
-        'uiScale': uiScale,
-        'notifyOnMinimize': notifyOnMinimize,
-        'quietHours': quietHours.toJson(),
-        'excludedImages': excludedImages.map((e) => e.toJson()).toList(),
-        'skipUpdateCheck': skipUpdateCheck,
-        'debugMode': debugMode,
-        'screens': screens.map((s) => s.toJson()).toList(),
-      };
+    'uiThemeMode': uiThemeMode,
+    'language': language,
+    'launchOnStartup': launchOnStartup,
+    'randomMode': randomMode,
+    'lockscreenEnabled': lockscreenEnabled,
+    'slideshowPaused': slideshowPaused,
+    'cacheMaxSizeMb': cacheMaxSizeMb,
+    'timeoutSeconds': timeoutSeconds,
+    'uiScale': uiScale,
+    'notifyOnMinimize': notifyOnMinimize,
+    'hideNoMobilePhotos': hideNoMobilePhotos,
+    'quietHours': quietHours.toJson(),
+    'excludedImages': excludedImages.map((e) => e.toJson()).toList(),
+    'skipUpdateCheck': skipUpdateCheck,
+    'debugMode': debugMode,
+    'screens': screens.map((s) => s.toJson()).toList(),
+  };
 
   AppConfig copyWith({
     String? uiThemeMode,
@@ -275,6 +283,7 @@ class AppConfig {
     int? timeoutSeconds,
     double? uiScale,
     bool? notifyOnMinimize,
+    bool? hideNoMobilePhotos,
     QuietHours? quietHours,
     List<ExcludedImage>? excludedImages,
     bool? skipUpdateCheck,
@@ -292,6 +301,7 @@ class AppConfig {
       timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
       uiScale: uiScale ?? this.uiScale,
       notifyOnMinimize: notifyOnMinimize ?? this.notifyOnMinimize,
+      hideNoMobilePhotos: hideNoMobilePhotos ?? this.hideNoMobilePhotos,
       quietHours: quietHours ?? this.quietHours,
       excludedImages: excludedImages ?? this.excludedImages,
       skipUpdateCheck: skipUpdateCheck ?? this.skipUpdateCheck,

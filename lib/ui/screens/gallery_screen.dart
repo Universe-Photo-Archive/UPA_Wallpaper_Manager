@@ -38,8 +38,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   LocalSource? get _editableSource {
     if (_selectedKeys.length != 1) return null;
     final themes = ref.read(themesProvider);
-    final index =
-        themes.indexWhere((t) => t.uniqueKey == _selectedKeys.first);
+    final index = themes.indexWhere((t) => t.uniqueKey == _selectedKeys.first);
     if (index < 0) return null;
     return localSourceFor(ref, themes[index]);
   }
@@ -47,7 +46,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final themes = ref.watch(themesProvider);
+    final themes = ref.watch(visibleThemesProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Drop selections whose theme was removed in the meantime.
@@ -142,86 +141,88 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   /// Grid of the loaded images, shared by the normal and removal modes.
   Widget _buildGrid(AppLocalizations l10n) {
     return _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _images.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.photo_library_outlined,
-                              size: 72,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.2)),
-                          const SizedBox(height: 20),
-                          Text(
-                            _selectedKeys.isEmpty
-                                ? l10n.gallerySelectThemeHint
-                                : l10n.galleryEmpty,
-                            style:
-                                Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withValues(alpha: 0.7),
-                                    ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+        ? const Center(child: CircularProgressIndicator())
+        : _images.isEmpty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.photo_library_outlined,
+                    size: 72,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    _selectedKeys.isEmpty
+                        ? l10n.gallerySelectThemeHint
+                        : l10n.galleryEmpty,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
-                  )
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final crossCount = constraints.maxWidth > 1200
-                          ? 5
-                          : constraints.maxWidth > 900
-                              ? 4
-                              : constraints.maxWidth > 600
-                                  ? 3
-                                  : 2;
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          )
+        : LayoutBuilder(
+            builder: (context, constraints) {
+              final crossCount = constraints.maxWidth > 1200
+                  ? 5
+                  : constraints.maxWidth > 900
+                  ? 4
+                  : constraints.maxWidth > 600
+                  ? 3
+                  : 2;
 
-                      return GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossCount,
-                          childAspectRatio: 16 / 10,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemCount: _images.length,
-                        itemBuilder: (context, index) {
-                          final image = _images[index];
-                          final reference = image.localPath;
-                          final marked = reference != null &&
-                              _markedForRemoval.contains(reference);
-                          return _GalleryTile(
-                            image: image,
-                            selectable: _removing,
-                            selected: marked,
-                            onTap: () {
-                              if (!_removing) {
-                                _showImageDetail(image);
-                                return;
-                              }
-                              if (reference == null) return;
-                              setState(() {
-                                if (marked) {
-                                  _markedForRemoval.remove(reference);
-                                } else {
-                                  _markedForRemoval.add(reference);
-                                }
-                              });
-                            },
-                          );
-                        },
-                      );
+              return GridView.builder(
+                padding: const EdgeInsets.all(12),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossCount,
+                  // Squarer than the photos themselves: the extra
+                  // height is the caption line under each one.
+                  childAspectRatio: 16 / 12,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: _images.length,
+                itemBuilder: (context, index) {
+                  final image = _images[index];
+                  final reference = image.localPath;
+                  final marked =
+                      reference != null &&
+                      _markedForRemoval.contains(reference);
+                  return _GalleryTile(
+                    image: image,
+                    selectable: _removing,
+                    selected: marked,
+                    onTap: () {
+                      if (!_removing) {
+                        _showImageDetail(image);
+                        return;
+                      }
+                      if (reference == null) return;
+                      setState(() {
+                        if (marked) {
+                          _markedForRemoval.remove(reference);
+                        } else {
+                          _markedForRemoval.add(reference);
+                        }
+                      });
                     },
                   );
+                },
+              );
+            },
+          );
   }
 
   /// Loads the images of every selected theme, in selection order.
@@ -253,11 +254,13 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           images.addAll(await localSvc.getImages(localSource));
         } else {
           final api = ref.read(piwigoApiProvider);
-          images.addAll(await api.getThemeImages(
-            theme.id,
-            baseUrl: theme.sourceBaseUrl,
-            recursive: theme.needsRecursiveFetch,
-          ));
+          images.addAll(
+            await api.getThemeImages(
+              theme.id,
+              baseUrl: theme.sourceBaseUrl,
+              recursive: theme.needsRecursiveFetch,
+            ),
+          );
         }
       } catch (_) {
         // Keep the gallery usable even if one theme fails to load.
@@ -329,9 +332,9 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     });
     await _loadImages();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.removePhotosDone)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.removePhotosDone)));
   }
 
   void _showImageDetail(WallpaperImage image) {
@@ -361,8 +364,12 @@ class _ThemeMultiSelect extends StatelessWidget {
         .where((t) => selected.contains(t.uniqueKey))
         .map((t) => t.displayName)
         .toSet();
-    final label =
-        themeSelectionLabel(context, themes, names, emptyMeansAll: false);
+    final label = themeSelectionLabel(
+      context,
+      themes,
+      names,
+      emptyMeansAll: false,
+    );
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),
@@ -416,108 +423,103 @@ class _GalleryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _isLocal
-                ? DeviceImageView(
-                    reference: image.localPath!,
-                    maxSize: 500,
-                  )
-                : Image.network(
-                    image.mediumUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (_, child, progress) {
-                      if (progress == null) return child;
-                      return Container(
-                        color: Theme.of(context).colorScheme.surface,
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _isLocal
+                      ? DeviceImageView(
+                          reference: image.localPath!,
+                          maxSize: 500,
+                        )
+                      : Image.network(
+                          image.mediumUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (_, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              color: Theme.of(context).colorScheme.surface,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Theme.of(context).colorScheme.surface,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
                         ),
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => Container(
-                      color: Theme.of(context).colorScheme.surface,
-                      child: const Icon(Icons.broken_image_outlined),
+                  if (selectable)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.35)
+                            : Colors.black.withValues(alpha: 0.15),
+                        border: selected
+                            ? Border.all(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 3,
+                              )
+                            : null,
+                      ),
                     ),
-                  ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                    ],
-                  ),
-                ),
-                child: Text(
-                  image.filename,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  if (selectable)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.white70,
+                        size: 22,
+                      ),
+                    ),
+                  if (image.isDownloaded && !selectable)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.download_done,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            if (selectable)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: selected
-                      ? Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.35)
-                      : Colors.black.withValues(alpha: 0.15),
-                  border: selected
-                      ? Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 3,
-                        )
-                      : null,
-                ),
-              ),
-            if (selectable)
-              Positioned(
-                top: 6,
-                left: 6,
-                child: Icon(
-                  selected
-                      ? Icons.check_circle_rounded
-                      : Icons.circle_outlined,
-                  color: selected
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.white70,
-                  size: 22,
-                ),
-              ),
-            if (image.isDownloaded && !selectable)
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(Icons.download_done,
-                      size: 12, color: Colors.white),
-                ),
-              ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            image.displayTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -571,8 +573,10 @@ class _ImageDetailDialog extends ConsumerWidget {
               child: Column(
                 children: [
                   if (!Platform.isIOS) ...[
-                    Text(l10n.gallerySetAs,
-                        style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      l10n.gallerySetAs,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                     const SizedBox(height: 10),
                     // A phone has a single screen but two wallpaper slots
                     // (home + lock); a desktop has one slot per monitor.
@@ -585,8 +589,10 @@ class _ImageDetailDialog extends ConsumerWidget {
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: () => _setAsBoth(ref, context),
-                              icon: const Icon(Icons.done_all_rounded,
-                                  size: 16),
+                              icon: const Icon(
+                                Icons.done_all_rounded,
+                                size: 16,
+                              ),
                               label: Text(l10n.galleryTargetBoth),
                             ),
                           ),
@@ -595,8 +601,10 @@ class _ImageDetailDialog extends ConsumerWidget {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               onPressed: () => _setAsWallpaper(ref, context, 0),
-                              icon: const Icon(Icons.wallpaper_rounded,
-                                  size: 16),
+                              icon: const Icon(
+                                Icons.wallpaper_rounded,
+                                size: 16,
+                              ),
                               label: Text(l10n.galleryTargetWallpaper),
                             ),
                           ),
@@ -605,54 +613,69 @@ class _ImageDetailDialog extends ConsumerWidget {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               onPressed: () => _setAsLockscreen(ref, context),
-                              icon: const Icon(Icons.lock_outline_rounded,
-                                  size: 16),
+                              icon: const Icon(
+                                Icons.lock_outline_rounded,
+                                size: 16,
+                              ),
                               label: Text(l10n.galleryTargetLockscreen),
                             ),
                           ),
                         ],
                       )
                     else
-                      Builder(builder: (context) {
-                        // The lock screen sits among the slots but is not a
-                        // monitor: it takes a button of its own, and stays out
-                        // of "every screen".
-                        final monitors = screens
-                            .where((s) => !s.isDesktopLockScreen)
-                            .toList();
-                        final hasLockScreen =
-                            screens.length != monitors.length;
+                      Builder(
+                        builder: (context) {
+                          // The lock screen sits among the slots but is not a
+                          // monitor: it takes a button of its own, and stays out
+                          // of "every screen".
+                          final monitors = screens
+                              .where((s) => !s.isDesktopLockScreen)
+                              .toList();
+                          final hasLockScreen =
+                              screens.length != monitors.length;
 
-                        return Wrap(
-                          spacing: 10,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            ...monitors.map((screen) => ElevatedButton.icon(
+                          return Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              ...monitors.map(
+                                (screen) => ElevatedButton.icon(
                                   onPressed: () =>
                                       _setAsWallpaper(ref, context, screen.id),
                                   icon: const Icon(Icons.monitor, size: 16),
                                   label: Text(
-                                      '${l10n.screenName(screen.id + 1)}${screen.isPrimary ? " (${l10n.screenPrimary})" : ""}'),
-                                )),
-                            if (monitors.length > 1)
-                              OutlinedButton.icon(
-                                onPressed: () => _setAsWallpaperAll(
-                                    ref, context, monitors.length),
-                                icon:
-                                    const Icon(Icons.desktop_windows, size: 16),
-                                label: Text(l10n.galleryAllScreens),
+                                    '${l10n.screenName(screen.id + 1)}${screen.isPrimary ? " (${l10n.screenPrimary})" : ""}',
+                                  ),
+                                ),
                               ),
-                            if (hasLockScreen)
-                              OutlinedButton.icon(
-                                onPressed: () => _setAsLockscreen(ref, context),
-                                icon: const Icon(Icons.lock_outline_rounded,
-                                    size: 16),
-                                label: Text(l10n.galleryTargetLockscreen),
-                              ),
-                          ],
-                        );
-                      }),
+                              if (monitors.length > 1)
+                                OutlinedButton.icon(
+                                  onPressed: () => _setAsWallpaperAll(
+                                    ref,
+                                    context,
+                                    monitors.length,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.desktop_windows,
+                                    size: 16,
+                                  ),
+                                  label: Text(l10n.galleryAllScreens),
+                                ),
+                              if (hasLockScreen)
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _setAsLockscreen(ref, context),
+                                  icon: const Icon(
+                                    Icons.lock_outline_rounded,
+                                    size: 16,
+                                  ),
+                                  label: Text(l10n.galleryTargetLockscreen),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                   ],
                   if (Platform.isIOS)
                     ElevatedButton.icon(
@@ -681,16 +704,22 @@ class _ImageDetailDialog extends ConsumerWidget {
   }
 
   Future<void> _setAsWallpaper(
-      WidgetRef ref, BuildContext context, int screenId) async {
+    WidgetRef ref,
+    BuildContext context,
+    int screenId,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final path = await _resolveLocalPath(ref);
     if (path != null && context.mounted) {
       final success = await WallpaperChannel.setWallpaper(
-          imagePath: path, screenId: screenId);
+        imagePath: path,
+        screenId: screenId,
+      );
 
       if (success) {
         final current = Map<int, String>.from(
-            ref.read(currentWallpapersProvider));
+          ref.read(currentWallpapersProvider),
+        );
         current[screenId] = path;
         ref.read(currentWallpapersProvider.notifier).state = current;
       }
@@ -699,9 +728,11 @@ class _ImageDetailDialog extends ConsumerWidget {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success
-                ? l10n.galleryWallpaperApplied
-                : l10n.galleryWallpaperFailed),
+            content: Text(
+              success
+                  ? l10n.galleryWallpaperApplied
+                  : l10n.galleryWallpaperFailed,
+            ),
           ),
         );
       }
@@ -716,8 +747,9 @@ class _ImageDetailDialog extends ConsumerWidget {
 
     final success = await WallpaperChannel.setBothWallpapers(path);
     if (success) {
-      final current =
-          Map<int, String>.from(ref.read(currentWallpapersProvider));
+      final current = Map<int, String>.from(
+        ref.read(currentWallpapersProvider),
+      );
       current[0] = path;
       current[1] = path;
       ref.read(currentWallpapersProvider.notifier).state = current;
@@ -728,7 +760,8 @@ class _ImageDetailDialog extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            success ? l10n.galleryBothApplied : l10n.galleryWallpaperFailed),
+          success ? l10n.galleryBothApplied : l10n.galleryWallpaperFailed,
+        ),
       ),
     );
   }
@@ -744,24 +777,30 @@ class _ImageDetailDialog extends ConsumerWidget {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(success
-            ? l10n.galleryLockscreenApplied
-            : l10n.galleryWallpaperFailed),
+        content: Text(
+          success ? l10n.galleryLockscreenApplied : l10n.galleryWallpaperFailed,
+        ),
       ),
     );
   }
 
   Future<void> _setAsWallpaperAll(
-      WidgetRef ref, BuildContext context, int screenCount) async {
+    WidgetRef ref,
+    BuildContext context,
+    int screenCount,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final path = await _resolveLocalPath(ref);
     if (path != null && context.mounted) {
       bool anySuccess = false;
-      final current =
-          Map<int, String>.from(ref.read(currentWallpapersProvider));
+      final current = Map<int, String>.from(
+        ref.read(currentWallpapersProvider),
+      );
       for (int i = 0; i < screenCount; i++) {
-        final success =
-            await WallpaperChannel.setWallpaper(imagePath: path, screenId: i);
+        final success = await WallpaperChannel.setWallpaper(
+          imagePath: path,
+          screenId: i,
+        );
         if (success) {
           anySuccess = true;
           current[i] = path;
@@ -773,9 +812,11 @@ class _ImageDetailDialog extends ConsumerWidget {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(anySuccess
-                ? l10n.galleryWallpaperAppliedAll
-                : l10n.galleryWallpaperFailed),
+            content: Text(
+              anySuccess
+                  ? l10n.galleryWallpaperAppliedAll
+                  : l10n.galleryWallpaperFailed,
+            ),
           ),
         );
       }

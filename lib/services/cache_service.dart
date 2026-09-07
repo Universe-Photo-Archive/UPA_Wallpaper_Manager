@@ -13,11 +13,13 @@ class CacheService {
   static const int defaultPrefetchCount = 10;
 
   final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 60),
-    headers: {'User-Agent': 'UPA-Wallpaper-Manager/2.0'},
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
+      headers: {'User-Agent': 'UPA-Wallpaper-Manager/2.0'},
+    ),
+  );
 
   late Directory _cacheDir;
   int maxCachedImages;
@@ -59,6 +61,20 @@ class CacheService {
     return relative.substring(0, slash);
   }
 
+  /// Title of a cached photo, for the caption under the home-screen preview.
+  ///
+  /// Photos cached by an older build carry no title; the file name stands in
+  /// until the theme is listed again.
+  String? titleOfCachedFile(String filePath) {
+    final theme = themeOfCachedFile(filePath);
+    if (theme == null) return null;
+    final name = _normalizePath(filePath).split('/').last;
+    for (final image in _index[theme] ?? const <WallpaperImage>[]) {
+      if (image.filename == name) return image.displayTitle;
+    }
+    return null;
+  }
+
   List<WallpaperImage> _selectable(String themeName) {
     final images = _index[themeName] ?? [];
     if (_excludedKeys.isEmpty) return images;
@@ -87,7 +103,8 @@ class CacheService {
       final themes = data['themes'] as Map<String, dynamic>? ?? {};
       themes.forEach((themeName, themeData) {
         final td = themeData as Map<String, dynamic>;
-        final images = (td['images'] as List<dynamic>?)
+        final images =
+            (td['images'] as List<dynamic>?)
                 ?.map((i) => WallpaperImage.fromJson(i as Map<String, dynamic>))
                 .toList() ??
             [];
@@ -163,8 +180,7 @@ class CacheService {
   // --- Download ---
 
   /// Downloads a single image and returns the local path.
-  Future<String?> downloadImage(
-      String themeName, WallpaperImage image) async {
+  Future<String?> downloadImage(String themeName, WallpaperImage image) async {
     // Local-gallery images are already on disk — no download needed.
     final existing = image.localPath;
     if (existing != null && _isUsableFile(existing)) {
@@ -222,8 +238,9 @@ class CacheService {
   Future<int> downloadBatch(String themeName, {int? count}) async {
     count ??= prefetchCount;
     final images = _selectable(themeName);
-    final toDownload =
-        images.where((i) => !i.isDownloaded && !i.isDisplayed).take(count);
+    final toDownload = images
+        .where((i) => !i.isDownloaded && !i.isDisplayed)
+        .take(count);
 
     int downloaded = 0;
     for (final img in toDownload) {
@@ -241,14 +258,19 @@ class CacheService {
   ///
   /// Zero-length files are rejected: they can only be leftovers from an
   /// interrupted download and would be applied as a blank wallpaper.
-  List<String> getCachedPaths(String themeName, {bool onlyUndisplayed = false}) {
+  List<String> getCachedPaths(
+    String themeName, {
+    bool onlyUndisplayed = false,
+  }) {
     final images = _selectable(themeName);
     return images
-        .where((i) =>
-            i.isDownloaded &&
-            i.localPath != null &&
-            _isUsableFile(i.localPath!) &&
-            (!onlyUndisplayed || !i.isDisplayed))
+        .where(
+          (i) =>
+              i.isDownloaded &&
+              i.localPath != null &&
+              _isUsableFile(i.localPath!) &&
+              (!onlyUndisplayed || !i.isDisplayed),
+        )
         .map((i) => i.localPath!)
         .toList();
   }
@@ -274,6 +296,46 @@ class CacheService {
     return null;
   }
 
+  /// Erases every trace of [ids] — files on disk and index entries.
+  ///
+  /// Used when photos become hidden after the fact: leaving them cached
+  /// would let the background rotation keep showing them.
+  Future<Set<String>> removeImages(Set<int> ids) async {
+    if (ids.isEmpty) return const {};
+    final removedPaths = <String>{};
+    var changed = false;
+
+    for (final entry in _index.entries) {
+      final keep = <WallpaperImage>[];
+      for (final image in entry.value) {
+        if (!ids.contains(image.id)) {
+          keep.add(image);
+          continue;
+        }
+        changed = true;
+        final path = image.localPath;
+        // Only files we downloaded ourselves; the user's own photos are
+        // referenced where they live and must never be deleted.
+        if (path != null && themeOfCachedFile(path) != null) {
+          removedPaths.add(_normalizePath(path));
+          try {
+            final file = File(path);
+            if (await file.exists()) await file.delete();
+          } catch (e) {
+            _log.w('Could not delete hidden photo $path: $e');
+          }
+        }
+      }
+      if (keep.length != entry.value.length) _index[entry.key] = keep;
+    }
+
+    if (changed) {
+      await _saveIndex();
+      _log.i('Removed ${ids.length} hidden photo(s) from the cache');
+    }
+    return removedPaths;
+  }
+
   // --- Display tracking ---
 
   /// Mirrors what the background rotation displayed into the index, so the
@@ -296,11 +358,13 @@ class CacheService {
 
   /// Number of images of a theme that are downloaded and still unseen.
   int countReadyUndisplayed(String themeName) => _selectable(themeName)
-      .where((i) =>
-          i.isDownloaded &&
-          i.localPath != null &&
-          _isUsableFile(i.localPath!) &&
-          !i.isDisplayed)
+      .where(
+        (i) =>
+            i.isDownloaded &&
+            i.localPath != null &&
+            _isUsableFile(i.localPath!) &&
+            !i.isDisplayed,
+      )
       .length;
 
   void markDisplayed(String themeName, String localPath) {
@@ -344,8 +408,10 @@ class CacheService {
     }
     _currentCycle[themeName] = (_currentCycle[themeName] ?? 0) + 1;
     _saveIndex();
-    _log.i('Cycle reset for "$themeName" — cycle #${_currentCycle[themeName]} '
-        '(${images.length} images ready for new cycle)');
+    _log.i(
+      'Cycle reset for "$themeName" — cycle #${_currentCycle[themeName]} '
+      '(${images.length} images ready for new cycle)',
+    );
   }
 
   // --- Cleanup ---
@@ -381,9 +447,11 @@ class CacheService {
     if (totalDownloaded <= maxCachedImages) return;
 
     // Delete displayed images first (oldest-displayed first)
-    displayed.sort((a, b) =>
-        (a.image.lastDisplayed ?? DateTime(2000))
-            .compareTo(b.image.lastDisplayed ?? DateTime(2000)));
+    displayed.sort(
+      (a, b) => (a.image.lastDisplayed ?? DateTime(2000)).compareTo(
+        b.image.lastDisplayed ?? DateTime(2000),
+      ),
+    );
 
     int toDelete = totalDownloaded - maxCachedImages;
     int deleted = 0;
@@ -403,8 +471,10 @@ class CacheService {
     }
 
     if (deleted > 0) {
-      _log.i('Cleaned up $deleted displayed images from cache '
-          '($totalDownloaded → ${totalDownloaded - deleted})');
+      _log.i(
+        'Cleaned up $deleted displayed images from cache '
+        '($totalDownloaded → ${totalDownloaded - deleted})',
+      );
       await _saveIndex();
     }
   }

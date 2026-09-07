@@ -71,6 +71,8 @@
   "trayNoticeBody": "La fenêtre est réduite dans la zone de notification, à côté de l'horloge. Cliquez sur l'icône pour la rouvrir, ou faites un clic droit pour quitter.",
   "settingsUiTheme": "Thème de l'interface :",
   "settingsLanguage": "Langue :",
+  "settingsHideNoMobile": "Masquer les photos non destinées au mobile",
+  "settingsHideNoMobileSubtitle": "Les photos taguées « NoMobile » dans la galerie sont écartées partout : galerie, diaporama et écran de verrouillage.",
   "settingsRandomMode": "Mode aléatoire pour le diaporama",
   "settingsThemeDark": "Sombre",
   "settingsThemeLight": "Clair",

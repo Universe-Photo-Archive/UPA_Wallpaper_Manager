@@ -60,9 +60,8 @@ class UpaWallpaperApp extends ConsumerWidget {
     // well; widgets that hard-code a size keep it, which is intended for the
     // small decorations.
     final scale = config.uiScale;
-    ThemeData scaled(ThemeData base) => base.copyWith(
-          iconTheme: base.iconTheme.copyWith(size: 24 * scale),
-        );
+    ThemeData scaled(ThemeData base) =>
+        base.copyWith(iconTheme: base.iconTheme.copyWith(size: 24 * scale));
 
     return MaterialApp.router(
       title: 'UPA Wallpaper Manager',

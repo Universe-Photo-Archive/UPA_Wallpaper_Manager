@@ -42,18 +42,25 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
     super.dispose();
   }
 
-  String _translateError(AppLocalizations l10n, String key,
-      {bool local = false}) {
+  String _translateError(
+    AppLocalizations l10n,
+    String key, {
+    bool local = false,
+  }) {
     switch (key) {
       case 'invalidUrl':
-        return local ? l10n.manageThemesInvalidFolder : l10n.manageThemesInvalidUrl;
+        return local
+            ? l10n.manageThemesInvalidFolder
+            : l10n.manageThemesInvalidUrl;
       case 'alreadyExists':
         return l10n.manageThemesAlreadyExists;
       case 'apiBlocked':
         return l10n.manageThemesApiBlocked;
       case 'addFailed':
       default:
-        return local ? l10n.manageThemesNoImagesInFolder : l10n.manageThemesAddFailed;
+        return local
+            ? l10n.manageThemesNoImagesInFolder
+            : l10n.manageThemesAddFailed;
     }
   }
 
@@ -133,15 +140,13 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
           l10n: l10n,
           controller: _urlController,
           validating: _validating,
-          errorMessage:
-              _errorKey == null ? null : _translateError(l10n, _errorKey!),
+          errorMessage: _errorKey == null
+              ? null
+              : _translateError(l10n, _errorKey!),
           onSubmit: _onValidateUrl,
         );
       case _Step.removeList:
-        return _RemoveListView(
-          key: const ValueKey('remove-list'),
-          l10n: l10n,
-        );
+        return _RemoveListView(key: const ValueKey('remove-list'), l10n: l10n);
     }
   }
 
@@ -185,11 +190,9 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
       _validating = true;
       _errorKey = null;
     });
-    final errorKey = await ref.read(themesManagerProvider).addCustomTheme(
-          name: name,
-          root: root,
-          items: picked,
-        );
+    final errorKey = await ref
+        .read(themesManagerProvider)
+        .addCustomTheme(name: name, root: root, items: picked);
     if (!mounted) return;
     setState(() {
       _validating = false;
@@ -201,9 +204,9 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
   void _reportOutcome(String? errorKey) {
     final l10n = AppLocalizations.of(context)!;
     if (errorKey == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.manageThemesAdded)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.manageThemesAdded)));
       Navigator.of(context).pop();
       return;
     }
@@ -211,7 +214,6 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
       SnackBar(content: Text(_translateError(l10n, errorKey, local: true))),
     );
   }
-
 
   Future<void> _onValidateUrl() async {
     final url = _urlController.text.trim();
@@ -237,7 +239,9 @@ class _ManageThemesDialogState extends ConsumerState<ManageThemesDialog> {
 
     if (errorKey == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.manageThemesAdded)),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.manageThemesAdded),
+        ),
       );
       Navigator.of(context).pop();
     }
@@ -274,15 +278,17 @@ class _Header extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: showBack ? onBack : null,
-            tooltip: showBack ? AppLocalizations.of(context)!.manageThemesBack : null,
+            tooltip: showBack
+                ? AppLocalizations.of(context)!.manageThemesBack
+                : null,
           ),
           Expanded(
             child: Text(
               title,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           IconButton(
@@ -439,11 +445,10 @@ class _EnterUrlView extends StatelessWidget {
           Text(
             l10n.manageThemesUrlHelp,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.6),
-                ),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
           const SizedBox(height: 24),
           Wrap(
@@ -492,10 +497,9 @@ class _RemoveListView extends ConsumerWidget {
             Icon(
               Icons.inbox_rounded,
               size: 48,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 12),
             Text(
@@ -542,7 +546,10 @@ class _RemoveListView extends ConsumerWidget {
   }
 
   Future<void> _confirmRemove(
-      BuildContext context, WidgetRef ref, ThemeCategory theme) async {
+    BuildContext context,
+    WidgetRef ref,
+    ThemeCategory theme,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -568,9 +575,9 @@ class _RemoveListView extends ConsumerWidget {
     if (confirmed == true) {
       await ref.read(themesManagerProvider).removeUserTheme(theme);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.manageThemesRemoved)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.manageThemesRemoved)));
       }
     }
   }
@@ -642,15 +649,16 @@ class _BigChoiceTile extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.4)),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
             ],
           ),
         ),
@@ -677,18 +685,19 @@ class _ProviderTile extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor:
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.12),
           child: Icon(icon, color: Theme.of(context).colorScheme.primary),
         ),
-        title: Text(title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
+        title: Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: onTap,

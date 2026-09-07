@@ -39,17 +39,19 @@ class MediaAccessChannel {
   static Future<List<DeviceImage>> listFolderImages(String uri) async {
     if (!Platform.isAndroid) return const [];
     try {
-      final result =
-          await _channel.invokeMethod<List<dynamic>>('listFolderImages', {
-        'uri': uri,
-      });
+      final result = await _channel.invokeMethod<List<dynamic>>(
+        'listFolderImages',
+        {'uri': uri},
+      );
       if (result == null) return const [];
       return result
           .map((item) => Map<String, dynamic>.from(item as Map))
-          .map((map) => DeviceImage(
-                uri: map['uri'] as String? ?? '',
-                name: map['name'] as String? ?? '',
-              ))
+          .map(
+            (map) => DeviceImage(
+              uri: map['uri'] as String? ?? '',
+              name: map['name'] as String? ?? '',
+            ),
+          )
           .where((image) => image.uri.isNotEmpty)
           .toList();
     } on PlatformException {

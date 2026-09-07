@@ -1,3 +1,5 @@
+import 'theme_source.dart';
+
 class ThemeCategory {
   final int id;
   final String name;
@@ -27,6 +29,13 @@ class ThemeCategory {
   /// [isUserAdded] is true.
   final String? originalUrl;
 
+  /// How many photos the theme actually yielded when it was last listed.
+  ///
+  /// Not the same as [imageCount], which is what the gallery advertises: the
+  /// "NoMobile" filter can empty an album the server still counts as full.
+  /// Null until the theme has been listed at least once.
+  final int? usableImageCount;
+
   ThemeCategory({
     required this.id,
     required this.name,
@@ -38,7 +47,19 @@ class ThemeCategory {
     required this.sourceBaseUrl,
     this.isUserAdded = false,
     this.originalUrl,
+    this.usableImageCount,
   }) : directImageCount = directImageCount ?? imageCount;
+
+  /// Whether an empty theme should disappear from the pickers.
+  ///
+  /// Only the galleries shipped with the app: a theme the user added, or a
+  /// folder on their device, stays listed even while empty — they put it
+  /// there and would wonder where it went.
+  bool get hideWhenEmpty => !isUserAdded && isUpaGalleryUrl(sourceBaseUrl);
+
+  /// True once listing the theme has shown there is nothing left to display.
+  bool get isEmptyForPickers =>
+      hideWhenEmpty && (usableImageCount ?? imageCount) == 0;
 
   /// True when fetching this category's images requires `recursive=true`
   /// (photos live in sub-albums, e.g. "Thomas Pesquet" -> Mission Alpha +
@@ -73,9 +94,7 @@ class ThemeCategory {
     // this is what makes the theme look populated instead of empty.
     final total = _asInt(json['total_nb_images']);
     final direct = _asInt(json['nb_images']);
-    final count = (total != null && total > 0)
-        ? total
-        : (direct ?? total ?? 0);
+    final count = (total != null && total > 0) ? total : (direct ?? total ?? 0);
 
     return ThemeCategory(
       id: id,
@@ -92,17 +111,17 @@ class ThemeCategory {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'nameRaw': nameRaw,
-        'url': url,
-        'imageCount': imageCount,
-        'directImageCount': directImageCount,
-        'thumbnailUrl': thumbnailUrl,
-        'sourceBaseUrl': sourceBaseUrl,
-        'isUserAdded': isUserAdded,
-        'originalUrl': originalUrl,
-      };
+    'id': id,
+    'name': name,
+    'nameRaw': nameRaw,
+    'url': url,
+    'imageCount': imageCount,
+    'directImageCount': directImageCount,
+    'thumbnailUrl': thumbnailUrl,
+    'sourceBaseUrl': sourceBaseUrl,
+    'isUserAdded': isUserAdded,
+    'originalUrl': originalUrl,
+  };
 
   factory ThemeCategory.fromJson(Map<String, dynamic> json) {
     return ThemeCategory(
@@ -123,6 +142,7 @@ class ThemeCategory {
     int? imageCount,
     int? directImageCount,
     String? thumbnailUrl,
+    int? usableImageCount,
   }) {
     return ThemeCategory(
       id: id,
@@ -135,6 +155,7 @@ class ThemeCategory {
       sourceBaseUrl: sourceBaseUrl,
       isUserAdded: isUserAdded,
       originalUrl: originalUrl,
+      usableImageCount: usableImageCount ?? this.usableImageCount,
     );
   }
 

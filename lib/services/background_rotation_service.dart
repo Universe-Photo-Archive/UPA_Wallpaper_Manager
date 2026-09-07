@@ -25,13 +25,13 @@ class RotationTargetState {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'enabled': enabled,
-        'intervalSeconds': intervalSeconds,
-        'theme': theme,
-        'images': images,
-        if (current != null) 'current': current,
-      };
+    'id': id,
+    'enabled': enabled,
+    'intervalSeconds': intervalSeconds,
+    'theme': theme,
+    'images': images,
+    if (current != null) 'current': current,
+  };
 }
 
 /// Quiet window handed to the native side, in minutes from midnight.
@@ -47,10 +47,10 @@ class QuietHoursState {
   });
 
   Map<String, dynamic> toJson() => {
-        'enabled': enabled,
-        'startMinutes': startMinutes,
-        'endMinutes': endMinutes,
-      };
+    'enabled': enabled,
+    'startMinutes': startMinutes,
+    'endMinutes': endMinutes,
+  };
 }
 
 /// Bridges the app settings and the Android background slideshow.
@@ -114,32 +114,36 @@ class BackgroundRotationService {
 
       final now = DateTime.now().millisecondsSinceEpoch;
 
-      await file.writeAsString(json.encode({
-        'paused': paused,
-        if (quietHours != null) 'quietHours': quietHours.toJson(),
-        if (labels.isNotEmpty) 'labels': labels,
-        'targets': [
-          for (final target in targets)
-            () {
-              final previousTarget = kept[target.id] ?? const {};
-              final images = target.images.toSet();
-              return {
-                ...target.toJson(),
-                if (target.current == null && previousTarget['current'] != null)
-                  'current': previousTarget['current'],
-                // A photo dropped from the theme must not keep a slot in the
-                // cycle, or the cycle would never complete.
-                'shown': (previousTarget['shown'] as List<String>? ?? const [])
-                    .where(images.contains)
-                    .toList(),
-                'lastRotationAt': previousTarget['lastRotationAt'] ?? now,
-              };
-            }()
-        ],
-      }));
+      await file.writeAsString(
+        json.encode({
+          'paused': paused,
+          if (quietHours != null) 'quietHours': quietHours.toJson(),
+          if (labels.isNotEmpty) 'labels': labels,
+          'targets': [
+            for (final target in targets)
+              () {
+                final previousTarget = kept[target.id] ?? const {};
+                final images = target.images.toSet();
+                return {
+                  ...target.toJson(),
+                  if (target.current == null &&
+                      previousTarget['current'] != null)
+                    'current': previousTarget['current'],
+                  // A photo dropped from the theme must not keep a slot in the
+                  // cycle, or the cycle would never complete.
+                  'shown':
+                      (previousTarget['shown'] as List<String>? ?? const [])
+                          .where(images.contains)
+                          .toList(),
+                  'lastRotationAt': previousTarget['lastRotationAt'] ?? now,
+                };
+              }(),
+          ],
+        }),
+      );
 
-      final active = !paused &&
-          targets.any((t) => t.enabled && t.images.isNotEmpty);
+      final active =
+          !paused && targets.any((t) => t.enabled && t.images.isNotEmpty);
 
       if (active) {
         await WallpaperChannel.startForegroundRotation();
@@ -152,7 +156,9 @@ class BackgroundRotationService {
         await WallpaperChannel.schedulePeriodicRotation(
           intervalMinutes: (shortest / 60).ceil(),
         );
-        _log.i('Slideshow service running (${targets.where((t) => t.enabled).length} target(s))');
+        _log.i(
+          'Slideshow service running (${targets.where((t) => t.enabled).length} target(s))',
+        );
       } else {
         await WallpaperChannel.stopForegroundRotation();
         await WallpaperChannel.cancelPeriodicRotation();

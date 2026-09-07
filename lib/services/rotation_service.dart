@@ -46,15 +46,14 @@ class RotationService {
   /// Rotations the user asks for explicitly are never affected.
   bool Function()? shouldRotateNow;
 
-  RotationService({
-    required CacheService cache,
-    this.randomMode = true,
-  }) : _cache = cache;
+  RotationService({required CacheService cache, this.randomMode = true})
+    : _cache = cache;
 
   bool get isRunning => _running;
   bool get isPaused => _paused;
   bool get isActive => _running && !_paused;
-  Map<int, String> get currentWallpapers => Map.unmodifiable(_currentWallpapers);
+  Map<int, String> get currentWallpapers =>
+      Map.unmodifiable(_currentWallpapers);
   Map<int, String> get currentThemes => Map.unmodifiable(_currentThemes);
 
   /// Returns the configured theme name for [screenId] (or null when the
@@ -164,8 +163,10 @@ class RotationService {
       () async {
         if (!_running || _paused) return;
         if (shouldRotateNow?.call() == false) {
-          _log.d('Rotation skipped for screen ${config.screenId} '
-              '(outside the allowed hours)');
+          _log.d(
+            'Rotation skipped for screen ${config.screenId} '
+            '(outside the allowed hours)',
+          );
         } else {
           await _rotateScreen(config);
         }
@@ -219,8 +220,9 @@ class RotationService {
   /// downloads it on-demand if needed, and ensures every image in the theme
   /// is shown exactly once before the cycle resets.
   Future<String?> _getNextImageForScreen(ScreenRotationConfig config) async {
-    final themes =
-        config.themeNames.isEmpty ? allThemeNames : config.themeNames;
+    final themes = config.themeNames.isEmpty
+        ? allThemeNames
+        : config.themeNames;
 
     // Build list of ALL images (downloaded or not) for the theme(s)
     final allImages = <_Candidate>[];
@@ -254,10 +256,14 @@ class RotationService {
 
     // 2) If all images have been displayed → reset cycle
     if (eligible.isEmpty) {
-      final totalUndisplayed = allImages.where((c) => !c.image.isDisplayed).length;
+      final totalUndisplayed = allImages
+          .where((c) => !c.image.isDisplayed)
+          .length;
       if (totalUndisplayed == 0) {
-        _log.i('Full cycle complete for ${themes.join(", ")} '
-            '(${allImages.length} images). Resetting.');
+        _log.i(
+          'Full cycle complete for ${themes.join(", ")} '
+          '(${allImages.length} images). Resetting.',
+        );
         for (final theme in themes) {
           _cache.resetCycle(theme);
         }
@@ -282,12 +288,19 @@ class RotationService {
 
     // 4) Download if not already cached
     if (!chosen.image.isDownloaded || chosen.image.localPath == null) {
-      _log.d('Downloading on-demand: ${chosen.image.filename} '
-          '(theme: ${chosen.theme})');
+      _log.d(
+        'Downloading on-demand: ${chosen.image.filename} '
+        '(theme: ${chosen.theme})',
+      );
       final path = await _cache.downloadImage(chosen.theme, chosen.image);
       if (path == null) {
         _log.w('Download failed for ${chosen.image.filename}, trying fallback');
-        return _fallbackToDownloaded(config, allImages, otherFilenames, otherThemes);
+        return _fallbackToDownloaded(
+          config,
+          allImages,
+          otherFilenames,
+          otherThemes,
+        );
       }
     }
 
@@ -299,7 +312,12 @@ class RotationService {
       _log.w('File missing for ${chosen.image.filename}, trying fallback');
       chosen.image.isDownloaded = false;
       chosen.image.localPath = null;
-      return _fallbackToDownloaded(config, allImages, otherFilenames, otherThemes);
+      return _fallbackToDownloaded(
+        config,
+        allImages,
+        otherFilenames,
+        otherThemes,
+      );
     }
 
     _cache.markDisplayed(chosen.theme, chosen.image.localPath!);

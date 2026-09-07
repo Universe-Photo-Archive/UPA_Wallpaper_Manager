@@ -24,14 +24,16 @@ class UpdateService {
       'https://api.github.com/repos/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases/latest';
 
   final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-    headers: {
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'UPA-Wallpaper-Manager',
-    },
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'UPA-Wallpaper-Manager',
+      },
+    ),
+  );
 
   String? _currentVersion;
 
@@ -95,11 +97,7 @@ class UpdateService {
       final filename = downloadUrl.split('/').last;
       final filePath = '${tempDir.path}/$filename';
 
-      await _dio.download(
-        downloadUrl,
-        filePath,
-        onReceiveProgress: onProgress,
-      );
+      await _dio.download(downloadUrl, filePath, onReceiveProgress: onProgress);
 
       if (!File(filePath).existsSync()) return false;
 

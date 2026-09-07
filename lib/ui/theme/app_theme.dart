@@ -54,7 +54,9 @@ class AppTheme {
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: _surfaceDark,
         selectedIconTheme: const IconThemeData(color: _accentCyan),
-        unselectedIconTheme: IconThemeData(color: _starWhite.withValues(alpha: 0.6)),
+        unselectedIconTheme: IconThemeData(
+          color: _starWhite.withValues(alpha: 0.6),
+        ),
         indicatorColor: _accentCyan.withValues(alpha: 0.15),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -94,10 +96,10 @@ class AppTheme {
           backgroundColor: _accentCyan,
           foregroundColor: _deepSpace,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -105,8 +107,9 @@ class AppTheme {
           foregroundColor: _accentCyan,
           side: const BorderSide(color: _accentCyan),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -116,12 +119,12 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
-      dividerTheme: DividerThemeData(
-        color: _starWhite.withValues(alpha: 0.08),
-      ),
+      dividerTheme: DividerThemeData(color: _starWhite.withValues(alpha: 0.08)),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: _surfaceDarkElevated,
         contentTextStyle: const TextStyle(color: _starWhite),
@@ -169,8 +172,9 @@ class AppTheme {
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: const Color(0xFFF8F9FC),
         selectedIconTheme: const IconThemeData(color: Color(0xFF1565C0)),
-        unselectedIconTheme:
-            IconThemeData(color: const Color(0xFF1A1C2E).withValues(alpha: 0.5)),
+        unselectedIconTheme: IconThemeData(
+          color: const Color(0xFF1A1C2E).withValues(alpha: 0.5),
+        ),
         indicatorColor: const Color(0xFF1565C0).withValues(alpha: 0.1),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -182,10 +186,10 @@ class AppTheme {
           backgroundColor: const Color(0xFF1565C0),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -193,8 +197,9 @@ class AppTheme {
           foregroundColor: const Color(0xFF1565C0),
           side: const BorderSide(color: Color(0xFF1565C0)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -204,8 +209,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: const Color(0xFF1A1C2E),

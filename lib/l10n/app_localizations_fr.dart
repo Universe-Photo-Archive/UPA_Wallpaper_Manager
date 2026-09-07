@@ -214,6 +214,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsLanguage => 'Langue :';
 
   @override
+  String get settingsHideNoMobile =>
+      'Masquer les photos non destinées au mobile';
+
+  @override
+  String get settingsHideNoMobileSubtitle =>
+      'Les photos taguées « NoMobile » dans la galerie sont écartées partout : galerie, diaporama et écran de verrouillage.';
+
+  @override
   String get settingsRandomMode => 'Mode aléatoire pour le diaporama';
 
   @override

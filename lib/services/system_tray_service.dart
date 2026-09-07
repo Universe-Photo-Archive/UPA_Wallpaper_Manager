@@ -48,9 +48,15 @@ class SystemTrayService with WindowListener {
     // Extract icon to a temp file so system_tray can find it
     String iconPath;
     if (Platform.isWindows) {
-      iconPath = await _extractAssetToFile('assets/icons/app_icon.ico', 'app_icon.ico');
+      iconPath = await _extractAssetToFile(
+        'assets/icons/app_icon.ico',
+        'app_icon.ico',
+      );
     } else {
-      iconPath = await _extractAssetToFile('assets/icons/app_icon.png', 'app_icon.png');
+      iconPath = await _extractAssetToFile(
+        'assets/icons/app_icon.png',
+        'app_icon.png',
+      );
     }
 
     await _tray.initSystemTray(

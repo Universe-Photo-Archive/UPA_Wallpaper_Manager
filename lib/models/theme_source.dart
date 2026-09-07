@@ -43,9 +43,8 @@ class PiwigoSource {
   factory PiwigoSource.fromJson(Map<String, dynamic> json) {
     return PiwigoSource(
       baseUrl: _normalizeBaseUrl(json['baseUrl'] as String? ?? ''),
-      rootCategoryId: (json['rootCategoryId'] as int?) ??
-          (json['categoryId'] as int?) ??
-          0,
+      rootCategoryId:
+          (json['rootCategoryId'] as int?) ?? (json['categoryId'] as int?) ?? 0,
       recursive: json['recursive'] as bool? ?? false,
       originalUrl: json['originalUrl'] as String?,
       cachedName: json['cachedName'] as String?,
@@ -55,14 +54,14 @@ class PiwigoSource {
   }
 
   Map<String, dynamic> toJson() => {
-        'baseUrl': baseUrl,
-        'rootCategoryId': rootCategoryId,
-        'recursive': recursive,
-        if (originalUrl != null) 'originalUrl': originalUrl,
-        if (cachedName != null) 'cachedName': cachedName,
-        if (cachedImageCount != null) 'cachedImageCount': cachedImageCount,
-        if (cachedThumbnailUrl != null) 'cachedThumbnailUrl': cachedThumbnailUrl,
-      };
+    'baseUrl': baseUrl,
+    'rootCategoryId': rootCategoryId,
+    'recursive': recursive,
+    if (originalUrl != null) 'originalUrl': originalUrl,
+    if (cachedName != null) 'cachedName': cachedName,
+    if (cachedImageCount != null) 'cachedImageCount': cachedImageCount,
+    if (cachedThumbnailUrl != null) 'cachedThumbnailUrl': cachedThumbnailUrl,
+  };
 
   String get uniqueKey => '$baseUrl#$rootCategoryId';
 
@@ -91,6 +90,17 @@ enum LocalThemeKind {
 /// folders the user granted lasting access to — one grant covers everything
 /// inside, which is why even a hand-picked theme is built by first choosing a
 /// folder and then ticking photos within it.
+/// True for the galleries Universe Photo Archive hosts itself.
+///
+/// A few behaviours belong to those galleries only — the "NoMobile" tag,
+/// hiding albums that turn out empty — and must not reach into a Piwigo the
+/// user added themselves.
+bool isUpaGalleryUrl(String baseUrl) {
+  final host = Uri.tryParse(baseUrl)?.host.toLowerCase() ?? '';
+  return host == 'universe-photo-archive.eu' ||
+      host.endsWith('.universe-photo-archive.eu');
+}
+
 class LocalSource {
   /// Stable identity, independent of the folder so a theme can be renamed or
   /// draw from several folders.
@@ -145,11 +155,13 @@ class LocalSource {
       name: (json['name'] as String?)?.trim().isNotEmpty == true
           ? json['name'] as String
           : 'Galerie locale',
-      roots: (json['roots'] as List<dynamic>?)
+      roots:
+          (json['roots'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      items: (json['items'] as List<dynamic>?)
+      items:
+          (json['items'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
@@ -157,25 +169,24 @@ class LocalSource {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'kind': kind == LocalThemeKind.custom ? 'custom' : 'folder',
-        'name': name,
-        'roots': roots,
-        'items': items,
-      };
+    'id': id,
+    'kind': kind == LocalThemeKind.custom ? 'custom' : 'folder',
+    'name': name,
+    'roots': roots,
+    'items': items,
+  };
 
   LocalSource copyWith({
     String? name,
     List<String>? roots,
     List<String>? items,
-  }) =>
-      LocalSource(
-        id: id,
-        kind: kind,
-        name: name ?? this.name,
-        roots: roots ?? this.roots,
-        items: items ?? this.items,
-      );
+  }) => LocalSource(
+    id: id,
+    kind: kind,
+    name: name ?? this.name,
+    roots: roots ?? this.roots,
+    items: items ?? this.items,
+  );
 
   /// Last path segment of a folder reference, used to name folder themes.
   static String folderDisplayName(String root) {
@@ -216,8 +227,9 @@ class ParsedPiwigoUrl {
     final uri = Uri.tryParse(raw);
     if (uri == null || uri.scheme.isEmpty || uri.host.isEmpty) return null;
 
-    final categoryMatch =
-        RegExp(r'/category/(\d+)(?:-([^/?&#]+))?').firstMatch(raw);
+    final categoryMatch = RegExp(
+      r'/category/(\d+)(?:-([^/?&#]+))?',
+    ).firstMatch(raw);
     if (categoryMatch == null) return null;
 
     final categoryId = int.tryParse(categoryMatch.group(1)!);
@@ -238,10 +250,6 @@ class ParsedPiwigoUrl {
     }
     if (!base.endsWith('/')) base += '/';
 
-    return ParsedPiwigoUrl(
-      baseUrl: base,
-      categoryId: categoryId,
-      slug: slug,
-    );
+    return ParsedPiwigoUrl(baseUrl: base, categoryId: categoryId, slug: slug);
   }
 }

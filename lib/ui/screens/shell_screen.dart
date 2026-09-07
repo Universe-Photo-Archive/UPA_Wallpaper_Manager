@@ -60,11 +60,13 @@ class ShellScreen extends ConsumerWidget {
                 ),
               ),
               destinations: destinations
-                  .map((d) => NavigationRailDestination(
-                        icon: Icon(d.icon, size: 24 * scale),
-                        selectedIcon: Icon(d.icon, size: 24 * scale),
-                        label: Text(d.label),
-                      ))
+                  .map(
+                    (d) => NavigationRailDestination(
+                      icon: Icon(d.icon, size: 24 * scale),
+                      selectedIcon: Icon(d.icon, size: 24 * scale),
+                      label: Text(d.label),
+                    ),
+                  )
                   .toList(),
             ),
             VerticalDivider(
@@ -83,19 +85,15 @@ class ShellScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: child,
-        ),
+        child: Padding(padding: const EdgeInsets.only(top: 8), child: child),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) => _onTap(context, i),
         destinations: destinations
-            .map((d) => NavigationDestination(
-                  icon: Icon(d.icon),
-                  label: d.label,
-                ))
+            .map(
+              (d) => NavigationDestination(icon: Icon(d.icon), label: d.label),
+            )
             .toList(),
       ),
     );

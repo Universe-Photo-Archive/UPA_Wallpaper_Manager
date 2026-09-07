@@ -124,286 +124,336 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(builder: (context, constraints) {
-          // On phones (and narrow windows) the side-by-side desktop layout
-          // does not fit: stack the preview above the settings instead, and
-          // drop the multi-monitor chrome ("Screen 1", "Primary",
-          // resolution) that is meaningless on a single-screen device.
-          final narrow = constraints.maxWidth < 520;
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // On phones (and narrow windows) the side-by-side desktop layout
+            // does not fit: stack the preview above the settings instead, and
+            // drop the multi-monitor chrome ("Screen 1", "Primary",
+            // resolution) that is meaningless on a single-screen device.
+            final narrow = constraints.maxWidth < 520;
 
-          // The wallpaper may be a cached download or one of the user's own
-          // photos, read in place and shown through a thumbnail.
-          Widget previewImage() => currentPath != null
-              ? DeviceImageView(
-                  reference: currentPath,
-                  maxSize: narrow ? 900 : 520,
-                  gaplessPlayback: true,
-                )
-              : _Placeholder();
+            // The wallpaper may be a cached download or one of the user's own
+            // photos, read in place and shown through a thumbnail.
+            Widget previewImage() => currentPath != null
+                ? DeviceImageView(
+                    reference: currentPath,
+                    maxSize: narrow ? 900 : 520,
+                    gaplessPlayback: true,
+                  )
+                : _Placeholder();
 
-          final preview = Column(
-            mainAxisSize: MainAxisSize.min,
-            // Stretching is only safe when the width is bounded, which it is
-            // in the stacked mobile layout. Beside the settings on desktop the
-            // column sits in a Row with unbounded width, where stretching
-            // throws and leaves the whole card body blank.
-            crossAxisAlignment:
-                narrow ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: narrow
-                    ? AspectRatio(aspectRatio: 16 / 9, child: previewImage())
-                    : SizedBox(width: 260, height: 146, child: previewImage()),
-              ),
-              // Ban the photo on screen right now: it disappears from both
-              // slots and another one takes its place immediately.
-              if (currentPath != null)
-                SizedBox(
-                  width: narrow ? null : 260,
-                  child: TextButton.icon(
-                    onPressed: () => _excludeCurrent(context, screen.id),
-                    icon: const Icon(Icons.block_outlined, size: 16),
-                    label: Text(
-                      l10n.excludeImage,
-                      style: const TextStyle(fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.7),
-                      visualDensity: VisualDensity.compact,
+            final preview = Column(
+              mainAxisSize: MainAxisSize.min,
+              // Stretching is only safe when the width is bounded, which it is
+              // in the stacked mobile layout. Beside the settings on desktop the
+              // column sits in a Row with unbounded width, where stretching
+              // throws and leaves the whole card body blank.
+              crossAxisAlignment: narrow
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: narrow
+                      ? AspectRatio(aspectRatio: 16 / 9, child: previewImage())
+                      : SizedBox(
+                          width: 260,
+                          height: 146,
+                          child: previewImage(),
+                        ),
+                ),
+                // Name of the photo on screen. Cached downloads carry their
+                // Piwigo title; the user's own photos only have a file name.
+                if (currentPath != null)
+                  SizedBox(
+                    width: narrow ? null : 260,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        _titleOf(currentPath),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-            ],
-          );
+                // Ban the photo on screen right now: it disappears from both
+                // slots and another one takes its place immediately.
+                if (currentPath != null)
+                  SizedBox(
+                    width: narrow ? null : 260,
+                    child: TextButton.icon(
+                      onPressed: () => _excludeCurrent(context, screen.id),
+                      icon: const Icon(Icons.block_outlined, size: 16),
+                      label: Text(
+                        l10n.excludeImage,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.7),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
+              ],
+            );
 
-          // Rounded label naming the slot: "Screen 1", "Lock screen".
-          Widget chip(IconData icon, String text, Color color) => Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 16, color: color),
-                    const SizedBox(width: 6),
-                    Text(
-                      text,
+            // Rounded label naming the slot: "Screen 1", "Lock screen".
+            Widget chip(IconData icon, String text, Color color) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+            // Header: what this slot is on the left, the switch on the right.
+            //
+            // Exactly one child may absorb the leftover width. Two of them share
+            // it evenly instead of one pushing the rest to the edge, which is
+            // what stranded the switch in the middle of the monitor cards.
+            final header = Row(
+              children: [
+                // Mobile spells the toggle out in full: the small screen has no
+                // room for a label beside the switch.
+                if (_isMobile) ...[
+                  Icon(
+                    isLockTarget
+                        ? Icons.lock_outline_rounded
+                        : Icons.wallpaper_rounded,
+                    size: 18,
+                    color: targetColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isLockTarget
+                          ? l10n.targetLockscreen
+                          : l10n.targetWallpaper,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: color,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: targetColor,
+                      ),
+                    ),
+                  ),
+                ],
+                if (!_isMobile && isLockTarget) ...[
+                  chip(
+                    Icons.lock_outline_rounded,
+                    l10n.galleryTargetLockscreen,
+                    targetColor,
+                  ),
+                  const Spacer(),
+                ],
+                if (!narrow && isMonitor) ...[
+                  chip(
+                    Icons.monitor,
+                    l10n.screenName(screen.id + 1),
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                  if (screen.isPrimary) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.secondary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        l10n.screenPrimary,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
                       ),
                     ),
                   ],
-                ),
-              );
-
-          // Header: what this slot is on the left, the switch on the right.
-          //
-          // Exactly one child may absorb the leftover width. Two of them share
-          // it evenly instead of one pushing the rest to the edge, which is
-          // what stranded the switch in the middle of the monitor cards.
-          final header = Row(
-            children: [
-              // Mobile spells the toggle out in full: the small screen has no
-              // room for a label beside the switch.
-              if (_isMobile) ...[
-                Icon(
-                  isLockTarget
-                      ? Icons.lock_outline_rounded
-                      : Icons.wallpaper_rounded,
-                  size: 18,
-                  color: targetColor,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    isLockTarget ? l10n.targetLockscreen : l10n.targetWallpaper,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                      color: targetColor,
-                    ),
-                  ),
-                ),
-              ],
-              if (!_isMobile && isLockTarget) ...[
-                chip(Icons.lock_outline_rounded, l10n.galleryTargetLockscreen,
-                    targetColor),
-                const Spacer(),
-              ],
-              if (!narrow && isMonitor) ...[
-                chip(Icons.monitor, l10n.screenName(screen.id + 1),
-                    Theme.of(context).colorScheme.primary),
-                if (screen.isPrimary) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .secondary
-                          .withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(l10n.screenPrimary,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color:
-                                Theme.of(context).colorScheme.secondary)),
-                  ),
-                ],
-                const SizedBox(width: 10),
-                // Takes the leftover width, so everything after it sits
-                // against the right edge of the card.
-                Expanded(
-                  child: Text(screen.resolution,
+                  const SizedBox(width: 10),
+                  // Takes the leftover width, so everything after it sits
+                  // against the right edge of the card.
+                  Expanded(
+                    child: Text(
+                      screen.resolution,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.4))),
+                        fontSize: 13,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                ],
+                if (narrow && isMonitor) const Spacer(),
+                if (!_isMobile)
+                  Text(
+                    l10n.screenRotationEnabled,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                Switch(
+                  value: rotationEnabled,
+                  onChanged: (val) =>
+                      _updateScreenConfig(ref, screen.id, rotationEnabled: val),
                 ),
               ],
-              if (narrow && isMonitor) const Spacer(),
-              if (!_isMobile)
-                Text(l10n.screenRotationEnabled,
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.6))),
-              const SizedBox(width: 6),
-              Switch(
-                value: rotationEnabled,
-                onChanged: (val) => _updateScreenConfig(
-                  ref, screen.id,
-                  rotationEnabled: val,
-                ),
-              ),
-            ],
-          );
+            );
 
-          final settings = Column(
+            final settings = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                      // Theme selector
-                      Text(l10n.screenTheme,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.7))),
-                      const SizedBox(height: 6),
-                      ThemeCheckboxField(
-                        themes: themes,
-                        selected: selectedThemes,
-                        onChanged: (names) => _updateScreenConfig(
-                          ref, screen.id,
-                          themeNames: names.toList(),
+                // Theme selector
+                Text(
+                  l10n.screenTheme,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ThemeCheckboxField(
+                  themes: themes,
+                  selected: selectedThemes,
+                  onChanged: (names) => _updateScreenConfig(
+                    ref,
+                    screen.id,
+                    themeNames: names.toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Delay
+                Text(
+                  l10n.rotationDelay,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 18,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 70,
+                      height: 40,
+                      child: TextField(
+                        controller: _delayController,
+                        focusNode: _delayFocus,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
                         ),
+                        onChanged: (value) {
+                          final d = int.tryParse(value);
+                          if (d != null && d >= _minDelayFor) {
+                            _updateScreenConfig(
+                              ref,
+                              screen.id,
+                              rotationDelay: d,
+                            );
+                          }
+                        },
                       ),
-                      const SizedBox(height: 16),
-                      // Delay
-                      Text(l10n.rotationDelay,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.7))),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.timer_outlined,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.5)),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 70,
-                            height: 40,
-                            child: TextField(
-                              controller: _delayController,
-                              focusNode: _delayFocus,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 10),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: DropdownButton<String>(
+                        value: delayUnit,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        items: unitLabels.entries
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.key,
+                                child: Text(
+                                  e.value,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              onChanged: (value) {
-                                final d = int.tryParse(value);
-                                if (d != null && d >= _minDelayFor) {
-                                  _updateScreenConfig(ref, screen.id,
-                                      rotationDelay: d);
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: DropdownButton<String>(
-                              value: delayUnit,
-                              isExpanded: true,
-                              underline: const SizedBox(),
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface),
-                              items: unitLabels.entries
-                                  .map((e) => DropdownMenuItem(
-                                        value: e.key,
-                                        child: Text(e.value,
-                                            overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (unit) {
-                                if (unit == null) return;
-                                // Switching to minutes on mobile must respect
-                                // the background job's 15-minute floor.
-                                final current =
-                                    int.tryParse(_delayController.text) ?? 15;
-                                final min = (_isMobile && unit == 'minutes')
-                                    ? _androidMinMinutes
-                                    : 1;
-                                if (current < min) {
-                                  _delayController.text = min.toString();
-                                }
-                                _updateScreenConfig(
-                                  ref,
-                                  screen.id,
-                                  rotationDelayUnit: unit,
-                                  rotationDelay:
-                                      current < min ? min : null,
-                                );
-                              },
-                            ),
-                          ),
+                            )
+                            .toList(),
+                        onChanged: (unit) {
+                          if (unit == null) return;
+                          // Switching to minutes on mobile must respect
+                          // the background job's 15-minute floor.
+                          final current =
+                              int.tryParse(_delayController.text) ?? 15;
+                          final min = (_isMobile && unit == 'minutes')
+                              ? _androidMinMinutes
+                              : 1;
+                          if (current < min) {
+                            _delayController.text = min.toString();
+                          }
+                          _updateScreenConfig(
+                            ref,
+                            screen.id,
+                            rotationDelayUnit: unit,
+                            rotationDelay: current < min ? min : null,
+                          );
+                        },
+                      ),
+                    ),
                   ],
                 ),
                 if (_isMobile) ...[
@@ -412,47 +462,62 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                     l10n.rotationDelayMobileHint,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
-              ]);
+              ],
+            );
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              header,
-              const SizedBox(height: 14),
-              if (narrow) ...[
-                preview,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
                 const SizedBox(height: 14),
-                settings,
-              ] else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    preview,
-                    const SizedBox(width: 20),
-                    Expanded(child: settings),
-                  ],
-                ),
-            ],
-          );
-        }),
+                if (narrow) ...[
+                  preview,
+                  const SizedBox(height: 14),
+                  settings,
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      preview,
+                      const SizedBox(width: 20),
+                      Expanded(child: settings),
+                    ],
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
+  /// Caption for the photo currently on screen.
+  String _titleOf(String reference) {
+    final title = ref.read(cacheServiceProvider).titleOfCachedFile(reference);
+    if (title != null && title.isNotEmpty) return title;
+
+    // Photos read in place: a content URI has no readable name, so fall back
+    // to the last path segment without its extension.
+    final name = Uri.decodeComponent(reference.split(RegExp(r'[/\\]')).last);
+    final dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
+  }
+
   Future<void> _excludeCurrent(BuildContext context, int screenId) async {
     final l10n = AppLocalizations.of(context)!;
-    final excluded = await ref.read(exclusionsProvider).excludeCurrent(screenId);
+    final excluded = await ref
+        .read(exclusionsProvider)
+        .excludeCurrent(screenId);
     if (!context.mounted || !excluded) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.excludeImageDone)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.excludeImageDone)));
   }
 
   void _updateScreenConfig(
@@ -476,13 +541,15 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
           rotationDelayUnit: rotationDelayUnit,
         );
       } else {
-        screens.add(ScreenConfig(
-          screenId: screenId,
-          themeNames: themeNames ?? const [],
-          rotationEnabled: rotationEnabled ?? true,
-          rotationDelay: rotationDelay ?? 15,
-          rotationDelayUnit: rotationDelayUnit ?? 'minutes',
-        ));
+        screens.add(
+          ScreenConfig(
+            screenId: screenId,
+            themeNames: themeNames ?? const [],
+            rotationEnabled: rotationEnabled ?? true,
+            rotationDelay: rotationDelay ?? 15,
+            rotationDelayUnit: rotationDelayUnit ?? 'minutes',
+          ),
+        );
       }
       return config.copyWith(screens: screens);
     });
@@ -504,12 +571,13 @@ class _Placeholder extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Icon(Icons.image_outlined,
-            size: 40,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.15)),
+        child: Icon(
+          Icons.image_outlined,
+          size: 40,
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.15),
+        ),
       ),
     );
   }

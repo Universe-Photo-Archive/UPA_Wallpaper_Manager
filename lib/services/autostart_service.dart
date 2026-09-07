@@ -35,14 +35,20 @@ class AutostartService {
       final result = await Process.run('schtasks', [
         '/Create',
         '/F',
-        '/TN', taskName,
-        '/SC', 'ONLOGON',
-        '/RL', 'HIGHEST',
-        '/TR', '"$exe" $minimizedFlag',
+        '/TN',
+        taskName,
+        '/SC',
+        'ONLOGON',
+        '/RL',
+        'HIGHEST',
+        '/TR',
+        '"$exe" $minimizedFlag',
       ]);
       if (result.exitCode != 0) {
-        _log.w('schtasks /Create failed (${result.exitCode}): '
-            '${result.stderr}');
+        _log.w(
+          'schtasks /Create failed (${result.exitCode}): '
+          '${result.stderr}',
+        );
         return false;
       }
       _log.i('Autostart scheduled task created');
@@ -57,8 +63,12 @@ class AutostartService {
       try {
         await launchAtStartup.disable();
       } catch (_) {}
-      final result =
-          await Process.run('schtasks', ['/Delete', '/F', '/TN', taskName]);
+      final result = await Process.run('schtasks', [
+        '/Delete',
+        '/F',
+        '/TN',
+        taskName,
+      ]);
       if (result.exitCode != 0) {
         // Most common cause: the task simply does not exist.
         _log.i('schtasks /Delete returned ${result.exitCode} (task absent?)');

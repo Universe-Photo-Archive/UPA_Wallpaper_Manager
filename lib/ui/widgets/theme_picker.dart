@@ -60,9 +60,11 @@ Future<Set<String>?> pickThemes({
                   onChanged: (checked) => setSheetState(() {
                     working
                       ..clear()
-                      ..addAll(checked == true
-                          ? themes.map(valueOf)
-                          : const <String>[]);
+                      ..addAll(
+                        checked == true
+                            ? themes.map(valueOf)
+                            : const <String>[],
+                      );
                   }),
                 ),
                 const Divider(height: 1),
@@ -125,8 +127,12 @@ class ThemeCheckboxField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = themeSelectionLabel(context, themes, selected,
-        emptyMeansAll: true);
+    final label = themeSelectionLabel(
+      context,
+      themes,
+      selected,
+      emptyMeansAll: true,
+    );
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),
@@ -140,9 +146,7 @@ class ThemeCheckboxField extends StatelessWidget {
         if (result != null) {
           // Every theme ticked is stored as "none in particular", so a theme
           // added later is picked up automatically.
-          onChanged(
-            result.length == themes.length ? <String>{} : result,
-          );
+          onChanged(result.length == themes.length ? <String>{} : result);
         }
       },
       child: InputDecorator(
@@ -153,7 +157,9 @@ class ThemeCheckboxField extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              selected.isEmpty ? Icons.all_inclusive : Icons.collections_outlined,
+              selected.isEmpty
+                  ? Icons.all_inclusive
+                  : Icons.collections_outlined,
               size: 16,
             ),
             const SizedBox(width: 8),

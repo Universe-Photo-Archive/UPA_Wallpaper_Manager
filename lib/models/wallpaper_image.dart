@@ -1,6 +1,12 @@
 class WallpaperImage {
   final int id;
   final String filename;
+
+  /// Piwigo photo title. Not final: a title edited in the gallery should
+  /// reach the app on the next listing. Often equal to the file name, since
+  /// Piwigo falls back to it when the uploader set no title.
+  String? title;
+
   final String pageUrl;
   final int? width;
   final int? height;
@@ -19,6 +25,7 @@ class WallpaperImage {
   WallpaperImage({
     required this.id,
     required this.filename,
+    this.title,
     required this.pageUrl,
     this.width,
     this.height,
@@ -30,6 +37,33 @@ class WallpaperImage {
     this.displayCount = 0,
     this.lastDisplayed,
   }) : _cachedFullSizeUrl = cachedFullSizeUrl;
+
+  /// What to show under a thumbnail: the photo's title, falling back to its
+  /// file name, in both cases without the extension — ".jpg" tells a reader
+  /// nothing and eats the width where the name should be.
+  String get displayTitle {
+    final raw = (title?.trim().isNotEmpty ?? false) ? title!.trim() : filename;
+    final dot = raw.lastIndexOf('.');
+    if (dot > 0 && raw.length - dot <= 6) {
+      const extensions = {
+        '.jpg',
+        '.jpeg',
+        '.png',
+        '.webp',
+        '.bmp',
+        '.gif',
+        '.heic',
+        '.heif',
+        '.tif',
+        '.tiff',
+        '.avif',
+      };
+      if (extensions.contains(raw.substring(dot).toLowerCase())) {
+        return raw.substring(0, dot);
+      }
+    }
+    return raw;
+  }
 
   /// Best URL for full-size wallpaper download.
   /// Prefers live derivatives, falls back to persisted URL from previous session.
@@ -72,8 +106,7 @@ class WallpaperImage {
   }
 
   factory WallpaperImage.fromPiwigoJson(Map<String, dynamic> json) {
-    final derivativesJson =
-        json['derivatives'] as Map<String, dynamic>? ?? {};
+    final derivativesJson = json['derivatives'] as Map<String, dynamic>? ?? {};
     final derivatives = <String, ImageDerivative>{};
     derivativesJson.forEach((key, value) {
       if (value is Map<String, dynamic>) {
@@ -89,9 +122,9 @@ class WallpaperImage {
     return WallpaperImage(
       id: id,
       filename: json['file'] as String? ?? 'unknown.jpg',
-      pageUrl: json['page_url'] as String? ??
-          json['element_url'] as String? ??
-          '',
+      title: json['name'] as String?,
+      pageUrl:
+          json['page_url'] as String? ?? json['element_url'] as String? ?? '',
       width: _asInt(json['width']),
       height: _asInt(json['height']),
       derivatives: derivatives,
@@ -99,29 +132,32 @@ class WallpaperImage {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'filename': filename,
-        'pageUrl': pageUrl,
-        'width': width,
-        'height': height,
-        'cachedFullSizeUrl': fullSizeUrl,
-        'thumbnailUrl': thumbnailUrl,
-        'isDownloaded': isDownloaded,
-        'localPath': localPath,
-        'isDisplayed': isDisplayed,
-        'displayCount': displayCount,
-        'lastDisplayed': lastDisplayed?.toIso8601String(),
-      };
+    'id': id,
+    'filename': filename,
+    'title': title,
+    'pageUrl': pageUrl,
+    'width': width,
+    'height': height,
+    'cachedFullSizeUrl': fullSizeUrl,
+    'thumbnailUrl': thumbnailUrl,
+    'isDownloaded': isDownloaded,
+    'localPath': localPath,
+    'isDisplayed': isDisplayed,
+    'displayCount': displayCount,
+    'lastDisplayed': lastDisplayed?.toIso8601String(),
+  };
 
   factory WallpaperImage.fromJson(Map<String, dynamic> json) {
     return WallpaperImage(
       id: json['id'] as int,
       filename: json['filename'] as String,
+      title: json['title'] as String?,
       pageUrl: json['pageUrl'] as String? ?? '',
       width: json['width'] as int?,
       height: json['height'] as int?,
       derivatives: {},
-      cachedFullSizeUrl: json['cachedFullSizeUrl'] as String? ??
+      cachedFullSizeUrl:
+          json['cachedFullSizeUrl'] as String? ??
           json['fullSizeUrl'] as String?,
       isDownloaded: json['isDownloaded'] as bool? ?? false,
       localPath: json['localPath'] as String?,
@@ -135,6 +171,7 @@ class WallpaperImage {
 
   /// Refresh URL data from a fresh API image while keeping cache state.
   void mergeApiData(WallpaperImage apiImage) {
+    if (apiImage.title?.trim().isNotEmpty ?? false) title = apiImage.title;
     if (apiImage.derivatives.isNotEmpty) {
       derivatives
         ..clear()
@@ -156,11 +193,7 @@ class ImageDerivative {
   final int? width;
   final int? height;
 
-  const ImageDerivative({
-    required this.url,
-    this.width,
-    this.height,
-  });
+  const ImageDerivative({required this.url, this.width, this.height});
 
   factory ImageDerivative.fromJson(Map<String, dynamic> json) {
     return ImageDerivative(

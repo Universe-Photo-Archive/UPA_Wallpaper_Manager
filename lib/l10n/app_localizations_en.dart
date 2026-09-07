@@ -211,6 +211,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguage => 'Language:';
 
   @override
+  String get settingsHideNoMobile => 'Hide photos not intended for phones';
+
+  @override
+  String get settingsHideNoMobileSubtitle =>
+      'Photos the gallery tags \"NoMobile\" are left out everywhere: gallery, slideshow and lock screen.';
+
+  @override
   String get settingsRandomMode => 'Random mode for slideshow';
 
   @override

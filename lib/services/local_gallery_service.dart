@@ -63,7 +63,7 @@ class LocalGalleryService {
           isDownloaded: true,
           localPath: reference,
           derivatives: const {},
-        )
+        ),
     ];
 
     _log.i('Local theme "${source.name}": ${images.length} image(s)');
@@ -76,8 +76,9 @@ class LocalGalleryService {
     for (final root in roots) {
       if (MediaAccessChannel.isDocumentUri(root)) {
         references.addAll(
-          (await MediaAccessChannel.listFolderImages(root))
-              .map((image) => image.uri),
+          (await MediaAccessChannel.listFolderImages(
+            root,
+          )).map((image) => image.uri),
         );
       } else {
         references.addAll(await _scanFolder(root));
@@ -108,15 +109,22 @@ class LocalGalleryService {
 
     final files = <File>[];
     try {
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File && _isImage(entity.path)) files.add(entity);
       }
     } catch (e) {
       _log.e('Failed to scan local folder $path: $e');
     }
 
-    files.sort((a, b) =>
-        p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase()));
+    files.sort(
+      (a, b) => p
+          .basename(a.path)
+          .toLowerCase()
+          .compareTo(p.basename(b.path).toLowerCase()),
+    );
     return files.map((f) => f.path).toList();
   }
 

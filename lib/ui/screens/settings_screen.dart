@@ -28,36 +28,38 @@ class _ResponsiveControlTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final narrow = constraints.maxWidth < 480;
-      if (!narrow) {
-        return ListTile(
-          leading: leading,
-          title: Text(title),
-          trailing: FittedBox(fit: BoxFit.scaleDown, child: control),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 480;
+        if (!narrow) {
+          return ListTile(
+            leading: leading,
+            title: Text(title),
+            trailing: FittedBox(fit: BoxFit.scaleDown, child: control),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 16),
+                  Expanded(child: Text(title)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(fit: BoxFit.scaleDown, child: control),
+              ),
+            ],
+          ),
         );
-      }
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                leading,
-                const SizedBox(width: 16),
-                Expanded(child: Text(title)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FittedBox(fit: BoxFit.scaleDown, child: control),
-            ),
-          ],
-        ),
-      );
-    });
+      },
+    );
   }
 }
 
@@ -104,9 +106,9 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -166,6 +168,22 @@ class _GeneralSettings extends ConsumerWidget {
                     .update((c) => c.copyWith(randomMode: val));
               },
             ),
+            // The gallery tags photos that do not belong on a phone screen —
+            // panoramas, close crops. Nothing to hide on a desktop.
+            if (Platform.isAndroid) ...[
+              const Divider(height: 1),
+              SwitchListTile(
+                title: Text(l10n.settingsHideNoMobile),
+                subtitle: Text(l10n.settingsHideNoMobileSubtitle),
+                secondary: const Icon(Icons.phonelink_erase_outlined),
+                value: config.hideNoMobilePhotos,
+                onChanged: (val) {
+                  ref
+                      .read(configProvider.notifier)
+                      .update((c) => c.copyWith(hideNoMobilePhotos: val));
+                },
+              ),
+            ],
             // The Android lock screen is configured from its own card on the
             // home tab, with its own theme and delay.
             const Divider(height: 1),
@@ -197,9 +215,10 @@ class _QuietHoursTile extends ConsumerWidget {
           value: quiet.enabled,
           onChanged: (val) => ref
               .read(configProvider.notifier)
-              .update((c) => c.copyWith(
-                    quietHours: c.quietHours.copyWith(enabled: val),
-                  )),
+              .update(
+                (c) =>
+                    c.copyWith(quietHours: c.quietHours.copyWith(enabled: val)),
+              ),
         ),
         if (quiet.enabled)
           Padding(
@@ -217,20 +236,26 @@ class _QuietHoursTile extends ConsumerWidget {
                       minutes: quiet.startMinutes,
                       onPicked: (minutes) => ref
                           .read(configProvider.notifier)
-                          .update((c) => c.copyWith(
-                                quietHours:
-                                    c.quietHours.copyWith(startMinutes: minutes),
-                              )),
+                          .update(
+                            (c) => c.copyWith(
+                              quietHours: c.quietHours.copyWith(
+                                startMinutes: minutes,
+                              ),
+                            ),
+                          ),
                     ),
                     _TimeButton(
                       label: l10n.settingsQuietTo,
                       minutes: quiet.endMinutes,
                       onPicked: (minutes) => ref
                           .read(configProvider.notifier)
-                          .update((c) => c.copyWith(
-                                quietHours:
-                                    c.quietHours.copyWith(endMinutes: minutes),
-                              )),
+                          .update(
+                            (c) => c.copyWith(
+                              quietHours: c.quietHours.copyWith(
+                                endMinutes: minutes,
+                              ),
+                            ),
+                          ),
                     ),
                   ],
                 ),
@@ -334,17 +359,20 @@ class _DisplaySettings extends ConsumerWidget {
               control: SegmentedButton<String>(
                 segments: [
                   ButtonSegment(
-                      value: 'dark',
-                      label: Text(l10n.settingsThemeDark),
-                      icon: const Icon(Icons.dark_mode_outlined)),
+                    value: 'dark',
+                    label: Text(l10n.settingsThemeDark),
+                    icon: const Icon(Icons.dark_mode_outlined),
+                  ),
                   ButtonSegment(
-                      value: 'light',
-                      label: Text(l10n.settingsThemeLight),
-                      icon: const Icon(Icons.light_mode_outlined)),
+                    value: 'light',
+                    label: Text(l10n.settingsThemeLight),
+                    icon: const Icon(Icons.light_mode_outlined),
+                  ),
                   ButtonSegment(
-                      value: 'system',
-                      label: Text(l10n.settingsThemeSystem),
-                      icon: const Icon(Icons.auto_mode_outlined)),
+                    value: 'system',
+                    label: Text(l10n.settingsThemeSystem),
+                    icon: const Icon(Icons.auto_mode_outlined),
+                  ),
                 ],
                 selected: {config.uiThemeMode},
                 onSelectionChanged: (sel) {
@@ -381,11 +409,17 @@ class _DisplaySettings extends ConsumerWidget {
                 control: SegmentedButton<double>(
                   segments: [
                     ButtonSegment(
-                        value: 1.0, label: Text(l10n.settingsUiScaleNormal)),
+                      value: 1.0,
+                      label: Text(l10n.settingsUiScaleNormal),
+                    ),
                     ButtonSegment(
-                        value: 1.15, label: Text(l10n.settingsUiScaleLarge)),
+                      value: 1.15,
+                      label: Text(l10n.settingsUiScaleLarge),
+                    ),
                     ButtonSegment(
-                        value: 1.3, label: Text(l10n.settingsUiScaleHuge)),
+                      value: 1.3,
+                      label: Text(l10n.settingsUiScaleHuge),
+                    ),
                   ],
                   selected: {config.uiScale},
                   onSelectionChanged: (sel) {
@@ -427,14 +461,17 @@ class _CacheSettings extends ConsumerWidget {
                 width: 100,
                 child: TextField(
                   controller: TextEditingController(
-                      text: config.cacheMaxSizeMb.toString()),
+                    text: config.cacheMaxSizeMb.toString(),
+                  ),
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
                     isDense: true,
                     suffixText: 'MB',
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 10,
+                    ),
                   ),
                   onChanged: (val) {
                     final size = int.tryParse(val);
@@ -489,9 +526,9 @@ class _CacheSettings extends ConsumerWidget {
     if (confirmed == true) {
       await ref.read(cacheServiceProvider).clearCache();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.settingsCacheCleared)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.settingsCacheCleared)));
       }
     }
   }
@@ -522,20 +559,24 @@ class _AdvancedSettings extends ConsumerWidget {
                 width: 80,
                 child: TextField(
                   controller: TextEditingController(
-                      text: config.timeoutSeconds.toString()),
+                    text: config.timeoutSeconds.toString(),
+                  ),
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
                     isDense: true,
                     suffixText: 's',
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 10,
+                    ),
                   ),
                   onChanged: (val) {
                     final t = int.tryParse(val);
                     if (t != null && t > 0) {
-                      ref.read(configProvider.notifier).update(
-                          (c) => c.copyWith(timeoutSeconds: t));
+                      ref
+                          .read(configProvider.notifier)
+                          .update((c) => c.copyWith(timeoutSeconds: t));
                     }
                   },
                 ),
@@ -577,17 +618,17 @@ class _AdvancedSettings extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final updateService = ref.read(updateServiceProvider);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.updateChecking)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.updateChecking)));
 
     final info = await updateService.checkForUpdates();
     if (!context.mounted) return;
 
     if (info == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.updateError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.updateError)));
       return;
     }
 
@@ -627,7 +668,10 @@ class _AdvancedSettings extends ConsumerWidget {
   }
 
   Future<void> _performUpdate(
-      BuildContext context, WidgetRef ref, UpdateInfo info) async {
+    BuildContext context,
+    WidgetRef ref,
+    UpdateInfo info,
+  ) async {
     if (info.downloadUrl == null) return;
     final updateService = ref.read(updateServiceProvider);
     await updateService.downloadAndInstall(info.downloadUrl!);
@@ -679,10 +723,9 @@ class _LogsTile extends StatelessWidget {
                     Expanded(
                       child: SelectableText(
                         logService.isInitialized ? logService.logFilePath : '—',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(fontFamily: 'monospace'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ),
                     IconButton(
@@ -711,9 +754,9 @@ class _LogsTile extends StatelessWidget {
     if (!logService.isInitialized) return;
     await Clipboard.setData(ClipboardData(text: logService.logFilePath));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.settingsLogsPathCopied)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.settingsLogsPathCopied)));
   }
 
   void _showLogViewer(BuildContext context) {
@@ -774,9 +817,9 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
     if (confirmed != true) return;
     await widget.logService.clear();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.settingsLogsCleared)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.settingsLogsCleared)));
     await _refresh();
   }
 
@@ -823,42 +866,42 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
               const SizedBox(height: 4),
               SelectableText(
                 widget.logService.logFilePath,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontFamily: 'monospace'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                ),
               ),
               const SizedBox(height: 12),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant,
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.4,
                     ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
                   ),
                   padding: const EdgeInsets.all(12),
                   child: _loading
                       ? const Center(child: CircularProgressIndicator())
                       : (_content.trim().isEmpty
-                          ? Center(
-                              child: Text(
-                                l10n.settingsLogsEmpty,
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                            )
-                          : Scrollbar(
-                              child: SingleChildScrollView(
-                                reverse: true,
-                                child: SelectableText(
-                                  _content,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
+                            ? Center(
+                                child: Text(
+                                  l10n.settingsLogsEmpty,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              )
+                            : Scrollbar(
+                                child: SingleChildScrollView(
+                                  reverse: true,
+                                  child: SelectableText(
+                                    _content,
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            )),
+                              )),
                 ),
               ),
               const SizedBox(height: 12),
@@ -896,8 +939,9 @@ class _AboutSection extends StatelessWidget {
 
   /// Read from the running build rather than written by hand, which is how
   /// this card came to claim 2.0.0 long after the app had moved on.
-  static final Future<String> _version =
-      PackageInfo.fromPlatform().then((info) => info.version);
+  static final Future<String> _version = PackageInfo.fromPlatform().then(
+    (info) => info.version,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -911,17 +955,21 @@ class _AboutSection extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.wallpaper_rounded,
-                    size: 40, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Icons.wallpaper_rounded,
+                  size: 40,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l10n.appTitle,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      l10n.appTitle,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     FutureBuilder<String>(
                       future: _version,
                       builder: (context, snapshot) => Text(
@@ -934,27 +982,33 @@ class _AboutSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(l10n.aboutDescription,
-                style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              l10n.aboutDescription,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => launchUrl(
-                      Uri.parse('https://universe-photo-archive.eu')),
+                  onPressed: () =>
+                      launchUrl(Uri.parse('https://universe-photo-archive.eu')),
                   icon: const Icon(Icons.language_rounded, size: 16),
                   label: Text(l10n.aboutWebsite),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => launchUrl(
-                      Uri.parse('https://universe-photo-archive.eu/credits/')),
+                    Uri.parse('https://universe-photo-archive.eu/credits/'),
+                  ),
                   icon: const Icon(Icons.photo_camera_outlined, size: 16),
                   label: Text(l10n.aboutCredits),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => launchUrl(Uri.parse(
-                      'https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager')),
+                  onPressed: () => launchUrl(
+                    Uri.parse(
+                      'https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager',
+                    ),
+                  ),
                   icon: const Icon(Icons.code_rounded, size: 16),
                   label: Text(l10n.aboutGithub),
                 ),

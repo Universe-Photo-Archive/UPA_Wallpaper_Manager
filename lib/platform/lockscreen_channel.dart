@@ -63,8 +63,9 @@ class LockscreenChannel {
   /// Returns false on Home editions where the registry is silently ignored.
   static Future<bool> isWindowsEditionSupported() async {
     try {
-      final result =
-          await _channel.invokeMethod<bool>('isWindowsEditionSupported');
+      final result = await _channel.invokeMethod<bool>(
+        'isWindowsEditionSupported',
+      );
       return result ?? false;
     } on PlatformException {
       return false;
