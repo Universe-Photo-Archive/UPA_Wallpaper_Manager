@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -76,7 +74,7 @@ class SettingsTransferManager {
         );
         await _ref
             .read(configProvider.notifier)
-            .update((current) => _adopt(payload.config, current));
+            .update((current) => _adopt(payload, current));
       } else {
         await themesConfig.mergeUserConfig(
           payload.themes,
@@ -100,13 +98,20 @@ class SettingsTransferManager {
 
   /// Takes the imported settings, minus the ones that describe this machine
   /// rather than the user's taste.
-  AppConfig _adopt(AppConfig imported, AppConfig current) {
+  AppConfig _adopt(SettingsPayload payload, AppConfig current) {
     // Screens are matched by id, and those ids mean different things on a
     // phone and on a desktop; keeping the local ones avoids a slideshow
     // pointed at a monitor that does not exist.
-    return imported.copyWith(
-      screens: current.screens,
-      uiScale: Platform.isAndroid ? current.uiScale : imported.uiScale,
+    final adopted = payload.config.copyWith(screens: current.screens);
+    if (payload.carriesUsableLocalThemes) return adopted;
+
+    // Settings a phone and a desktop do not share: importing the other
+    // platform's values would only make the app look broken here.
+    return adopted.copyWith(
+      uiScale: current.uiScale,
+      notifyOnMinimize: current.notifyOnMinimize,
+      launchOnStartup: current.launchOnStartup,
+      hideNoMobilePhotos: current.hideNoMobilePhotos,
     );
   }
 
