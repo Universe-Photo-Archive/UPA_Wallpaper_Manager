@@ -90,6 +90,11 @@ class _ForegroundWallpaperSync with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
+
+    // A gallery the app gave up on may simply have been out of reach on the
+    // train; coming back to the app is a good moment to give it a chance.
+    container.read(piwigoApiProvider).forgetFailures();
+
     _backgroundRotation.lastAppliedWallpapers().then((applied) {
       applied.forEach((screenId, path) {
         _applyExternalWallpaper(container, screenId, path);
