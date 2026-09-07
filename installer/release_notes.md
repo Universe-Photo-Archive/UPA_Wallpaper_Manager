@@ -12,6 +12,10 @@ Android rejoint Windows dans le même code source / Android joins Windows in one
 - **Sélection multiple de thèmes** : cocher plusieurs thèmes par écran et dans la galerie / multi-theme selection per slot and in the gallery
 - **Taille de l'interface** (Windows) : normale, grande ou très grande / interface size on desktop
 - **Zone de notification** (Windows) : un message rappelle où est passée la fenêtre, désactivable dans les paramètres / a notice says where the window went
+- **Titre des photos** : le titre Piwigo s'affiche sous chaque miniature et sous l'aperçu, à la place du nom de fichier / the Piwigo title replaces the file name under thumbnails and previews
+- **Photos non destinées au mobile** (Android) : les photos taguées « NoMobile » dans les galeries Universe Photo Archive sont écartées partout, option activée par défaut / photos tagged "NoMobile" are left out everywhere
+- **Thèmes vides masqués** : un thème Universe Photo Archive sans photo à afficher disparaît des sélecteurs / empty UPA themes leave the pickers
+- **Export et import des paramètres** : paramètres, galeries ajoutées et photos exclues dans un fichier, à reprendre sur un autre appareil / export and import your whole setup
 
 ### Installation
 

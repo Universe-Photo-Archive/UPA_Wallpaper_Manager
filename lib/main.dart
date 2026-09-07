@@ -609,6 +609,11 @@ Future<void> _applyHiddenPhotos(
   }
   await _dropHiddenPhotos(container, hiddenPhotos.ids);
   await _refreshThemeListings(container);
+
+  // The background service works from a list of files handed to it; after a
+  // purge some of those are gone, so give it a fresh one.
+  await _topUpRotationCache(container, container.read(configProvider));
+  await _syncBackgroundRotation(container, container.read(configProvider));
 }
 
 /// Lists every Piwigo theme again so the cache matches the current filter.
