@@ -172,6 +172,46 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsCache => 'Cache';
 
   @override
+  String get settingsBackup => 'Sauvegarde';
+
+  @override
+  String get settingsExport => 'Exporter les paramètres';
+
+  @override
+  String get settingsExportSubtitle =>
+      'Enregistre vos paramètres, vos galeries ajoutées et vos photos exclues dans un fichier.';
+
+  @override
+  String settingsExportDone(String path) {
+    return 'Exporté dans $path';
+  }
+
+  @override
+  String get settingsImport => 'Importer des paramètres';
+
+  @override
+  String get settingsImportSubtitle =>
+      'Restaure un fichier exporté depuis l\'application, ici ou sur un autre appareil.';
+
+  @override
+  String get settingsImportQuestion =>
+      'Remplacer votre configuration actuelle par le fichier, ou ajouter ses galeries et ses photos exclues à celles déjà en place ?';
+
+  @override
+  String get settingsImportReplace => 'Remplacer';
+
+  @override
+  String get settingsImportMerge => 'Ajouter';
+
+  @override
+  String get settingsImportDone => 'Paramètres importés';
+
+  @override
+  String settingsTransferFailed(String reason) {
+    return 'Rien n\'a été modifié : $reason';
+  }
+
+  @override
   String get settingsAdvanced => 'Avancé';
 
   @override

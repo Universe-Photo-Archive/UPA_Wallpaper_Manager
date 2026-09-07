@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/settings_transfer.dart';
 import '../../services/log_service.dart';
 import '../../services/update_service.dart';
 import 'excluded_images_screen.dart';
@@ -86,6 +87,9 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           _SectionHeader(l10n.settingsAdvanced),
           const _AdvancedSettings(),
+          const SizedBox(height: 24),
+          _SectionHeader(l10n.settingsBackup),
+          const _BackupSettings(),
           const SizedBox(height: 24),
           _SectionHeader(l10n.settingsAbout),
           const _AboutSection(),
@@ -331,6 +335,102 @@ class _ExcludedImagesTile extends ConsumerWidget {
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const ExcludedImagesScreen()),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Backup — carry a whole setup to another device
+// ---------------------------------------------------------------------------
+
+class _BackupSettings extends ConsumerWidget {
+  const _BackupSettings();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.ios_share_rounded),
+            title: Text(l10n.settingsExport),
+            subtitle: Text(l10n.settingsExportSubtitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _export(context, ref),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.file_download_outlined),
+            title: Text(l10n.settingsImport),
+            subtitle: Text(l10n.settingsImportSubtitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _import(context, ref),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await ref.read(settingsTransferProvider).export();
+    if (!context.mounted || (!result.done && result.error == null)) return;
+
+    _tell(
+      context,
+      result.done
+          ? l10n.settingsExportDone(result.path ?? '')
+          : l10n.settingsTransferFailed(result.error ?? ''),
+      failed: !result.done,
+    );
+  }
+
+  Future<void> _import(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    final mode = await showDialog<ImportMode>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.settingsImport),
+        content: Text(l10n.settingsImportQuestion),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.dialogCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ImportMode.merge),
+            child: Text(l10n.settingsImportMerge),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, ImportMode.replace),
+            child: Text(l10n.settingsImportReplace),
+          ),
+        ],
+      ),
+    );
+    if (mode == null || !context.mounted) return;
+
+    final result = await ref.read(settingsTransferProvider).import(mode);
+    if (!context.mounted || (!result.done && result.error == null)) return;
+
+    _tell(
+      context,
+      result.done
+          ? l10n.settingsImportDone
+          : l10n.settingsTransferFailed(result.error ?? ''),
+      failed: !result.done,
+    );
+  }
+
+  void _tell(BuildContext context, String message, {required bool failed}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: failed ? Theme.of(context).colorScheme.error : null,
+        duration: const Duration(seconds: 5),
       ),
     );
   }

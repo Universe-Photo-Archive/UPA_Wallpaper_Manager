@@ -818,7 +818,9 @@ Future<void> _initializeApp(
           await _dropHiddenPhotos(container, added);
         }
       }
-      container.read(logServiceProvider).info(
+      container
+          .read(logServiceProvider)
+          .info(
             'Photos masquées (${PiwigoApiService.noMobileTag}) : '
             '${hiddenPhotos.ids.length}',
           );

@@ -191,6 +191,65 @@ class ThemesConfigService {
     }
   }
 
+  // ---------- EXPORT / IMPORT ----------
+
+  /// The user's own galleries, as stored on disk. Copied, so a caller cannot
+  /// mutate the live config by accident.
+  Map<String, dynamic> get userConfigSnapshot =>
+      json.decode(json.encode(_userConfig)) as Map<String, dynamic>;
+
+  /// Replaces the user's galleries with an imported set.
+  ///
+  /// [keepLocalSources] keeps the folder themes of this device, whose paths
+  /// and permissions mean nothing on the machine the file came from.
+  Future<void> replaceUserConfig(
+    Map<String, dynamic> imported, {
+    required bool keepLocalSources,
+  }) async {
+    final local = keepLocalSources
+        ? (_userConfig['localSources'] as List<dynamic>? ?? [])
+        : (imported['localSources'] as List<dynamic>? ?? []);
+    _userConfig = {
+      'version': imported['version'] ?? 1,
+      'piwigoSources': imported['piwigoSources'] as List<dynamic>? ?? [],
+      'localSources': local,
+    };
+    await _saveUserConfig();
+  }
+
+  /// Adds imported galleries to the ones already here, keeping both.
+  Future<void> mergeUserConfig(
+    Map<String, dynamic> imported, {
+    required bool includeLocalSources,
+  }) async {
+    final piwigo = <String, Map<String, dynamic>>{
+      for (final s in userPiwigoSources) s.uniqueKey: s.toJson(),
+    };
+    for (final entry
+        in (imported['piwigoSources'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()) {
+      final source = PiwigoSource.fromJson(entry);
+      piwigo.putIfAbsent(source.uniqueKey, () => source.toJson());
+    }
+    _userConfig['piwigoSources'] = piwigo.values.toList();
+
+    if (includeLocalSources) {
+      final locals = <String, Map<String, dynamic>>{
+        for (final s in userLocalSources) s.id: s.toJson(),
+      };
+      for (final entry
+          in (imported['localSources'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()) {
+        final source = LocalSource.fromJson(entry);
+        if (source.id.isEmpty) continue;
+        locals.putIfAbsent(source.id, () => source.toJson());
+      }
+      _userConfig['localSources'] = locals.values.toList();
+    }
+
+    await _saveUserConfig();
+  }
+
   // ---------- ACCESSORS ----------
 
   /// All piwigo sources from the default config.

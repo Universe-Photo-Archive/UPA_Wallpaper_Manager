@@ -121,10 +121,7 @@ final lockscreenSupportProvider = FutureProvider<LockscreenSupport>((
 /// Themes worth offering: the ones the app's own galleries have emptied are
 /// left out, since picking them could only lead to a blank slideshow.
 final visibleThemesProvider = Provider<List<ThemeCategory>>((ref) {
-  return ref
-      .watch(themesProvider)
-      .where((t) => !t.isEmptyForPickers)
-      .toList();
+  return ref.watch(themesProvider).where((t) => !t.isEmptyForPickers).toList();
 });
 
 final themesProvider =
@@ -425,6 +422,71 @@ class ThemesManager {
         }).toList();
         return c.copyWith(screens: updated);
       });
+    }
+
+    _syncRotationThemeNames();
+  }
+
+  /// Rebuilds the user's themes from what is on disk.
+  ///
+  /// Used after an import, which rewrites themes_user.json underneath the
+  /// running app: without this the new galleries only appear on the next
+  /// start, and removed ones linger.
+  Future<void> reloadUserThemes() async {
+    final cfg = _ref.read(themesConfigServiceProvider);
+    final api = _ref.read(piwigoApiProvider);
+    final localSvc = _ref.read(localGalleryServiceProvider);
+    final cache = _ref.read(cacheServiceProvider);
+    final notifier = _ref.read(themesProvider.notifier);
+
+    final rebuilt = <ThemeCategory>[];
+    for (final src in cfg.userPiwigoSources) {
+      try {
+        rebuilt.addAll(await api.getThemesFromSource(src, isUserAdded: true));
+      } catch (_) {
+        // Unreachable gallery: fall back to whatever it told us last time.
+        if (src.cachedName == null) continue;
+        rebuilt.add(
+          ThemeCategory(
+            id: src.rootCategoryId,
+            name: src.cachedName!,
+            nameRaw: src.cachedName!,
+            url: src.originalUrl ?? '',
+            imageCount: src.cachedImageCount ?? 0,
+            thumbnailUrl: src.cachedThumbnailUrl,
+            sourceBaseUrl: src.baseUrl,
+            isUserAdded: true,
+            originalUrl: src.originalUrl,
+          ),
+        );
+      }
+    }
+    for (final src in cfg.userLocalSources) {
+      try {
+        rebuilt.add(await localSvc.resolveCategory(src));
+      } catch (_) {
+        // Folder gone or permission revoked; nothing to show.
+      }
+    }
+
+    final kept = _ref.read(themesProvider).where((t) => !t.isUserAdded);
+    notifier.setThemes([...kept, ...rebuilt]);
+
+    for (final theme in rebuilt) {
+      try {
+        final localId = LocalSource.idFromSourceBaseUrl(theme.sourceBaseUrl);
+        final images = localId == null
+            ? await api.getThemeImages(
+                theme.id,
+                baseUrl: theme.sourceBaseUrl,
+                recursive: true,
+              )
+            : await localSvc.getImages(cfg.localSourceById(localId)!);
+        cache.replaceThemeImages(theme.displayName, images);
+        notifier.setUsableCount(theme.uniqueKey, images.length);
+      } catch (_) {
+        // Keep whatever is already cached for this theme.
+      }
     }
 
     _syncRotationThemeNames();

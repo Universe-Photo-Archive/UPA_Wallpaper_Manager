@@ -386,6 +386,72 @@ abstract class AppLocalizations {
   /// **'Cache'**
   String get settingsCache;
 
+  /// No description provided for @settingsBackup.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sauvegarde'**
+  String get settingsBackup;
+
+  /// No description provided for @settingsExport.
+  ///
+  /// In fr, this message translates to:
+  /// **'Exporter les paramètres'**
+  String get settingsExport;
+
+  /// No description provided for @settingsExportSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistre vos paramètres, vos galeries ajoutées et vos photos exclues dans un fichier.'**
+  String get settingsExportSubtitle;
+
+  /// No description provided for @settingsExportDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Exporté dans {path}'**
+  String settingsExportDone(String path);
+
+  /// No description provided for @settingsImport.
+  ///
+  /// In fr, this message translates to:
+  /// **'Importer des paramètres'**
+  String get settingsImport;
+
+  /// No description provided for @settingsImportSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Restaure un fichier exporté depuis l\'application, ici ou sur un autre appareil.'**
+  String get settingsImportSubtitle;
+
+  /// No description provided for @settingsImportQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Remplacer votre configuration actuelle par le fichier, ou ajouter ses galeries et ses photos exclues à celles déjà en place ?'**
+  String get settingsImportQuestion;
+
+  /// No description provided for @settingsImportReplace.
+  ///
+  /// In fr, this message translates to:
+  /// **'Remplacer'**
+  String get settingsImportReplace;
+
+  /// No description provided for @settingsImportMerge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter'**
+  String get settingsImportMerge;
+
+  /// No description provided for @settingsImportDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Paramètres importés'**
+  String get settingsImportDone;
+
+  /// No description provided for @settingsTransferFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rien n\'a été modifié : {reason}'**
+  String settingsTransferFailed(String reason);
+
   /// No description provided for @settingsAdvanced.
   ///
   /// In fr, this message translates to:
