@@ -441,6 +441,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gallerySelectThemeHint => 'Select a theme to browse wallpapers';
 
   @override
+  String get gallerySearchImages => 'Search photos';
+
+  @override
+  String get gallerySearchThemes => 'Search themes';
+
+  @override
+  String get gallerySearchClear => 'Clear search';
+
+  @override
+  String gallerySearchNoMatch(String query) {
+    return 'Nothing matches “$query”';
+  }
+
+  @override
+  String get themeNameRequired => 'A name is required';
+
+  @override
+  String nextChange(String time) {
+    return 'Next change: $time';
+  }
+
+  @override
+  String nextChangeTomorrow(String time) {
+    return 'tomorrow at $time';
+  }
+
+  @override
+  String get nextChangeIdle => 'Slideshow off';
+
+  @override
   String get galleryAllScreens => 'All screens';
 
   @override

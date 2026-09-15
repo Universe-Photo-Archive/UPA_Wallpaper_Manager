@@ -8,7 +8,11 @@ class LockscreenChannel {
   /// Sets the lock screen image.
   /// Returns true if successful. May require admin privileges on Windows.
   static Future<bool> setLockscreen(String imagePath) async {
-    if (!File(imagePath).existsSync()) return false;
+    // A photo of the user's own is referenced where it lives and only the
+    // platform can open it; stat'ing it here refused every local theme.
+    if (!imagePath.startsWith('content://') && !File(imagePath).existsSync()) {
+      return false;
+    }
 
     try {
       final result = await _channel.invokeMethod<bool>('setLockscreen', {

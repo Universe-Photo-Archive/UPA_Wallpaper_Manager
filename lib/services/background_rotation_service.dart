@@ -190,6 +190,27 @@ class BackgroundRotationService {
     }
   }
 
+  /// When each slot last changed, so the home cards can print the next one.
+  Future<Map<int, DateTime>> lastRotationTimes() async {
+    if (!Platform.isAndroid) return {};
+    try {
+      final data = await _read(await _stateFile());
+      final targets = data?['targets'];
+      if (targets is! List) return {};
+      final result = <int, DateTime>{};
+      for (final target in targets) {
+        if (target is! Map) continue;
+        final id = target['id'] as int?;
+        final at = target['lastRotationAt'];
+        if (id == null || at is! num || at <= 0) continue;
+        result[id] = DateTime.fromMillisecondsSinceEpoch(at.toInt());
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
   /// Wallpapers the background rotation applied last, per screen id, so the
   /// app can seed its previews with what is actually displayed.
   Future<Map<int, String>> lastAppliedWallpapers() async {
@@ -204,7 +225,11 @@ class BackgroundRotationService {
         final id = target['id'] as int?;
         final current = target['current'] as String?;
         if (id == null || current == null || current.isEmpty) continue;
-        if (await File(current).exists()) result[id] = current;
+        // A photo of the user's own is read in place, so there is no file to
+        // check: the platform is the only one that can open it.
+        if (current.startsWith('content://') || await File(current).exists()) {
+          result[id] = current;
+        }
       }
       return result;
     } catch (_) {

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_config.dart';
+import '../../platform/media_access_channel.dart';
 import '../../providers/app_providers.dart';
+import '../widgets/device_image.dart';
 
 /// Images the user banned, laid out like the gallery so the two feel alike.
 ///
@@ -151,7 +153,11 @@ class _ExcludedTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final path = image.localPath;
-    final available = path != null && File(path).existsSync();
+    // A banned photo of the user's own has no file to check; the platform
+    // resolves it to a thumbnail.
+    final available =
+        path != null &&
+        (MediaAccessChannel.isDocumentUri(path) || File(path).existsSync());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -163,12 +169,7 @@ class _ExcludedTile extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (available)
-                  Image.file(
-                    File(path),
-                    fit: BoxFit.cover,
-                    cacheWidth: 500,
-                    errorBuilder: (_, __, ___) => _Missing(),
-                  )
+                  DeviceImageView(reference: path, maxSize: 500)
                 else
                   _Missing(),
                 Positioned(

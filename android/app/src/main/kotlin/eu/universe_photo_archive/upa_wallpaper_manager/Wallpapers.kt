@@ -25,9 +25,12 @@ object Wallpapers {
         return try {
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             if (isContentUri(imagePath)) {
-                context.contentResolver.openInputStream(imagePath.toUri())?.use {
-                    BitmapFactory.decodeStream(it, null, options)
-                } ?: return false
+                // decodeStream returns null in bounds mode, so the stream --
+                // not what it decodes to -- is what says the photo is
+                // readable. Testing the result rejected every user photo.
+                val stream = context.contentResolver.openInputStream(imagePath.toUri())
+                    ?: return false
+                stream.use { BitmapFactory.decodeStream(it, null, options) }
             } else {
                 val file = File(imagePath)
                 if (!file.exists() || file.length() == 0L) return false
@@ -48,29 +51,68 @@ object Wallpapers {
      * Uses [WallpaperManager.setStream] so the image is decoded by the system
      * wallpaper service instead of in this process: decoding multi-megapixel
      * photos with BitmapFactory routinely exceeded the app heap.
+     *
+     * A photo of the user's own is referenced as a `content://` URI. That
+     * stream cannot be reset, and [WallpaperManager.setStream] re-reads it
+     * internally — the second pass is empty, the call looks successful and
+     * the wallpaper never changes. Copying to a real file first is what
+     * makes a custom theme usable as a wallpaper.
      */
     fun apply(context: Context, imagePath: String, flags: Int): Boolean {
         return try {
-            if (!isUsable(context, imagePath)) return false
+            if (!isUsable(context, imagePath)) {
+                log(context, "apply refused: unusable $imagePath")
+                return false
+            }
+
+            val file = if (isContentUri(imagePath)) {
+                materialize(context, imagePath) ?: run {
+                    log(context, "apply refused: could not copy $imagePath")
+                    return false
+                }
+            } else {
+                File(imagePath)
+            }
 
             val wm = WallpaperManager.getInstance(context.applicationContext)
-            val stream = if (isContentUri(imagePath)) {
-                context.contentResolver.openInputStream(imagePath.toUri())
-            } else {
-                FileInputStream(File(imagePath))
-            } ?: return false
-
-            stream.use {
+            FileInputStream(file).use { stream ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    wm.setStream(it, null, true, flags)
+                    wm.setStream(stream, null, true, flags)
                 } else {
-                    wm.setStream(it)
+                    wm.setStream(stream)
                 }
             }
             true
         } catch (e: Exception) {
+            log(context, "apply failed: ${e.javaClass.simpleName}: ${e.message}")
             e.printStackTrace()
             false
+        }
+    }
+
+    /** Copies a `content://` photo to a temp file [setStream] can re-read. */
+    private fun materialize(context: Context, uri: String): File? {
+        return try {
+            val stale = System.currentTimeMillis() - 60_000L
+            context.cacheDir.listFiles { _, name -> name.startsWith("wallpaper-apply-") }
+                ?.filter { it.lastModified() < stale }
+                ?.forEach { it.delete() }
+
+            val dest = File.createTempFile("wallpaper-apply-", ".bin", context.cacheDir)
+            context.contentResolver.openInputStream(uri.toUri())?.use { input ->
+                dest.outputStream().use { output -> input.copyTo(output) }
+            } ?: run {
+                dest.delete()
+                return null
+            }
+            if (dest.length() == 0L) {
+                dest.delete()
+                return null
+            }
+            dest
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 

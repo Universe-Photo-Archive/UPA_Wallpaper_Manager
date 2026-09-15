@@ -27,6 +27,7 @@ import 'services/log_service.dart';
 import 'services/rotation_service.dart';
 import 'services/system_tray_service.dart';
 import 'services/themes_config_service.dart';
+import 'platform/media_access_channel.dart';
 import 'platform/wallpaper_channel.dart';
 import 'platform/lockscreen_channel.dart';
 
@@ -71,7 +72,10 @@ void _applyExternalWallpaper(
   int screenId,
   String path,
 ) {
-  if (!File(path).existsSync()) return;
+  // A photo read in place has no file to stat; only the platform can open it.
+  if (!MediaAccessChannel.isDocumentUri(path) && !File(path).existsSync()) {
+    return;
+  }
   final current = Map<int, String>.from(
     container.read(currentWallpapersProvider),
   );
@@ -79,6 +83,7 @@ void _applyExternalWallpaper(
   current[screenId] = path;
   container.read(currentWallpapersProvider.notifier).state = current;
   container.read(cacheServiceProvider).pinWallpaper(screenId, path);
+  stampLastRotationIn(container, screenId);
   _log.d('Preview synced with background rotation: screen=$screenId $path');
 }
 
@@ -99,6 +104,13 @@ class _ForegroundWallpaperSync with WidgetsBindingObserver {
       applied.forEach((screenId, path) {
         _applyExternalWallpaper(container, screenId, path);
       });
+    });
+    _backgroundRotation.lastRotationTimes().then((times) {
+      if (times.isEmpty) return;
+      container.read(lastRotationAtProvider.notifier).state = {
+        ...container.read(lastRotationAtProvider),
+        ...times,
+      };
     });
     // The notification's stop button may have been used while away.
     _backgroundRotation.allTargetsDisabled().then((stopped) {
@@ -419,6 +431,7 @@ void main(List<String> args) async {
     );
     current[screenId] = imagePath;
     container.read(currentWallpapersProvider.notifier).state = current;
+    stampLastRotationIn(container, screenId);
 
     // Let the Android slideshow service know what is already on screen so it
     // does not pick the same image on its next tick.
@@ -794,6 +807,13 @@ Future<void> _initializeApp(
       container.read(currentWallpapersProvider.notifier).state =
           initialWallpapers;
       _log.i('Seeded preview with ${initialWallpapers.length} OS wallpaper(s)');
+    }
+
+    if (Platform.isAndroid) {
+      final times = await _backgroundRotation.lastRotationTimes();
+      if (times.isNotEmpty) {
+        container.read(lastRotationAtProvider.notifier).state = times;
+      }
     }
 
     // System tray

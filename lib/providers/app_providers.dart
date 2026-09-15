@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 import '../models/app_config.dart';
 import '../models/screen_info.dart';
 import '../models/theme_category.dart';
@@ -123,6 +122,13 @@ final lockscreenSupportProvider = FutureProvider<LockscreenSupport>((
 final visibleThemesProvider = Provider<List<ThemeCategory>>((ref) {
   return ref.watch(themesProvider).where((t) => !t.isEmptyForPickers).toList();
 });
+
+/// Unique keys of the themes the gallery is browsing.
+///
+/// Held here rather than inside the screen: the tabs are separate routes, so
+/// the gallery is disposed whenever another tab is shown and the user had to
+/// pick their collection again on every visit.
+final gallerySelectionProvider = StateProvider<Set<String>>((ref) => const {});
 
 final themesProvider =
     StateNotifierProvider<ThemesNotifier, List<ThemeCategory>>((ref) {
@@ -551,13 +557,12 @@ class ExclusionsManager {
     if (path == null) return false;
 
     final cache = _ref.read(cacheServiceProvider);
-    final theme = cache.themeOfCachedFile(path);
-    if (theme == null) return false;
+    final found = cache.locate(path);
+    if (found == null) return false;
 
-    final filename = p.basename(path);
     final entry = ExcludedImage(
-      theme: theme,
-      filename: filename,
+      theme: found.theme,
+      filename: found.filename,
       localPath: path,
     );
 
@@ -668,6 +673,87 @@ final rotationPausedProvider = StateProvider<bool>((ref) => false);
 // --- Current wallpapers per screen ---
 
 final currentWallpapersProvider = StateProvider<Map<int, String>>((ref) => {});
+
+/// When each slot last received a wallpaper, used to print the next change.
+final lastRotationAtProvider = StateProvider<Map<int, DateTime>>((ref) => {});
+
+void _stampLastRotation(
+  StateController<Map<int, DateTime>> controller,
+  int screenId,
+) {
+  controller.state = {...controller.state, screenId: DateTime.now()};
+}
+
+/// Notes that [screenId] just changed, so the home cards can recompute.
+void stampLastRotation(WidgetRef ref, int screenId) =>
+    _stampLastRotation(ref.read(lastRotationAtProvider.notifier), screenId);
+
+/// Same as [stampLastRotation], for the startup [ProviderContainer].
+void stampLastRotationIn(ProviderContainer container, int screenId) =>
+    _stampLastRotation(
+      container.read(lastRotationAtProvider.notifier),
+      screenId,
+    );
+
+/// Rebuilds once a minute so the "next change" line stays accurate.
+final clockTickProvider = StreamProvider<DateTime>((ref) {
+  return Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
+});
+
+/// Next wall-clock slot for a delay of [interval], matching the Android alarms.
+DateTime nextClockSlot(DateTime now, Duration interval) {
+  final step = interval.inMilliseconds < 60000
+      ? 60000
+      : interval.inMilliseconds;
+  final midnight = DateTime(now.year, now.month, now.day);
+  final elapsed = now.difference(midnight).inMilliseconds;
+  var slot = midnight.add(
+    Duration(milliseconds: ((elapsed ~/ step) + 1) * step),
+  );
+  if (slot.difference(now).inSeconds < 10) {
+    slot = slot.add(Duration(milliseconds: step));
+  }
+  return slot;
+}
+
+/// Pushes [when] to the end of the quiet window when it would fall inside.
+DateTime skipQuietHours(DateTime when, QuietHours quiet) {
+  if (!quiet.enabled || !quiet.isValid) return when;
+  final minutes = when.hour * 60 + when.minute;
+  if (!quiet.containsMinutes(minutes)) return when;
+  var end = DateTime(
+    when.year,
+    when.month,
+    when.day,
+    quiet.endMinutes ~/ 60,
+    quiet.endMinutes % 60,
+  );
+  if (!end.isAfter(when)) end = end.add(const Duration(days: 1));
+  return end;
+}
+
+/// When the slideshow will next change this slot, or null if it is stopped.
+DateTime? nextRotationAt({
+  required ScreenConfig? config,
+  required bool paused,
+  required QuietHours quietHours,
+  required DateTime now,
+  DateTime? lastRotation,
+  required bool alignedToClock,
+}) {
+  if (config == null || !config.rotationEnabled || paused) return null;
+  final delay = Duration(seconds: config.rotationDelaySeconds);
+  final DateTime raw;
+  if (alignedToClock) {
+    raw = nextClockSlot(now, delay);
+  } else if (lastRotation != null) {
+    final due = lastRotation.add(delay);
+    raw = due.isAfter(now) ? due : now.add(delay);
+  } else {
+    raw = now.add(delay);
+  }
+  return skipQuietHours(raw, quietHours);
+}
 
 // --- Loading states ---
 

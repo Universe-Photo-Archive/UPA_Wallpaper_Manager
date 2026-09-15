@@ -1,24 +1,23 @@
-## UPA Wallpaper Manager 2.1.0
+## UPA Wallpaper Manager 2.2.0
 
-Android rejoint Windows dans le même code source / Android joins Windows in one codebase.
+Corrections du test fermé Play Store et améliorations demandées / closed-test fixes and requested improvements.
+
+### Corrections / Fixes
+
+- **Photos personnelles** : une photo d'un thème personnalisé peut enfin être appliquée au fond d'écran, à l'écran de verrouillage, ou aux deux / a photo from a custom theme can now be applied to the home wallpaper, the lock screen, or both
+- **Champs numériques** : la taille du cache, le délai réseau et le délai du diaporama n'acceptent plus que des chiffres / cache size, network timeout and slideshow delay accept digits only
+- **Navigation** : l'onglet Galerie quitte bien la liste des images exclues / the Gallery tab leaves the excluded-images page
+- **Galerie** : le thème choisi est conservé en changeant d'onglet / the selected theme is kept when leaving the tab
 
 ### Nouveautés / What's new
 
-- **Android** : diaporama en arrière-plan, thèmes et délai par écran (fond d'écran et écran de verrouillage) / background slideshow, per-slot themes & delay (home and lock screen)
-- **Rotation à l'heure ronde** : un délai de 15 minutes change le fond d'écran à h:00, h:15, h:30 et h:45, sans dérive / clock-aligned rotation, no drift
-- **Plage horaire silencieuse** : pause automatique du diaporama entre deux heures, format 12 h ou 24 h selon l'appareil / quiet hours, 12- or 24-hour format
-- **Écran de verrouillage Windows indépendant** : son propre cadre, ses thèmes et son délai, au lieu d'une copie de l'écran 1 (droits admin requis, Windows Pro/Entreprise/Éducation) / independent Windows lock screen
-- **Exclusion d'images** : bannir la photo affichée d'un clic, la liste se gère dans les paramètres / exclude the photo on screen, managed from Settings
-- **Sélection multiple de thèmes** : cocher plusieurs thèmes par écran et dans la galerie / multi-theme selection per slot and in the gallery
-- **Taille de l'interface** (Windows) : normale, grande ou très grande / interface size on desktop
-- **Zone de notification** (Windows) : un message rappelle où est passée la fenêtre, désactivable dans les paramètres / a notice says where the window went
-- **Titre des photos** : le titre Piwigo s'affiche sous chaque miniature et sous l'aperçu, à la place du nom de fichier / the Piwigo title replaces the file name under thumbnails and previews
-- **Photos non destinées au mobile** (Android) : les photos taguées « NoMobile » dans les galeries Universe Photo Archive sont écartées partout, option activée par défaut / photos tagged "NoMobile" are left out everywhere
-- **Thèmes vides masqués** : un thème Universe Photo Archive sans photo à afficher disparaît des sélecteurs / empty UPA themes leave the pickers
-- **Export et import des paramètres** : paramètres, galeries ajoutées et photos exclues dans un fichier, à reprendre sur un autre appareil / export and import your whole setup
+- **Recherche** : filtrer les thèmes et les photos par nom dans la galerie / search themes and photos by name in the gallery
+- **Prochain changement** : l'heure du prochain fond d'écran s'affiche sur l'accueil, avec un bouton pour changer tout de suite / next change time on Home, plus a change-now button
+- **Nom de thème** : un nom vide affiche une erreur au lieu de fermer la fenêtre / an empty theme name keeps the prompt open with an explanation
+- **Galerie vide** : un bouton ouvre directement le choix des thèmes / a button opens the theme picker from the empty state
 
 ### Installation
 
-Téléchargez et exécutez / download and run: `UPA_Wallpaper_Manager_Setup_2.1.0.exe`
+Téléchargez et exécutez / download and run: `UPA_Wallpaper_Manager_Setup_2.2.0.exe`
 
 L'application requiert les droits administrateur (fonction écran de verrouillage) / the app requires administrator privileges (lock-screen feature).

@@ -890,6 +890,54 @@ abstract class AppLocalizations {
   /// **'Sélectionnez un thème pour parcourir les fonds d\'écran'**
   String get gallerySelectThemeHint;
 
+  /// No description provided for @gallerySearchImages.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher une photo'**
+  String get gallerySearchImages;
+
+  /// No description provided for @gallerySearchThemes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher un thème'**
+  String get gallerySearchThemes;
+
+  /// No description provided for @gallerySearchClear.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer la recherche'**
+  String get gallerySearchClear;
+
+  /// No description provided for @gallerySearchNoMatch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun résultat pour « {query} »'**
+  String gallerySearchNoMatch(String query);
+
+  /// No description provided for @themeNameRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un nom est obligatoire'**
+  String get themeNameRequired;
+
+  /// No description provided for @nextChange.
+  ///
+  /// In fr, this message translates to:
+  /// **'Prochain changement : {time}'**
+  String nextChange(String time);
+
+  /// No description provided for @nextChangeTomorrow.
+  ///
+  /// In fr, this message translates to:
+  /// **'demain à {time}'**
+  String nextChangeTomorrow(String time);
+
+  /// No description provided for @nextChangeIdle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Diaporama arrêté'**
+  String get nextChangeIdle;
+
   /// No description provided for @galleryAllScreens.
   ///
   /// In fr, this message translates to:

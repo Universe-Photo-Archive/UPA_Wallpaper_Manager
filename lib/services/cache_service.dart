@@ -67,6 +67,26 @@ class CacheService {
     return relative.substring(0, slash);
   }
 
+  /// Theme and file name under which [reference] is known, whatever it is.
+  ///
+  /// The user's own photos live outside the cache, so neither their theme nor
+  /// the name the index gave them can be read off the path: the index is
+  /// searched instead. Without this a local photo could not be banned, since
+  /// the ban list is keyed by theme and name.
+  ({String theme, String filename})? locate(String reference) {
+    for (final entry in _index.entries) {
+      for (final image in entry.value) {
+        if (image.localPath == reference) {
+          return (theme: entry.key, filename: image.filename);
+        }
+      }
+    }
+
+    final theme = themeOfCachedFile(reference);
+    if (theme == null) return null;
+    return (theme: theme, filename: _normalizePath(reference).split('/').last);
+  }
+
   /// Title of a cached photo, for the caption under the home-screen preview.
   ///
   /// Photos cached by an older build carry no title; the file name stands in

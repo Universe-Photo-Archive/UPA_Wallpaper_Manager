@@ -5,14 +5,22 @@ import 'package:go_router/go_router.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/app_providers.dart';
 import 'ui/theme/app_theme.dart';
+import 'models/theme_source.dart';
 import 'ui/screens/shell_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/gallery_screen.dart';
+import 'ui/screens/edit_local_theme_screen.dart';
+import 'ui/screens/excluded_images_screen.dart';
 import 'ui/screens/settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Every page reachable from a tab is a route of that tab, sub-pages included.
+///
+/// Opening one with `Navigator.push` instead left it stacked on a tab the
+/// router knew nothing about: tapping another tab highlighted it but the
+/// pushed page stayed on screen, and only its back arrow could dismiss it.
 final _router = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
@@ -30,11 +38,28 @@ final _router = GoRouter(
           path: '/gallery',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: GalleryScreen()),
+          routes: [
+            GoRoute(
+              path: 'theme',
+              pageBuilder: (context, state) => MaterialPage(
+                fullscreenDialog: true,
+                child: EditLocalThemeScreen(
+                  source: state.extra as LocalSource,
+                ),
+              ),
+            ),
+          ],
         ),
         GoRoute(
           path: '/settings',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: SettingsScreen()),
+          routes: [
+            GoRoute(
+              path: 'excluded',
+              builder: (context, state) => const ExcludedImagesScreen(),
+            ),
+          ],
         ),
       ],
     ),

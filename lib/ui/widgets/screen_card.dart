@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_config.dart';
@@ -391,6 +392,9 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                         controller: _delayController,
                         focusNode: _delayFocus,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 14),
                         decoration: const InputDecoration(
@@ -468,6 +472,8 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 12),
+                _NextChangeRow(screenId: screen.id, config: screenConfig),
               ],
             );
 
@@ -553,6 +559,74 @@ class _ScreenCardState extends ConsumerState<ScreenCard> {
       }
       return config.copyWith(screens: screens);
     });
+  }
+}
+
+/// Next scheduled change and a button to rotate this slot immediately.
+class _NextChangeRow extends ConsumerWidget {
+  final int screenId;
+  final ScreenConfig? config;
+
+  const _NextChangeRow({required this.screenId, required this.config});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    ref.watch(clockTickProvider);
+    final paused = ref.watch(rotationPausedProvider);
+    final last = ref.watch(lastRotationAtProvider)[screenId];
+    final quiet = ref.watch(configProvider).quietHours;
+    final next = nextRotationAt(
+      config: config,
+      paused: paused,
+      quietHours: quiet,
+      now: DateTime.now(),
+      lastRotation: last,
+      alignedToClock: Platform.isAndroid,
+    );
+
+    final muted = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.6);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            next == null
+                ? (paused ? l10n.statusPaused : l10n.nextChangeIdle)
+                : l10n.nextChange(_formatWhen(context, l10n, next)),
+            style: TextStyle(fontSize: 12, color: muted),
+          ),
+        ),
+        TextButton.icon(
+          onPressed: () =>
+              ref.read(rotationServiceProvider).rotateScreen(screenId),
+          icon: const Icon(Icons.skip_next_rounded, size: 18),
+          label: Text(l10n.trayChangeNow),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatWhen(
+    BuildContext context,
+    AppLocalizations l10n,
+    DateTime when,
+  ) {
+    final now = DateTime.now();
+    final time = TimeOfDay.fromDateTime(when).format(context);
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(when.year, when.month, when.day);
+    if (day == today) return time;
+    if (day == today.add(const Duration(days: 1))) {
+      return l10n.nextChangeTomorrow(time);
+    }
+    return '${MaterialLocalizations.of(context).formatShortDate(when)} $time';
   }
 }
 

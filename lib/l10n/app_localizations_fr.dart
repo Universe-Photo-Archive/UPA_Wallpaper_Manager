@@ -448,6 +448,36 @@ class AppLocalizationsFr extends AppLocalizations {
       'Sélectionnez un thème pour parcourir les fonds d\'écran';
 
   @override
+  String get gallerySearchImages => 'Rechercher une photo';
+
+  @override
+  String get gallerySearchThemes => 'Rechercher un thème';
+
+  @override
+  String get gallerySearchClear => 'Effacer la recherche';
+
+  @override
+  String gallerySearchNoMatch(String query) {
+    return 'Aucun résultat pour « $query »';
+  }
+
+  @override
+  String get themeNameRequired => 'Un nom est obligatoire';
+
+  @override
+  String nextChange(String time) {
+    return 'Prochain changement : $time';
+  }
+
+  @override
+  String nextChangeTomorrow(String time) {
+    return 'demain à $time';
+  }
+
+  @override
+  String get nextChangeIdle => 'Diaporama arrêté';
+
+  @override
   String get galleryAllScreens => 'Tous les écrans';
 
   @override

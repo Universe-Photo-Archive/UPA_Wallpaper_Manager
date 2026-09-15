@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/theme_source.dart';
 import '../../providers/app_providers.dart';
@@ -26,12 +27,7 @@ class EditLocalThemeScreen extends ConsumerWidget {
     BuildContext context, {
     required LocalSource source,
   }) {
-    return Navigator.of(context).push<EditThemeAction>(
-      MaterialPageRoute(
-        builder: (_) => EditLocalThemeScreen(source: source),
-        fullscreenDialog: true,
-      ),
-    );
+    return context.push<EditThemeAction>('/gallery/theme', extra: source);
   }
 
   @override
@@ -67,7 +63,7 @@ class EditLocalThemeScreen extends ConsumerWidget {
               icon: Icons.remove_circle_outline_rounded,
               title: l10n.editThemeRemove,
               subtitle: l10n.editThemeRemoveDescription,
-              onTap: () => Navigator.pop(context, EditThemeAction.removePhotos),
+              onTap: () => context.pop(EditThemeAction.removePhotos),
             ),
             const SizedBox(height: 12),
           ],
@@ -86,7 +82,7 @@ class EditLocalThemeScreen extends ConsumerWidget {
     final name = await promptThemeName(context, initial: source.name);
     if (name == null || !context.mounted) return;
     await ref.read(themesManagerProvider).renameLocalTheme(source, name);
-    if (context.mounted) Navigator.pop(context);
+    if (context.mounted) context.pop();
   }
 
   Future<void> _addPhotos(BuildContext context, WidgetRef ref) async {
@@ -112,7 +108,7 @@ class EditLocalThemeScreen extends ConsumerWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(l10n.photosAdded)));
-    Navigator.pop(context);
+    context.pop();
   }
 }
 

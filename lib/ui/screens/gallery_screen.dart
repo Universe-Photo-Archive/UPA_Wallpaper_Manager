@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
+import '../../models/screen_info.dart';
 import '../../models/theme_category.dart';
 import '../../models/wallpaper_image.dart';
 import '../../providers/app_providers.dart';
@@ -22,16 +23,58 @@ class GalleryScreen extends ConsumerStatefulWidget {
 }
 
 class _GalleryScreenState extends ConsumerState<GalleryScreen> {
-  /// Unique keys of the themes whose images are shown. Empty means nothing is
-  /// selected yet; several themes can be browsed at once.
-  Set<String> _selectedKeys = {};
   bool _loading = false;
   int _loadToken = 0;
   List<WallpaperImage> _images = [];
 
+  /// What the user typed to narrow the photos down to a title.
+  String _query = '';
+  final TextEditingController _searchController = TextEditingController();
+
   /// Set while the user picks photos to take out of a custom theme.
   bool _removing = false;
   final Set<String> _markedForRemoval = {};
+
+  /// Themes being browsed. Kept outside the screen so leaving the tab and
+  /// coming back does not lose the selection.
+  Set<String> get _selectedKeys => ref.read(gallerySelectionProvider);
+
+  @override
+  void initState() {
+    super.initState();
+    // Coming back to the tab: the selection outlived the screen, its photos
+    // did not.
+    if (ref.read(gallerySelectionProvider).isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadImages());
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _select(Set<String> keys) {
+    ref.read(gallerySelectionProvider.notifier).state = keys;
+    // A search made against the previous collection would hide the new one.
+    _searchController.clear();
+    _query = '';
+    _loadImages();
+  }
+
+  /// Photos matching what the user is looking for, by title or file name.
+  List<WallpaperImage> get _visibleImages {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return _images;
+    return _images
+        .where(
+          (image) =>
+              image.displayTitle.toLowerCase().contains(query) ||
+              image.filename.toLowerCase().contains(query),
+        )
+        .toList();
+  }
 
   /// The local theme being browsed, when exactly one is selected. Editing only
   /// makes sense then: it is the theme the photos on screen belong to.
@@ -43,19 +86,30 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     return localSourceFor(ref, themes[index]);
   }
 
+  Future<void> _openThemePicker() async {
+    final themes = ref.read(visibleThemesProvider);
+    final result = await pickThemes(
+      context: context,
+      themes: themes,
+      selected: _selectedKeys,
+      valueOf: (t) => t.uniqueKey,
+    );
+    if (result != null) _select(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final themes = ref.watch(visibleThemesProvider);
+    final selected = ref.watch(gallerySelectionProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Drop selections whose theme was removed in the meantime.
     final available = themes.map((t) => t.uniqueKey).toSet();
-    if (_selectedKeys.any((k) => !available.contains(k))) {
+    if (selected.any((k) => !available.contains(k))) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        setState(() => _selectedKeys = _selectedKeys.intersection(available));
-        _loadImages();
+        _select(selected.intersection(available));
       });
     }
 
@@ -97,11 +151,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                 ),
                 child: _ThemeMultiSelect(
                   themes: themes,
-                  selected: _selectedKeys,
-                  onChanged: (keys) {
-                    setState(() => _selectedKeys = keys);
-                    _loadImages();
-                  },
+                  selected: selected,
+                  onTap: _openThemePicker,
                 ),
               ),
             ),
@@ -138,91 +189,162 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     );
   }
 
-  /// Grid of the loaded images, shared by the normal and removal modes.
+  /// Search field and grid of the loaded images, shared by the normal and
+  /// removal modes.
   Widget _buildGrid(AppLocalizations l10n) {
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _images.isEmpty
-        ? Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.photo_library_outlined,
-                    size: 72,
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_images.isEmpty) return _buildEmpty(l10n);
+
+    final images = _visibleImages;
+    return Column(
+      children: [
+        _buildSearchField(l10n),
+        if (images.isEmpty)
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  l10n.gallerySearchNoMatch(_query.trim()),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.2),
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _selectedKeys.isEmpty
-                        ? l10n.gallerySelectThemeHint
-                        : l10n.galleryEmpty,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                ),
               ),
             ),
           )
-        : LayoutBuilder(
-            builder: (context, constraints) {
-              final crossCount = constraints.maxWidth > 1200
-                  ? 5
-                  : constraints.maxWidth > 900
-                  ? 4
-                  : constraints.maxWidth > 600
-                  ? 3
-                  : 2;
+        else
+          Expanded(child: _buildTiles(images)),
+      ],
+    );
+  }
 
-              return GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossCount,
-                  // Squarer than the photos themselves: the extra
-                  // height is the caption line under each one.
-                  childAspectRatio: 16 / 12,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
+  /// A collection can hold thousands of photos, which no amount of scrolling
+  /// makes browsable.
+  Widget _buildSearchField(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: TextField(
+        controller: _searchController,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: l10n.gallerySearchImages,
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: _query.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: l10n.gallerySearchClear,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _query = '');
+                  },
                 ),
-                itemCount: _images.length,
-                itemBuilder: (context, index) {
-                  final image = _images[index];
-                  final reference = image.localPath;
-                  final marked =
-                      reference != null &&
-                      _markedForRemoval.contains(reference);
-                  return _GalleryTile(
-                    image: image,
-                    selectable: _removing,
-                    selected: marked,
-                    onTap: () {
-                      if (!_removing) {
-                        _showImageDetail(image);
-                        return;
-                      }
-                      if (reference == null) return;
-                      setState(() {
-                        if (marked) {
-                          _markedForRemoval.remove(reference);
-                        } else {
-                          _markedForRemoval.add(reference);
-                        }
-                      });
-                    },
-                  );
-                },
-              );
-            },
-          );
+          border: const OutlineInputBorder(),
+        ),
+        onChanged: (value) => setState(() => _query = value),
+      ),
+    );
+  }
+
+  Widget _buildTiles(List<WallpaperImage> images) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossCount = constraints.maxWidth > 1200
+            ? 5
+            : constraints.maxWidth > 900
+            ? 4
+            : constraints.maxWidth > 600
+            ? 3
+            : 2;
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossCount,
+            // Squarer than the photos themselves: the extra
+            // height is the caption line under each one.
+            childAspectRatio: 16 / 12,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: images.length,
+          itemBuilder: (context, index) {
+            final image = images[index];
+            final reference = image.localPath;
+            final marked =
+                reference != null && _markedForRemoval.contains(reference);
+            return _GalleryTile(
+              image: image,
+              selectable: _removing,
+              selected: marked,
+              onTap: () {
+                if (!_removing) {
+                  _showImageDetail(image);
+                  return;
+                }
+                if (reference == null) return;
+                setState(() {
+                  if (marked) {
+                    _markedForRemoval.remove(reference);
+                  } else {
+                    _markedForRemoval.add(reference);
+                  }
+                });
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Nothing to show: either no theme is chosen yet, or the chosen ones are
+  /// empty. The first case is a step the user still has to take, so it comes
+  /// with the button that takes it.
+  Widget _buildEmpty(AppLocalizations l10n) {
+    final nothingChosen = _selectedKeys.isEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.photo_library_outlined,
+              size: 72,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.2),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              nothingChosen ? l10n.gallerySelectThemeHint : l10n.galleryEmpty,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (nothingChosen) ...[
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _openThemePicker,
+                icon: const Icon(Icons.collections_outlined, size: 18),
+                label: Text(l10n.gallerySelectTheme),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   /// Loads the images of every selected theme, in selection order.
@@ -359,12 +481,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 class _ThemeMultiSelect extends StatelessWidget {
   final List<ThemeCategory> themes;
   final Set<String> selected;
-  final ValueChanged<Set<String>> onChanged;
+  final VoidCallback onTap;
 
   const _ThemeMultiSelect({
     required this.themes,
     required this.selected,
-    required this.onChanged,
+    required this.onTap,
   });
 
   @override
@@ -383,15 +505,7 @@ class _ThemeMultiSelect extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () async {
-        final result = await pickThemes(
-          context: context,
-          themes: themes,
-          selected: selected,
-          valueOf: (t) => t.uniqueKey,
-        );
-        if (result != null) onChanged(result);
-      },
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
@@ -720,32 +834,41 @@ class _ImageDetailDialog extends ConsumerWidget {
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final path = await _resolveLocalPath(ref);
-    if (path != null && context.mounted) {
-      final success = await WallpaperChannel.setWallpaper(
-        imagePath: path,
-        screenId: screenId,
-      );
-
-      if (success) {
-        final current = Map<int, String>.from(
-          ref.read(currentWallpapersProvider),
-        );
-        current[screenId] = path;
-        ref.read(currentWallpapersProvider.notifier).state = current;
-      }
-
+    if (path == null || !context.mounted) {
       if (context.mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? l10n.galleryWallpaperApplied
-                  : l10n.galleryWallpaperFailed,
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.galleryWallpaperFailed)));
       }
+      return;
+    }
+
+    final success = await WallpaperChannel.setWallpaper(
+      imagePath: path,
+      screenId: screenId,
+    );
+
+    if (success) {
+      final current = Map<int, String>.from(
+        ref.read(currentWallpapersProvider),
+      );
+      current[screenId] = path;
+      ref.read(currentWallpapersProvider.notifier).state = current;
+      stampLastRotation(ref, screenId);
+    }
+
+    if (context.mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? l10n.galleryWallpaperApplied
+                : l10n.galleryWallpaperFailed,
+          ),
+        ),
+      );
     }
   }
 
@@ -763,6 +886,8 @@ class _ImageDetailDialog extends ConsumerWidget {
       current[0] = path;
       current[1] = path;
       ref.read(currentWallpapersProvider.notifier).state = current;
+      stampLastRotation(ref, 0);
+      stampLastRotation(ref, 1);
     }
     if (!context.mounted) return;
 
@@ -782,6 +907,15 @@ class _ImageDetailDialog extends ConsumerWidget {
     if (path == null || !context.mounted) return;
 
     final success = await LockscreenChannel.setLockscreen(path);
+    if (success) {
+      final lockId = Platform.isAndroid ? 1 : kDesktopLockScreenId;
+      final current = Map<int, String>.from(
+        ref.read(currentWallpapersProvider),
+      );
+      current[lockId] = path;
+      ref.read(currentWallpapersProvider.notifier).state = current;
+      stampLastRotation(ref, lockId);
+    }
     if (!context.mounted) return;
 
     Navigator.pop(context);
@@ -801,35 +935,42 @@ class _ImageDetailDialog extends ConsumerWidget {
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final path = await _resolveLocalPath(ref);
-    if (path != null && context.mounted) {
-      bool anySuccess = false;
-      final current = Map<int, String>.from(
-        ref.read(currentWallpapersProvider),
-      );
-      for (int i = 0; i < screenCount; i++) {
-        final success = await WallpaperChannel.setWallpaper(
-          imagePath: path,
-          screenId: i,
-        );
-        if (success) {
-          anySuccess = true;
-          current[i] = path;
-        }
-      }
-      ref.read(currentWallpapersProvider.notifier).state = current;
-
+    if (path == null || !context.mounted) {
       if (context.mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              anySuccess
-                  ? l10n.galleryWallpaperAppliedAll
-                  : l10n.galleryWallpaperFailed,
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.galleryWallpaperFailed)));
       }
+      return;
+    }
+
+    bool anySuccess = false;
+    final current = Map<int, String>.from(ref.read(currentWallpapersProvider));
+    for (int i = 0; i < screenCount; i++) {
+      final success = await WallpaperChannel.setWallpaper(
+        imagePath: path,
+        screenId: i,
+      );
+      if (success) {
+        anySuccess = true;
+        current[i] = path;
+        stampLastRotation(ref, i);
+      }
+    }
+    ref.read(currentWallpapersProvider.notifier).state = current;
+
+    if (context.mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            anySuccess
+                ? l10n.galleryWallpaperAppliedAll
+                : l10n.galleryWallpaperFailed,
+          ),
+        ),
+      );
     }
   }
 }

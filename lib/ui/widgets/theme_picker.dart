@@ -34,6 +34,7 @@ Future<Set<String>?> pickThemes({
 }) {
   final l10n = AppLocalizations.of(context)!;
   final working = Set<String>.from(selected);
+  final search = TextEditingController();
 
   return showModalBottomSheet<Set<String>>(
     context: context,
@@ -43,6 +44,15 @@ Future<Set<String>?> pickThemes({
       builder: (ctx, setSheetState) {
         final allSelected =
             themes.isNotEmpty && working.length == themes.length;
+        // Searching narrows what is listed, never what is ticked: the master
+        // checkbox and the OK button always speak of the whole catalogue.
+        final query = search.text.trim().toLowerCase();
+        final shown = query.isEmpty
+            ? themes
+            : themes
+                  .where((t) => t.displayName.toLowerCase().contains(query))
+                  .toList();
+
         return SafeArea(
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -51,6 +61,28 @@ Future<Set<String>?> pickThemes({
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (themes.length > 3)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: TextField(
+                      controller: search,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: l10n.gallerySearchThemes,
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        suffixIcon: query.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: l10n.gallerySearchClear,
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                                onPressed: () => setSheetState(search.clear),
+                              ),
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setSheetState(() {}),
+                    ),
+                  ),
                 CheckboxListTile(
                   value: allSelected,
                   title: Text(
@@ -69,28 +101,36 @@ Future<Set<String>?> pickThemes({
                 ),
                 const Divider(height: 1),
                 Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: themes.length,
-                    itemBuilder: (_, index) {
-                      final theme = themes[index];
-                      final value = valueOf(theme);
-                      return CheckboxListTile(
-                        value: working.contains(value),
-                        title: Text(
-                          '${theme.displayName} (${theme.imageCount})',
-                          overflow: TextOverflow.ellipsis,
+                  child: shown.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text(
+                            l10n.gallerySearchNoMatch(search.text.trim()),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: shown.length,
+                          itemBuilder: (_, index) {
+                            final theme = shown[index];
+                            final value = valueOf(theme);
+                            return CheckboxListTile(
+                              value: working.contains(value),
+                              title: Text(
+                                '${theme.displayName} (${theme.imageCount})',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onChanged: (checked) => setSheetState(() {
+                                if (checked == true) {
+                                  working.add(value);
+                                } else {
+                                  working.remove(value);
+                                }
+                              }),
+                            );
+                          },
                         ),
-                        onChanged: (checked) => setSheetState(() {
-                          if (checked == true) {
-                            working.add(value);
-                          } else {
-                            working.remove(value);
-                          }
-                        }),
-                      );
-                    },
-                  ),
                 ),
                 const Divider(height: 1),
                 Padding(
@@ -109,7 +149,7 @@ Future<Set<String>?> pickThemes({
         );
       },
     ),
-  );
+  ).whenComplete(search.dispose);
 }
 
 /// Form-field flavoured theme picker used by the home cards.

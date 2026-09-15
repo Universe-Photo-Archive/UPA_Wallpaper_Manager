@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -10,7 +11,6 @@ import '../../providers/app_providers.dart';
 import '../../providers/settings_transfer.dart';
 import '../../services/log_service.dart';
 import '../../services/update_service.dart';
-import 'excluded_images_screen.dart';
 
 /// ListTile-like row that keeps wide controls (SegmentedButton, buttons)
 /// usable on phones. A plain [ListTile] with a wide `trailing` overflows on
@@ -333,9 +333,7 @@ class _ExcludedImagesTile extends ConsumerWidget {
       title: Text(l10n.settingsExcluded),
       subtitle: Text(l10n.settingsExcludedSubtitle(excluded.length)),
       trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const ExcludedImagesScreen()),
-      ),
+      onTap: () => context.go('/settings/excluded'),
     );
   }
 }
@@ -564,6 +562,7 @@ class _CacheSettings extends ConsumerWidget {
                     text: config.cacheMaxSizeMb.toString(),
                   ),
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
                     isDense: true,
@@ -662,6 +661,7 @@ class _AdvancedSettings extends ConsumerWidget {
                     text: config.timeoutSeconds.toString(),
                   ),
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
                     isDense: true,
