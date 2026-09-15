@@ -1,4 +1,4 @@
-## UPA Wallpaper Manager 2.2.0
+## UPA Wallpaper Manager 2.1.1
 
 Corrections du test fermé Play Store et améliorations demandées / closed-test fixes and requested improvements.
 
@@ -18,6 +18,6 @@ Corrections du test fermé Play Store et améliorations demandées / closed-test
 
 ### Installation
 
-Téléchargez et exécutez / download and run: `UPA_Wallpaper_Manager_Setup_2.2.0.exe`
+Téléchargez et exécutez / download and run: `UPA_Wallpaper_Manager_Setup_2.1.1.exe`
 
 L'application requiert les droits administrateur (fonction écran de verrouillage) / the app requires administrator privileges (lock-screen feature).
