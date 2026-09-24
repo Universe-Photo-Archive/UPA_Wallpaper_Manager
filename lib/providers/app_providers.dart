@@ -7,6 +7,7 @@ import '../models/theme_category.dart';
 import '../models/theme_source.dart';
 import '../models/wallpaper_image.dart';
 import '../services/cache_service.dart';
+import '../services/exclusion_thumbs_service.dart';
 import '../services/config_service.dart';
 import '../services/local_gallery_service.dart';
 import '../services/log_service.dart';
@@ -25,6 +26,10 @@ final configServiceProvider = Provider<ConfigService>((ref) {
 });
 
 final cacheServiceProvider = Provider<CacheService>((ref) {
+  throw UnimplementedError('Must be overridden at app startup');
+});
+
+final exclusionThumbsProvider = Provider<ExclusionThumbsService>((ref) {
   throw UnimplementedError('Must be overridden at app startup');
 });
 
@@ -564,10 +569,14 @@ class ExclusionsManager {
       theme: found.theme,
       filename: found.filename,
       localPath: path,
+      title: cache.titleFor(found.theme, found.filename),
+      thumbnailUrl: cache.thumbnailUrlFor(found.theme, found.filename),
     );
 
     final config = _ref.read(configProvider);
     if (config.excludedImages.any((e) => e.key == entry.key)) return false;
+
+    await _ref.read(exclusionThumbsProvider).persistFromReference(entry, path);
 
     await _ref
         .read(configProvider.notifier)
@@ -580,6 +589,7 @@ class ExclusionsManager {
   }
 
   Future<void> restore(ExcludedImage image) async {
+    await _ref.read(exclusionThumbsProvider).remove(image);
     await _ref
         .read(configProvider.notifier)
         .update(
@@ -592,6 +602,7 @@ class ExclusionsManager {
   }
 
   Future<void> clear() async {
+    await _ref.read(exclusionThumbsProvider).removeAll();
     await _ref
         .read(configProvider.notifier)
         .update((c) => c.copyWith(excludedImages: const []));

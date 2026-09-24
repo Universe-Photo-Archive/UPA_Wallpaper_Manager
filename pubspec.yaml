@@ -1,7 +1,7 @@
 name: upa_wallpaper_manager
 description: UPA Wallpaper Manager - Multi-screen wallpaper manager powered by Universe Photo Archive
 publish_to: 'none'
-version: 2.1.1+14
+version: 2.1.1+15
 
 environment:
   sdk: ^3.11.0

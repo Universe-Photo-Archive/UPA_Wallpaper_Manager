@@ -15,6 +15,10 @@ class WallpaperImage {
   /// Persisted download URL (survives JSON round-trip even without derivatives)
   String? _cachedFullSizeUrl;
 
+  /// Persisted thumbnail URL, kept for the exclusion list after a cache
+  /// cleanup has deleted the full file and dropped the derivatives map.
+  String? _cachedThumbnailUrl;
+
   /// Cache tracking
   bool isDownloaded;
   String? localPath;
@@ -31,12 +35,14 @@ class WallpaperImage {
     this.height,
     required this.derivatives,
     String? cachedFullSizeUrl,
+    String? cachedThumbnailUrl,
     this.isDownloaded = false,
     this.localPath,
     this.isDisplayed = false,
     this.displayCount = 0,
     this.lastDisplayed,
-  }) : _cachedFullSizeUrl = cachedFullSizeUrl;
+  }) : _cachedFullSizeUrl = cachedFullSizeUrl,
+       _cachedThumbnailUrl = cachedThumbnailUrl;
 
   /// What to show under a thumbnail: the photo's title, falling back to its
   /// file name, in both cases without the extension — ".jpg" tells a reader
@@ -99,8 +105,14 @@ class WallpaperImage {
 
   /// URL for thumbnail/preview
   String get thumbnailUrl {
-    return _pick(['square', 'thumb', 'xsmall', '2small', 'small']) ??
-        (derivatives.isNotEmpty ? derivatives.values.first.url : pageUrl);
+    final url =
+        _pick(['square', 'thumb', 'xsmall', '2small', 'small']) ??
+        (derivatives.isNotEmpty ? derivatives.values.first.url : null);
+    if (url != null) {
+      _cachedThumbnailUrl = url;
+      return url;
+    }
+    return _cachedThumbnailUrl ?? pageUrl;
   }
 
   /// URL for medium preview (gallery grid)
@@ -162,6 +174,7 @@ class WallpaperImage {
       cachedFullSizeUrl:
           json['cachedFullSizeUrl'] as String? ??
           json['fullSizeUrl'] as String?,
+      cachedThumbnailUrl: json['thumbnailUrl'] as String?,
       isDownloaded: json['isDownloaded'] as bool? ?? false,
       localPath: json['localPath'] as String?,
       isDisplayed: json['isDisplayed'] as bool? ?? false,
@@ -181,6 +194,7 @@ class WallpaperImage {
         ..addAll(apiImage.derivatives);
     }
     _cachedFullSizeUrl = apiImage.fullSizeUrl;
+    _cachedThumbnailUrl = apiImage.thumbnailUrl;
   }
 
   @override

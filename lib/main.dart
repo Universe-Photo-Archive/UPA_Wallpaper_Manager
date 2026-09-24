@@ -20,6 +20,7 @@ import 'l10n/app_localizations.dart';
 import 'services/background_rotation_service.dart'
     show BackgroundRotationService, QuietHoursState, RotationTargetState;
 import 'services/cache_service.dart';
+import 'services/exclusion_thumbs_service.dart';
 import 'services/config_service.dart';
 import 'services/hidden_photos_service.dart';
 import 'services/piwigo_api_service.dart';
@@ -351,6 +352,12 @@ void main(List<String> args) async {
       .map((e) => e.key)
       .toSet();
 
+  final exclusionThumbs = ExclusionThumbsService();
+  await exclusionThumbs.init();
+  unawaited(
+    exclusionThumbs.backfill(configService.config.excludedImages, cacheService),
+  );
+
   final themesConfigService = ThemesConfigService();
   await themesConfigService.init();
 
@@ -403,6 +410,7 @@ void main(List<String> args) async {
     overrides: [
       configServiceProvider.overrideWithValue(configService),
       cacheServiceProvider.overrideWithValue(cacheService),
+      exclusionThumbsProvider.overrideWithValue(exclusionThumbs),
       logServiceProvider.overrideWithValue(logService),
       rotationServiceProvider.overrideWithValue(rotationService),
       themesConfigServiceProvider.overrideWithValue(themesConfigService),

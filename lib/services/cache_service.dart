@@ -109,6 +109,20 @@ class CacheService {
     return null;
   }
 
+  /// Gallery thumbnail URL of a photo the index still knows about.
+  ///
+  /// Used to rebuild an exclusion-list tile after the full cached file has
+  /// been deleted. Null when the index has forgotten the photo.
+  String? thumbnailUrlFor(String themeName, String filename) {
+    for (final image in _index[themeName] ?? const <WallpaperImage>[]) {
+      if (image.filename != filename) continue;
+      final url = image.thumbnailUrl;
+      if (url.isEmpty || url == image.pageUrl) return null;
+      return url;
+    }
+    return null;
+  }
+
   List<WallpaperImage> _selectable(String themeName) {
     final images = _index[themeName] ?? [];
     if (_excludedKeys.isEmpty) return images;

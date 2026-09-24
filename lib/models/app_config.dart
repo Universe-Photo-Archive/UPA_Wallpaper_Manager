@@ -91,33 +91,58 @@ class ScreenConfig {
 ///
 /// Identified by theme + file name rather than by absolute path: the file is
 /// re-downloaded to the same place after a cache clear, and the pair stays
-/// stable across reinstalls.
+/// stable across reinstalls. The ban itself never depends on the cached file
+/// still being on disk.
 class ExcludedImage {
   final String theme;
   final String filename;
 
-  /// Where the file was when it was excluded, used to show a thumbnail in the
-  /// exclusion list. May no longer exist once the cache has been cleaned.
+  /// Where the file was when it was excluded. May vanish after cache cleanup;
+  /// the exclusion list then shows a dedicated thumbnail instead.
   final String? localPath;
+
+  /// Caption stored at exclusion time, so the list still has a name after
+  /// the cache index forgets the photo.
+  final String? title;
+
+  /// Small gallery URL used to rebuild a thumbnail if the original file
+  /// and the local thumb are both gone.
+  final String? thumbnailUrl;
 
   const ExcludedImage({
     required this.theme,
     required this.filename,
     this.localPath,
+    this.title,
+    this.thumbnailUrl,
   });
 
   String get key => '$theme/$filename';
+
+  /// Label under the tile: stored title, else the file name, without extension.
+  String get caption {
+    final raw = (title?.trim().isNotEmpty ?? false) ? title!.trim() : filename;
+    final dot = raw.lastIndexOf('.');
+    if (dot > 0 && raw.length - dot <= 6) {
+      return raw.substring(0, dot);
+    }
+    return raw;
+  }
 
   factory ExcludedImage.fromJson(Map<String, dynamic> json) => ExcludedImage(
     theme: json['theme'] as String? ?? '',
     filename: json['filename'] as String? ?? '',
     localPath: json['localPath'] as String?,
+    title: json['title'] as String?,
+    thumbnailUrl: json['thumbnailUrl'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
     'theme': theme,
     'filename': filename,
     if (localPath != null) 'localPath': localPath,
+    if (title != null) 'title': title,
+    if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
   };
 }
 

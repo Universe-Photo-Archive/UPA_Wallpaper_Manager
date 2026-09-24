@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_config.dart';
-import '../../platform/media_access_channel.dart';
 import '../../providers/app_providers.dart';
 import '../widgets/device_image.dart';
 
@@ -70,12 +68,6 @@ class ExcludedImagesScreen extends ConsumerWidget {
                   itemCount: excluded.length,
                   itemBuilder: (context, index) => _ExcludedTile(
                     image: excluded[index],
-                    title: ref
-                        .read(cacheServiceProvider)
-                        .titleFor(
-                          excluded[index].theme,
-                          excluded[index].filename,
-                        ),
                     onRestore: () => _restore(context, ref, excluded[index]),
                   ),
                 );
@@ -136,28 +128,56 @@ class ExcludedImagesScreen extends ConsumerWidget {
   }
 }
 
-class _ExcludedTile extends StatelessWidget {
+class _ExcludedTile extends ConsumerStatefulWidget {
   final ExcludedImage image;
-
-  /// Piwigo title, when the photo is still known to the cache.
-  final String? title;
   final VoidCallback onRestore;
 
-  const _ExcludedTile({
-    required this.image,
-    required this.title,
-    required this.onRestore,
-  });
+  const _ExcludedTile({required this.image, required this.onRestore});
+
+  @override
+  ConsumerState<_ExcludedTile> createState() => _ExcludedTileState();
+}
+
+class _ExcludedTileState extends ConsumerState<_ExcludedTile> {
+  String? _thumb;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExcludedTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.image.key != widget.image.key) {
+      _resolve();
+    }
+  }
+
+  Future<void> _resolve() async {
+    setState(() => _loading = true);
+    final path = await ref
+        .read(exclusionThumbsProvider)
+        .resolve(widget.image, ref.read(cacheServiceProvider));
+    if (!mounted) return;
+    setState(() {
+      _thumb = path;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final path = image.localPath;
-    // A banned photo of the user's own has no file to check; the platform
-    // resolves it to a thumbnail.
-    final available =
-        path != null &&
-        (MediaAccessChannel.isDocumentUri(path) || File(path).existsSync());
+    final title =
+        widget.image.caption.isNotEmpty
+            ? widget.image.caption
+            : ref
+                  .read(cacheServiceProvider)
+                  .titleFor(widget.image.theme, widget.image.filename);
+    final thumb = _thumb;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -168,10 +188,16 @@ class _ExcludedTile extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (available)
-                  DeviceImageView(reference: path, maxSize: 500)
+                if (thumb != null)
+                  DeviceImageView(reference: thumb, maxSize: 500)
+                else if (_loading)
+                  ColoredBox(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                  )
                 else
-                  _Missing(),
+                  const _Missing(),
                 Positioned(
                   top: 4,
                   right: 4,
@@ -187,7 +213,7 @@ class _ExcludedTile extends StatelessWidget {
                         size: 18,
                         color: Colors.white,
                       ),
-                      onPressed: onRestore,
+                      onPressed: widget.onRestore,
                     ),
                   ),
                 ),
@@ -197,7 +223,7 @@ class _ExcludedTile extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          title ?? _withoutExtension(image.filename),
+          title ?? widget.image.filename,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -210,15 +236,11 @@ class _ExcludedTile extends StatelessWidget {
       ],
     );
   }
-
-  /// The banned photos keep their file name; the extension is noise.
-  String _withoutExtension(String name) {
-    final dot = name.lastIndexOf('.');
-    return dot > 0 ? name.substring(0, dot) : name;
-  }
 }
 
 class _Missing extends StatelessWidget {
+  const _Missing();
+
   @override
   Widget build(BuildContext context) {
     return Container(
