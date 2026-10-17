@@ -18,6 +18,6 @@ Corrections du test fermé Play Store et améliorations demandées / closed-test
 
 ### Installation
 
-Téléchargez et exécutez / download and run: `UPA_Wallpaper_Manager_Setup_2.1.1.exe`
+Téléchargez et exécutez / download and run: [`UPA_Wallpaper_Manager_Setup.exe`](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases/latest/download/UPA_Wallpaper_Manager_Setup.exe)
 
 L'application requiert les droits administrateur (fonction écran de verrouillage) / the app requires administrator privileges (lock-screen feature).

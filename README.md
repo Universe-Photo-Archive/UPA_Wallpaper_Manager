@@ -21,7 +21,7 @@ Multi-screen wallpaper manager powered by [Universe Photo Archive](https://unive
 
 ## Download
 
-Grab the latest Windows installer from the [Releases page](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases): `UPA_Wallpaper_Manager_Setup_<version>.exe`.
+Grab the latest Windows installer: [`UPA_Wallpaper_Manager_Setup.exe`](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases/latest/download/UPA_Wallpaper_Manager_Setup.exe). Earlier versions stay on the [Releases page](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases).
 
 The app requires administrator privileges (needed for the lock-screen feature), so Windows shows a UAC prompt when you launch it manually. When started automatically at logon it runs elevated without any prompt.
 

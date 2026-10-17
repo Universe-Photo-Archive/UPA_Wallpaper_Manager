@@ -4,11 +4,11 @@ name: Build
 # the Android APK so a change can be checked on each target without needing
 # a local Windows machine or Android SDK.
 #
-# The three files are then published as a GitHub release, because build
-# artifacts are zipped, expire, and can only be downloaded by someone signed
-# in — useless for handing a build to a tester. A tag makes the real release
-# the in-app updater looks for; anything else refreshes a pre-release holding
-# the latest test build, which the updater ignores by design.
+# The files are then published as a GitHub release, because build artifacts
+# are zipped, expire, and can only be downloaded by someone signed in —
+# useless for handing a build to a tester. A tag makes the real release the
+# in-app updater looks for; anything else refreshes a pre-release holding the
+# latest test build, which the updater ignores by design.
 on:
   workflow_dispatch:
   push:
@@ -134,7 +134,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish the three files
+    name: Publish the build files
     needs: [windows, android]
     runs-on: ubuntu-latest
     permissions:
@@ -151,12 +151,19 @@ jobs:
         run: |
           version=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d+ -f1)
           mkdir -p dist
+          # The installer keeps a version-free name: the download button of the
+          # website points at releases/latest/download/<name>, which only
+          # resolves for an asset whose name never changes.
           cp artifacts/windows-installer/*.exe \
-             "dist/UPA_Wallpaper_Manager_Setup_${version}.exe"
+             "dist/UPA_Wallpaper_Manager_Setup.exe"
           cp artifacts/android-apk/app-release.apk \
              "dist/UPA_Wallpaper_Manager_${version}.apk"
-          cp artifacts/android-aab/app-release.aab \
-             "dist/UPA_Wallpaper_Manager_${version}.aab"
+          # The bundle is only ever uploaded to the Play Store, so it stays out
+          # of the public releases and ships with the test builds alone.
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            cp artifacts/android-aab/app-release.aab \
+               "dist/UPA_Wallpaper_Manager_${version}.aab"
+          fi
           ls -lh dist
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
@@ -168,7 +175,10 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             tag="${GITHUB_REF_NAME}"
             title="UPA Wallpaper Manager ${VERSION}"
-            flags=""
+            # --latest is explicit so the releases/latest/download links keep
+            # pointing here whatever order the pre-releases were published in.
+            flags="--latest"
+            notes=(--notes-file installer/release_notes.md)
           else
             # One rolling pre-release, replaced on every build, so the page
             # does not fill up with dead entries. Pre-release keeps it out of
@@ -176,10 +186,11 @@ jobs:
             tag="test-build"
             title="Dernier build de test — ${VERSION} (${GITHUB_REF_NAME})"
             flags="--prerelease"
+            notes=(--notes "Version ${VERSION}, construite depuis \`${GITHUB_REF_NAME}\` (${GITHUB_SHA}).")
             gh release delete "$tag" --cleanup-tag --yes || true
           fi
           gh release create "$tag" dist/* \
             --target "$GITHUB_SHA" \
             --title "$title" \
-            --notes "Version ${VERSION}, construite depuis \`${GITHUB_REF_NAME}\` (${GITHUB_SHA})." \
+            "${notes[@]}" \
             $flags

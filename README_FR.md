@@ -18,7 +18,7 @@ Gestionnaire de fonds d'écran multi-écrans propulsé par [Universe Photo Archi
 
 ## Téléchargement
 
-Téléchargez le dernier installateur Windows depuis la [page Releases](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases) : `UPA_Wallpaper_Manager_Setup_<version>.exe`.
+Téléchargez le dernier installateur Windows : [`UPA_Wallpaper_Manager_Setup.exe`](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases/latest/download/UPA_Wallpaper_Manager_Setup.exe). Les versions précédentes restent sur la [page Releases](https://github.com/Universe-Photo-Archive/UPA_Wallpaper_Manager/releases).
 
 L'application requiert les droits administrateur (nécessaires pour le fond d'écran de verrouillage) : Windows affiche donc une invite UAC au lancement manuel. Au démarrage automatique de session, elle se lance élevée sans invite.
 

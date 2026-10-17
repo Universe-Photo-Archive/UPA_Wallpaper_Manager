@@ -121,9 +121,14 @@ refusé par le Play Store.
 
 1. Mettre à jour `version:` dans `pubspec.yaml` et `MyAppVersion` dans
    `installer/setup.iss`
-2. Commiter et pousser sur `main`
-3. Créer la release GitHub avec le tag `vX.Y.Z` et y joindre l'installateur
-   produit par le workflow
+2. Décrire les changements dans `installer/release_notes.md`, qui sert de
+   corps à la release
+3. Commiter et pousser sur `main`
+4. Pousser le tag `vX.Y.Z` : le workflow compile et crée la release lui-même,
+   avec l'installateur publié sous le nom fixe `UPA_Wallpaper_Manager_Setup.exe`
+   (c'est ce qui rend l'URL `releases/latest/download/…` valide) et l'APK
+   suffixé par la version. L'App Bundle n'est joint qu'aux builds de test,
+   puisqu'il ne sert qu'au Play Store.
 
 La mise à jour automatique de l'application Windows lit la dernière release
 non pré-publiée : une pré-version (`prerelease`) ne sera donc jamais proposée
