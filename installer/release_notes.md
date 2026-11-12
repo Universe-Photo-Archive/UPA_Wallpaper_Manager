@@ -1,20 +1,16 @@
-## UPA Wallpaper Manager 2.1.1
+## UPA Wallpaper Manager 2.1.2
 
-Corrections du test fermé Play Store et améliorations demandées / closed-test fixes and requested improvements.
+Mise en conformité avec les recommandations de la Play Console / alignment with the Play Console recommendations.
 
-### Corrections / Fixes
+### Android
 
-- **Photos personnelles** : une photo d'un thème personnalisé peut enfin être appliquée au fond d'écran, à l'écran de verrouillage, ou aux deux / a photo from a custom theme can now be applied to the home wallpaper, the lock screen, or both
-- **Champs numériques** : la taille du cache, le délai réseau et le délai du diaporama n'acceptent plus que des chiffres / cache size, network timeout and slideshow delay accept digits only
-- **Navigation** : l'onglet Galerie quitte bien la liste des images exclues / the Gallery tab leaves the excluded-images page
-- **Galerie** : le thème choisi est conservé en changeant d'onglet / the selected theme is kept when leaving the tab
+- **Affichage bord à bord** : l'application s'affiche désormais bord à bord sur toutes les versions d'Android, comme Android 15 l'impose déjà / the app now draws edge-to-edge on every Android version, as Android 15 already enforces
+- **Images importées** : le sélecteur de fichiers décode les images en taille réduite, ce qui évite les pics de mémoire / the file picker now decodes images subsampled, avoiding memory spikes
+- **Application plus légère** : compilation avec Android Gradle Plugin 9 et la réduction optimisée des ressources R8 / built with Android Gradle Plugin 9 and R8 optimized resource shrinking
 
-### Nouveautés / What's new
+### Windows et Android
 
-- **Recherche** : filtrer les thèmes et les photos par nom dans la galerie / search themes and photos by name in the gallery
-- **Prochain changement** : l'heure du prochain fond d'écran s'affiche sur l'accueil, avec un bouton pour changer tout de suite / next change time on Home, plus a change-now button
-- **Nom de thème** : un nom vide affiche une erreur au lieu de fermer la fenêtre / an empty theme name keeps the prompt open with an explanation
-- **Galerie vide** : un bouton ouvre directement le choix des thèmes / a button opens the theme picker from the empty state
+- **Import / export des paramètres** : passage à la dernière version du sélecteur de fichiers / settings import and export use the latest file picker
 
 ### Installation
 

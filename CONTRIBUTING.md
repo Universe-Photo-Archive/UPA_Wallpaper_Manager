@@ -126,9 +126,9 @@ refusé par le Play Store.
 3. Commiter et pousser sur `main`
 4. Pousser le tag `vX.Y.Z` : le workflow compile et crée la release lui-même,
    avec l'installateur publié sous le nom fixe `UPA_Wallpaper_Manager_Setup.exe`
-   (c'est ce qui rend l'URL `releases/latest/download/…` valide) et l'APK
-   suffixé par la version. L'App Bundle n'est joint qu'aux builds de test,
-   puisqu'il ne sert qu'au Play Store.
+   (c'est ce qui rend l'URL `releases/latest/download/…` valide), l'APK et
+   l'App Bundle suffixés par la version. L'App Bundle est celui à envoyer sur
+   le Play Store.
 
 La mise à jour automatique de l'application Windows lit la dernière release
 non pré-publiée : une pré-version (`prerelease`) ne sera donc jamais proposée

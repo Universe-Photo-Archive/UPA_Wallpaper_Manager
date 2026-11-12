@@ -36,10 +36,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         // Identity of the app on the Play Store; must match the package name
         // registered there. It intentionally differs from `namespace` above,
@@ -77,6 +73,12 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
 flutter {
     source = "../.."
 }
@@ -84,4 +86,6 @@ flutter {
 dependencies {
     // Background wallpaper rotation (see RotationWorker).
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+    // WindowCompat.enableEdgeToEdge (MainActivity).
+    implementation("androidx.core:core-ktx:1.17.0")
 }

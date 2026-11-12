@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:logger/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -311,22 +310,15 @@ void main(List<String> args) async {
   await logService.init();
   logService.info('=== UPA Wallpaper Manager starting ===');
 
-  // Set up the OS auto-start integration. The package writes / removes the
-  // appropriate registry entry whenever we call enable / disable. We do this
-  // up-front (before [runApp]) so a fresh install also gets registered if
-  // the user already had [launchOnStartup] = true from a previous version.
+  // Set up the OS auto-start integration. We do this up-front (before
+  // [runApp]) so a fresh install also gets registered if the user already
+  // had [launchOnStartup] = true from a previous version.
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      // launch_at_startup is still used on macOS / Linux, and on Windows to
-      // clean up the legacy HKCU Run entry written by versions <= 1.x.
-      launchAtStartup.setup(
-        appName: packageInfo.appName,
-        appPath: Platform.resolvedExecutable,
-        // Pass --minimized so the next OS boot starts straight into tray.
-        args: [_kMinimizedFlag],
-        packageName: packageInfo.packageName,
-      );
+      // The app name keys the legacy HKCU Run entry written by versions
+      // <= 1.x, which still has to be cleaned up on Windows.
+      _autostart.setup(appName: packageInfo.appName);
       final shouldEnable = configService.config.launchOnStartup;
       final actuallyEnabled = await _autostart.isEnabled();
       if (shouldEnable && !actuallyEnabled) {

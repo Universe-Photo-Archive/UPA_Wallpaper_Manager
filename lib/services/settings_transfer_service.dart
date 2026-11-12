@@ -77,41 +77,37 @@ class SettingsTransferService {
       utf8.encode(const JsonEncoder.withIndent('  ').convert(payload)),
     );
 
-    final path = await FilePicker.platform.saveFile(
+    // The picker writes the bytes itself on every platform.
+    final uri = await FilePicker.saveFile(
       dialogTitle: 'Export',
       fileName: suggestedFileName(),
-      type: FileType.custom,
-      allowedExtensions: const ['json'],
+      mimeType: 'application/json',
       bytes: bytes,
     );
-    if (path == null) return null;
-
-    // On mobile the picker has already written the bytes through the storage
-    // framework; on desktop it only hands back a path.
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      await File(path).writeAsBytes(bytes, flush: true);
-    }
-    return path;
+    if (uri == null) return null;
+    return _displayName(uri);
   }
 
   /// Reads a file the user picks. Null when they cancel.
   Future<String?> readPickedFile() async {
     // Android file managers routinely hide files whose type they do not
     // recognise, so ask for anything and let [parse] reject what is not ours.
-    final result = await FilePicker.platform.pickFiles(
+    final file = await FilePicker.pickFile(
       type: Platform.isAndroid ? FileType.any : FileType.custom,
       allowedExtensions: Platform.isAndroid ? null : const ['json'],
-      withData: true,
     );
-    final file = result?.files.singleOrNull;
     if (file == null) return null;
+    return utf8.decode(await file.readAsBytes(), allowMalformed: true);
+  }
 
-    final bytes = file.bytes;
-    if (bytes != null) return utf8.decode(bytes, allowMalformed: true);
-
-    final path = file.path;
-    if (path == null) return null;
-    return File(path).readAsString();
+  /// A path the user can recognise. Android hands back a storage-framework
+  /// `content://` URI whose last segment reads like `primary:Download/x.json`.
+  String _displayName(Uri uri) {
+    if (uri.scheme == 'file') return uri.toFilePath();
+    if (uri.pathSegments.isEmpty) return uri.toString();
+    final last = Uri.decodeComponent(uri.pathSegments.last);
+    final colon = last.indexOf(':');
+    return colon >= 0 ? last.substring(colon + 1) : last;
   }
 }
 
@@ -133,8 +129,4 @@ class SettingsPayload {
   /// Folder themes only make sense back on the system they were read from:
   /// elsewhere the path does not exist, or the permission was never granted.
   bool get carriesUsableLocalThemes => platform == Platform.operatingSystem;
-}
-
-extension _SingleOrNull<T> on List<T> {
-  T? get singleOrNull => length == 1 ? first : null;
 }

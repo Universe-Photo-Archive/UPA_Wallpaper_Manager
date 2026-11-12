@@ -6,7 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import connectivity_plus
-import file_picker
+import file_picker_darwin
 import local_notifier
 import package_info_plus
 import screen_retriever_macos

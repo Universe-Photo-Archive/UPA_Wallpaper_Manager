@@ -158,12 +158,10 @@ jobs:
              "dist/UPA_Wallpaper_Manager_Setup.exe"
           cp artifacts/android-apk/app-release.apk \
              "dist/UPA_Wallpaper_Manager_${version}.apk"
-          # The bundle is only ever uploaded to the Play Store, so it stays out
-          # of the public releases and ships with the test builds alone.
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
-            cp artifacts/android-aab/app-release.aab \
-               "dist/UPA_Wallpaper_Manager_${version}.aab"
-          fi
+          # The bundle is what gets uploaded to the Play Store; keeping it on
+          # the release ties the store upload to the exact build published here.
+          cp artifacts/android-aab/app-release.aab \
+             "dist/UPA_Wallpaper_Manager_${version}.aab"
           ls -lh dist
           echo "version=$version" >> "$GITHUB_OUTPUT"
 

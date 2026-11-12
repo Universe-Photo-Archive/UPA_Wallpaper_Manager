@@ -14,7 +14,7 @@ Future<String?> chooseFolder(BuildContext context) async {
   if (Platform.isAndroid) return MediaAccessChannel.pickFolder();
 
   try {
-    return await FilePicker.platform.getDirectoryPath(
+    return await FilePicker.getDirectoryPath(
       dialogTitle: AppLocalizations.of(context)!.manageThemesLocalPickFolder,
     );
   } catch (_) {
