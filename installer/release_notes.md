@@ -1,6 +1,8 @@
-## UPA Wallpaper Manager 2.1.2
+## UPA Wallpaper Manager 2.1.3
 
-Mise en conformité avec les recommandations de la Play Console / alignment with the Play Console recommendations.
+Version de maintenance : compilée avec Flutter 3.50 et une chaîne de compilation à jour / maintenance release built with Flutter 3.50 and an up-to-date build pipeline.
+
+Elle reprend les changements de la 2.1.2, faits pour suivre les recommandations de la Play Console / it carries the 2.1.2 changes made to follow the Play Console recommendations:
 
 ### Android
 
