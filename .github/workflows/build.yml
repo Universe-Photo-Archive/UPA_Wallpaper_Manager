@@ -180,6 +180,9 @@ jobs:
             # pointing here whatever order the pre-releases were published in.
             flags="--latest"
             notes=(--notes-file installer/release_notes.md)
+            # A tag moved onto a rebuilt commit replaces its release; the tag
+            # itself is kept, it already points at the new commit.
+            gh release delete "$tag" --yes || true
           else
             # One rolling pre-release, replaced on every build, so the page
             # does not fill up with dead entries. Pre-release keeps it out of

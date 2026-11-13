@@ -2,6 +2,8 @@
 
 Version de maintenance : compilée avec Flutter 3.50 et une chaîne de compilation à jour / maintenance release built with Flutter 3.50 and an up-to-date build pipeline.
 
+- **Android** : corrige le plantage au lancement des versions 2.1.2 et du premier build 2.1.3 / fixes the crash on launch of 2.1.2 and of the first 2.1.3 build
+
 Elle reprend les changements de la 2.1.2, faits pour suivre les recommandations de la Play Console / it carries the 2.1.2 changes made to follow the Play Console recommendations:
 
 ### Android
